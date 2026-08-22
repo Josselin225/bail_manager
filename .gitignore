@@ -1,0 +1,22 @@
+# Environnement (ne jamais commiter les credentials)
+.env
+
+# Dépendances
+vendor/
+
+# Fichiers uploadés
+uploads/
+
+# Sauvegardes DB
+backups/
+
+# Logs système
+*.log
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+
+# Config Claude Code locale (permissions propres à ce poste)
+.claude/settings.local.json

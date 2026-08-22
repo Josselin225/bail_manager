@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════════════
+   Toasts BAIL MANAGER — notifications flottantes (succès/erreur/
+   warning/info). Empilement en haut à droite, auto-dismiss avec
+   barre de progression, pause au survol. Voir js/toast.js.
+   ═══════════════════════════════════════════════════════════════ */
+
+.toast-stack {
+    position: fixed;
+    top: calc(var(--tb-h, 60px) + 16px);
+    right: 20px;
+    z-index: 10600;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    pointer-events: none;
+}
+
+.bm-toast {
+    pointer-events: auto;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 36px 14px 14px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(20,30,60,.16), 0 2px 8px rgba(20,30,60,.08);
+    border: 1px solid rgba(0,0,0,.06);
+    border-left: 4px solid var(--bm-toast-accent, #2563eb);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(24px) scale(.98);
+    transition: opacity .25s ease, transform .25s ease;
+}
+.bm-toast.show { opacity: 1; transform: translateX(0) scale(1); }
+.bm-toast.hide { opacity: 0; transform: translateX(24px) scale(.98); }
+
+.bm-toast-icon {
+    flex-shrink: 0;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    background: var(--bm-toast-accent-soft, #eef2ff);
+    color: var(--bm-toast-accent, #2563eb);
+}
+.bm-toast-body {
+    flex: 1;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: #2d3a55;
+    padding-top: 5px;
+    word-break: break-word;
+}
+.bm-toast-close {
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    border: none;
+    background: transparent;
+    color: #9aa3b5;
+    font-size: 11px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+.bm-toast-close:hover { background: rgba(0,0,0,.06); color: #4a5568; }
+
+.bm-toast-progress {
+    position: absolute;
+    left: 0; bottom: 0;
+    height: 3px;
+    width: 100%;
+    background: var(--bm-toast-accent, #2563eb);
+    opacity: .35;
+    transform-origin: left center;
+    animation: bmToastShrink linear forwards;
+}
+@keyframes bmToastShrink {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}
+
+.bm-toast-success { --bm-toast-accent: #16a34a; --bm-toast-accent-soft: #e8f8ee; }
+.bm-toast-error   { --bm-toast-accent: #dc2626; --bm-toast-accent-soft: #fdecec; }
+.bm-toast-warning { --bm-toast-accent: #d97706; --bm-toast-accent-soft: #fef3e2; }
+.bm-toast-info    { --bm-toast-accent: #2563eb; --bm-toast-accent-soft: #eaf0ff; }
+
+@media (max-width: 575px) {
+    .toast-stack { left: 16px; right: 16px; width: auto; top: calc(var(--tb-h, 60px) + 10px); }
+    .bm-toast { transform: translateY(-16px) scale(.98); }
+    .bm-toast.show { transform: translateY(0) scale(1); }
+    .bm-toast.hide { transform: translateY(-16px) scale(.98); }
+}
+
+/* ── Mode sombre ── */
+html[data-theme="dark"] .bm-toast {
+    background: rgba(30,34,43,.92);
+    border-color: rgba(255,255,255,.08);
+    box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
+}
+html[data-theme="dark"] .bm-toast-body { color: #e4e6eb; }
+html[data-theme="dark"] .bm-toast-close { color: #8a94a3; }
+html[data-theme="dark"] .bm-toast-close:hover { background: rgba(255,255,255,.08); color: #e4e6eb; }
+html[data-theme="dark"] .bm-toast-success { --bm-toast-accent-soft: rgba(22,163,74,.18); }
+html[data-theme="dark"] .bm-toast-error   { --bm-toast-accent-soft: rgba(220,38,38,.18); }
+html[data-theme="dark"] .bm-toast-warning { --bm-toast-accent-soft: rgba(217,119,6,.2); }
+html[data-theme="dark"] .bm-toast-info    { --bm-toast-accent-soft: rgba(37,99,235,.2); }
+
+@media print {
+    .toast-stack { display: none !important; }
+}

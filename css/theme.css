@@ -1,0 +1,323 @@
+/* ═══════════════════════════════════════════════════════════════
+   Thème global — mode sombre + couleur de menu personnalisable
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+    --menu-color: #002147;
+}
+
+/* ═══════════════════ RESPONSIVE — corrections partagées ═══════════════════
+   Les tuiles kpi-card/kpi2-card sont des flex (icône + bloc texte). Sans
+   min-width:0, un flex-item refuse par défaut de rétrécir sous la largeur de
+   son contenu (texte non coupé) : sur mobile, en grille 2 colonnes, le texte
+   déborde silencieusement de la carte et de l'écran au lieu de passer à la
+   ligne. Fix générique — s'applique à toutes les pages qui réutilisent ces
+   classes (dashboard, bailleurs, maisons, contrats...). */
+.kpi-card > div:last-child,
+.kpi2-card > div:last-child {
+    min-width: 0;
+}
+.kpi-val, .kpi2-val, .kpi-lbl, .kpi2-lbl, .kpi-sub, .kpi2-sub {
+    overflow-wrap: break-word;
+}
+@media (max-width: 380px) {
+    .kpi-val { font-size: 1.15rem; }
+}
+
+/* ── Contrôles thème (bouton dark mode + sélecteur de couleur) — topbar claire ── */
+.theme-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #f0f3fa;
+    border: 1px solid #e0e6f0;
+    color: #4a5568;
+    cursor: pointer;
+    transition: background .15s ease;
+    font-size: 13px;
+}
+.theme-btn:hover { background: #e5eaf5; }
+
+.color-picker-panel {
+    background: #fff;
+    border: 1px solid rgba(0,33,71,.15);
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.15);
+    padding: 14px;
+    min-width: 252px;
+    max-width: 252px;
+}
+.color-picker-panel .cp-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #667;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.color-picker-panel .cp-title:not(:first-child) { margin-top: 12px; }
+.color-swatches { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 12px; }
+
+/* Barre spectrum — choix libre d'une teinte en plus des pastilles */
+.spectrum-bar {
+    position: relative;
+    height: 18px;
+    border-radius: 9px;
+    margin-bottom: 14px;
+    cursor: pointer;
+    background: linear-gradient(to right,
+        hsl(0,65%,32%), hsl(30,65%,32%), hsl(60,65%,32%), hsl(90,65%,32%),
+        hsl(120,65%,32%), hsl(150,65%,32%), hsl(180,65%,32%), hsl(210,65%,32%),
+        hsl(240,65%,32%), hsl(270,65%,32%), hsl(300,65%,32%), hsl(330,65%,32%), hsl(360,65%,32%));
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.1);
+}
+.spectrum-handle {
+    position: absolute;
+    top: 50%; left: 0;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1.5px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.3);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+.color-swatch {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.08);
+    transition: transform .1s ease;
+    padding: 0;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.active { border-color: #333; }
+.color-picker-panel input[type="color"] {
+    width: 100%;
+    height: 36px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 2px;
+}
+
+/* Header des modals du menu (mot de passe / support), suit la couleur choisie */
+.menu-gradient-header {
+    background: linear-gradient(135deg, var(--menu-color), var(--menu-color)) !important;
+}
+
+/* ═══════════════════ MODE SOMBRE ═══════════════════ */
+
+/* Variables couleur ré-utilisées par (presque) toutes les pages : en les
+   éclaircissant globalement, tout texte/icône qui utilise var(--marine),
+   var(--red)... reste lisible sur fond sombre sans toucher chaque page. */
+html[data-theme="dark"] {
+    --marine: #6fa8ff;
+    --red: #ff6b6b;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --rouge: #ff6b6b;
+}
+
+html[data-theme="dark"] body {
+    background-color: #14181f;
+    color: #e4e6eb;
+}
+html[data-theme="dark"] .main-content { background-color: #14181f; }
+
+/* La sidebar verticale garde toujours la couleur du menu choisie par
+   l'utilisateur (claire ou sombre) — seule la topbar suit le thème. */
+html[data-theme="dark"] .app-topbar {
+    background-color: #1a1e27 !important;
+    border-bottom-color: #2e333d !important;
+}
+html[data-theme="dark"] .theme-btn { background-color: #262b35 !important; color: #cfd3da !important; border-color: #3a4150 !important; }
+html[data-theme="dark"] .theme-btn:hover { background-color: #2e333d !important; }
+html[data-theme="dark"] .tb-link { color: #cfd3da !important; }
+html[data-theme="dark"] .tb-link:hover { background-color: #262b35 !important; }
+html[data-theme="dark"] .topnav-user { background-color: #262b35 !important; border-color: #3a4150 !important; color: #e4e6eb !important; }
+html[data-theme="dark"] .topnav-user:hover { background-color: #2e333d !important; }
+html[data-theme="dark"] .topbar-toggler { color: #cfd3da !important; border-color: #3a4150 !important; }
+html[data-theme="dark"] .topbar-title { color: #e4e6eb !important; }
+html[data-theme="dark"] .topbar-title .tt-icon { background-color: #262b35 !important; }
+html[data-theme="dark"] .topbar-title .tt-group { color: #8a94a3 !important; }
+html[data-theme="dark"] .topbar-title .tt-sep { color: #4a515e !important; }
+
+/* Menu utilisateur (topbar) et panneau flottant du menu replié : fond blanc
+   par défaut → texte utilisant var(--menu-color) devient invisible en sombre
+   si on ne le corrige pas explicitement ici. */
+html[data-theme="dark"] .dropdown-item,
+html[data-theme="dark"] .dropdown-item i,
+html[data-theme="dark"] .snav-flyout a,
+html[data-theme="dark"] [style*="color:var(--menu-color)"],
+html[data-theme="dark"] [style*="color: var(--menu-color)"] {
+    color: #e4e6eb !important;
+}
+/* Au survol / actif, le fond redevient la couleur du menu → texte blanc conservé */
+html[data-theme="dark"] .dropdown-item:hover,
+html[data-theme="dark"] .dropdown-item:hover i,
+html[data-theme="dark"] .dropdown-item.is-active,
+html[data-theme="dark"] .dropdown-item.is-active i,
+html[data-theme="dark"] .snav-flyout a:hover {
+    color: #fff !important;
+}
+html[data-theme="dark"] .snav-flyout { background-color: #1e222b !important; border-color: #2e333d !important; }
+html[data-theme="dark"] .snav-flyout .flyout-title { color: #8896b0 !important; }
+html[data-theme="dark"] .dropdown-divider,
+html[data-theme="dark"] [style*="rgba(0,33,71"] {
+    border-color: #3a4150 !important;
+}
+
+/* Composants "carte/tableau" maison réutilisés sur la majorité des pages
+   (kpi-card, chart-card, table-card, alert-card, quick-btn...) */
+html[data-theme="dark"] .kpi-card,
+html[data-theme="dark"] .kpi2-card,
+html[data-theme="dark"] .chart-card,
+html[data-theme="dark"] .table-card,
+html[data-theme="dark"] .tbl-card,
+html[data-theme="dark"] .alert-card,
+html[data-theme="dark"] .report-card,
+html[data-theme="dark"] .card-stat,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .b-card,
+html[data-theme="dark"] .filter-bar,
+html[data-theme="dark"] .quick-btn.outline,
+html[data-theme="dark"] .grid-tile {
+    background-color: #1e222b !important;
+    border-color: #2e333d !important;
+}
+/* Vue grille (ex: répertoire bailleurs) */
+html[data-theme="dark"] .grid-tile-name { color: #e4e6eb !important; }
+html[data-theme="dark"] .grid-tile-code,
+html[data-theme="dark"] .grid-tile-info div,
+html[data-theme="dark"] .grid-tile-finance .lbl {
+    color: #9aa0aa !important;
+}
+html[data-theme="dark"] .grid-tile-finance { background-color: #262b35 !important; }
+html[data-theme="dark"] .view-toggle button:not(.active) { background-color: #1e222b !important; color: #9aa0aa !important; }
+html[data-theme="dark"] .view-toggle { border-color: #3a4150 !important; }
+html[data-theme="dark"] .chart-card-header,
+html[data-theme="dark"] .b-info-row,
+html[data-theme="dark"] .table-card thead th,
+html[data-theme="dark"] .log-item,
+html[data-theme="dark"] .mode-row {
+    border-color: #2e333d !important;
+}
+html[data-theme="dark"] .table-card thead th {
+    background-color: #262b35 !important;
+}
+html[data-theme="dark"] .table-card tbody tr:hover td {
+    background-color: #262b35 !important;
+}
+html[data-theme="dark"] .top-bar-wrap { background-color: #2e333d !important; }
+
+/* Libellés / sous-titres en gris moyen — restent lisibles, juste éclaircis */
+html[data-theme="dark"] .kpi-lbl, html[data-theme="dark"] .kpi-sub,
+html[data-theme="dark"] .kpi2-lbl, html[data-theme="dark"] .kpi2-sub,
+html[data-theme="dark"] .chart-card-header .sub,
+html[data-theme="dark"] .section-title,
+html[data-theme="dark"] .table-card thead th,
+html[data-theme="dark"] .pag-mini a, html[data-theme="dark"] .pag-mini span,
+html[data-theme="dark"] .quick-btn.outline {
+    color: #cfd3da !important;
+}
+html[data-theme="dark"] .section-title::after { background-color: #2e333d !important; }
+html[data-theme="dark"] .pag-mini a, html[data-theme="dark"] .pag-mini span {
+    border-color: #3a4150 !important;
+}
+
+/* Textes foncés codés en dur (hors variables) trop sombres sur fond sombre */
+html[data-theme="dark"] [style*="#2d3a55"],
+html[data-theme="dark"] [style*="#1e293b"],
+html[data-theme="dark"] [style*="#6b7a99"],
+html[data-theme="dark"] [style*="#5a6a85"],
+html[data-theme="dark"] [style*="#4a5568"],
+html[data-theme="dark"] [style*="#002d72"],
+html[data-theme="dark"] [style*="#000080"] {
+    color: #e4e6eb !important;
+}
+/* Fonds clairs codés en dur utilisés comme surface de section (hors puces/icônes) */
+html[data-theme="dark"] [style*="background:#f8faff"],
+html[data-theme="dark"] [style*="background: #f8faff"],
+html[data-theme="dark"] [style*="background:#f4f7fe"],
+html[data-theme="dark"] [style*="background: #f4f7fe"],
+html[data-theme="dark"] [style*="background:#f0f3fa"],
+html[data-theme="dark"] [style*="background: #f0f3fa"] {
+    background-color: #262b35 !important;
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .list-group-item,
+html[data-theme="dark"] .dropdown-menu,
+html[data-theme="dark"] .color-picker-panel,
+html[data-theme="dark"] .offcanvas {
+    background-color: #1e222b !important;
+    color: #e4e6eb !important;
+    border-color: #2e333d !important;
+}
+html[data-theme="dark"] .color-picker-panel .cp-title { color: #cfd3da !important; }
+
+html[data-theme="dark"] h1, html[data-theme="dark"] h2, html[data-theme="dark"] h3,
+html[data-theme="dark"] h4, html[data-theme="dark"] h5, html[data-theme="dark"] h6,
+html[data-theme="dark"] .text-dark { color: #e4e6eb !important; }
+html[data-theme="dark"] .text-muted { color: #9aa0aa !important; }
+
+html[data-theme="dark"] table,
+html[data-theme="dark"] .table {
+    --bs-table-bg: #1e222b;
+    --bs-table-color: #e4e6eb;
+    --bs-table-border-color: #2e333d;
+    --bs-table-striped-bg: rgba(255,255,255,.03);
+    --bs-table-striped-color: #e4e6eb;
+    --bs-table-hover-bg: rgba(255,255,255,.06);
+    --bs-table-hover-color: #fff;
+    background-color: #1e222b;
+    color: #e4e6eb;
+    border-color: #2e333d;
+}
+html[data-theme="dark"] .table > :not(caption) > * > * {
+    background-color: #1e222b;
+    color: #e4e6eb;
+    border-bottom-color: #2e333d;
+    box-shadow: none;
+}
+html[data-theme="dark"] .table thead th { background-color: #262b35 !important; color: #e4e6eb; border-color: #2e333d; }
+
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select {
+    background-color: #262b35;
+    color: #e4e6eb;
+    border-color: #3a4150;
+}
+html[data-theme="dark"] .form-control:focus,
+html[data-theme="dark"] .form-select:focus {
+    background-color: #262b35;
+    color: #e4e6eb;
+}
+html[data-theme="dark"] .form-control::placeholder { color: #7a8291; }
+html[data-theme="dark"] .form-label { color: #cfd3da; }
+html[data-theme="dark"] .input-group-text { background-color: #2e333d; color: #cfd3da; border-color: #3a4150; }
+
+html[data-theme="dark"] .btn-light { background-color: #262b35; color: #e4e6eb; border-color: #3a4150; }
+html[data-theme="dark"] .btn-outline-secondary { color: #cfd3da; border-color: #3a4150; }
+html[data-theme="dark"] .bg-light { background-color: #1e222b !important; }
+html[data-theme="dark"] .bg-white { background-color: #1e222b !important; }
+
+html[data-theme="dark"] .border,
+html[data-theme="dark"] .border-top,
+html[data-theme="dark"] .border-bottom,
+html[data-theme="dark"] .border-start,
+html[data-theme="dark"] .border-end { border-color: #2e333d !important; }
+
+html[data-theme="dark"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+html[data-theme="dark"] ::-webkit-scrollbar-track { background: #1a1d24; }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #3a4150; border-radius: 5px; }
+
+@media print {
+    .theme-btn, .color-picker-panel { display: none !important; }
+}

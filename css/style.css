@@ -1,0 +1,176 @@
+:root {
+    --sidebar-bg: #000080;
+    /* Bleu Marine */
+    --rouge: #FF0000;
+    --main-bg: #f8f9fa;
+    /* Couleur de fond de page (identique à l'onglet actif) */
+}
+
+body {
+    background-color: var(--main-bg);
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.main-content {
+    margin-left: 0;
+    padding: 28px;
+}
+
+
+/* --- LOGO / HEADER --- */
+
+.sidebar-header {
+    padding: 25px 20px;
+    text-align: center;
+}
+
+
+/* --- STYLE DES LIENS --- */ 
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.7) !important;
+    margin: 5px 0 5px 15px;
+    /* Décalage pour l'effet flottant */
+    padding: 12px 20px;
+    font-weight: 500;
+    border: none !important;
+    border-radius: 30px 0 0 30px;
+    /* Arrondi gauche */
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar .nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white !important;
+}
+
+
+/* --- L'ONGLET ACTIF (STYLE TEMPLATE) --- */
+
+.sidebar .nav-link.active {
+    background-color: var(--main-bg) !important;
+    color: var(--sidebar-bg) !important;
+    /* Le texte devient bleu marine */
+    font-weight: bold;
+    position: relative;
+}
+
+
+/* L'arrondi supérieur inversé */
+
+.sidebar .nav-link.active::before {
+    content: "";
+    position: absolute;
+    background-color: transparent;
+    border-radius: 50%;
+    box-shadow: 10px 10px 0 var(--main-bg);
+    pointer-events: none;
+}
+
+
+/* L'arrondi inférieur inversé */
+
+.sidebar .nav-link.active::after {
+    content: "";
+    position: absolute;
+    background-color: transparent;
+    border-radius: 50%;
+    box-shadow: 10px -10px 0 var(--main-bg);
+    pointer-events: none;
+}
+
+
+/* --- BADGES ET NOTIFICATIONS --- */
+
+.sidebar .badge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 50%;
+    /* Badge bien rond comme sur le template */
+}
+
+
+/* --- PIED DE PAGE / DÉCONNEXION --- */
+
+.sidebar .mt-auto {
+    margin-top: auto;
+    padding-bottom: 20px;
+}
+
+.sidebar .mt-auto .nav-link:hover {
+    background: rgba(255, 0, 0, 0.1) !important;
+    color: #ff4d4d !important;
+}
+
+
+/* --- IMPRESSION --- */
+
+@media print {
+    .sidebar,
+    .no-print {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0;
+    }
+}
+
+
+/* Amélioration visuelle du Sidebar */
+
+.sidebar .nav-link {
+    transition: all 0.2s ease;
+}
+
+.sidebar .nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e00d0d !important;
+}
+
+.hover-danger:hover {
+    background: rgba(220, 53, 69, 0.1) !important;
+}
+
+
+/* Style de la bulle de contact */
+
+.contact-bubble {
+    display: none;
+    /* Caché par défaut */
+    position: absolute;
+    left: 100%;
+    /* S'affiche à droite du menu */
+    top: 0;
+    width: 200px;
+    background: white;
+    color: #333;
+    border-radius: 10px;
+    z-index: 1000;
+    margin-left: 15px;
+}
+
+.contact-bubble::after {
+    content: "";
+    position: absolute;
+    top: 15px;
+    right: 100%;
+    border-width: 8px;
+    border-style: solid;
+    border-color: transparent white transparent transparent;
+}
+
+.bubble-header {
+    background: #1a237e;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 10px 10px 0 0;
+    font-size: 0.9rem;
+}
+
+.bubble-body {
+    padding: 12px;
+    font-size: 0.85rem;
+}

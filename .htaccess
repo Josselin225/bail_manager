@@ -1,0 +1,14 @@
+# Bloquer l'accès direct au fichier .env
+<Files ".env">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Bloquer l'accès aux fichiers de sauvegarde et de config exposés
+<FilesMatch "\.(sql|log|bak|sh)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Désactiver la liste des répertoires
+Options -Indexes
