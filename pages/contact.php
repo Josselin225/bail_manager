@@ -1,4 +1,5 @@
-﻿<?php
+<?php
+    session_start();
     require_once('../config/db.php'); // Vérifiez le chemin vers votre fichier de connexion
 
     // Récupération des paramètres de l'entreprise
@@ -21,6 +22,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Contactez-nous - BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -104,7 +106,7 @@
                         <hr>
                         <div class="mt-4">
                             <a href="#" class="text-white me-3"><i class="fab fa-facebook fa-lg"></i></a>
-                            <a href="https://wa.me/<?= str_replace(' ', '', $entreprise['contact_telephone']) ?>" class="text-white">
+                            <a href="https://wa.me/<?= htmlspecialchars(str_replace(' ', '', $entreprise['contact_telephone'])) ?>" class="text-white">
                                 <i class="fab fa-whatsapp fa-lg"></i>
                             </a>
                         </div>
@@ -183,7 +185,7 @@
                 <h5 class="text-uppercase fw-bold border-bottom border-danger d-inline-block">Contact</h5>
                 <p class="mt-3">
                     <i class="fa fa-envelope me-2 text-danger"></i> 
-                    <a href="mailto:<?= $entreprise['contact_email'] ?>" class="text-white text-decoration-none">
+                    <a href="mailto:<?= htmlspecialchars($entreprise['contact_email']) ?>" class="text-white text-decoration-none">
                         <?= htmlspecialchars($entreprise['contact_email']) ?>
                     </a>
                 </p>

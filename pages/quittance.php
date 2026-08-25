@@ -2,9 +2,14 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
 if (!isset($_GET['id'])) die("ID Paiement manquant");
 
-$id = $_GET['id'];
+$id = (int)$_GET['id'];
 
 // --- 1. SETTINGS & DATA ---
 $query_settings = $pdo->query("SELECT * FROM settings LIMIT 1");
@@ -80,6 +85,7 @@ $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . url
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Quittance - <?= htmlspecialchars($data['reference_recu']) ?></title>
     <style>
         @page { size: A4; margin: 10mm; }

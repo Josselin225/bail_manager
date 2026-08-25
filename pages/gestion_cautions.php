@@ -34,7 +34,8 @@ $locataires = $pdo->query("SELECT l.id, l.nom FROM locataires l JOIN contrats c 
 $stmtList = $pdo->prepare(
     "SELECT l.id AS locataire_id, l.nom AS nom_locataire, m.designation AS nom_propriete,
             c.id AS contrat_id, c.depot_garantie AS caution_initiale, c.date_debut,
-            IFNULL((SELECT SUM(mc.montant) FROM mouvements_caution mc WHERE mc.locataire_id=l.id),0) AS total_mouvements
+            IFNULL((SELECT SUM(mc.montant) FROM mouvements_caution mc WHERE mc.locataire_id=l.id),0) AS total_mouvements,
+            (SELECT mc2.effectue_par FROM mouvements_caution mc2 WHERE mc2.locataire_id=l.id ORDER BY mc2.date_operation DESC, mc2.id DESC LIMIT 1) AS derniere_action_par
      FROM contrats c
      JOIN locataires l ON c.locataire_id=l.id
      JOIN maisons m ON c.maison_id=m.id
@@ -61,6 +62,7 @@ $avatarColors = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Gestion des Cautions — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -120,6 +122,37 @@ $avatarColors = [
         .vmodal-box { background:#fff; border-radius:12px; width:90%; max-width:560px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
         .vmodal-box-lg { max-width:820px; }
 
+        /* ── Relevé de compte caution (get_historique_caution.php) ──────────────── */
+        .cr-header { display:flex; align-items:flex-start; justify-content:space-between; border-bottom:2px solid var(--marine); padding-bottom:10px; margin-bottom:14px; }
+        .cr-agence { font-size:15px; font-weight:800; color:var(--marine); text-transform:uppercase; }
+        .cr-agence-sub { font-size:11px; color:#8896b0; margin-top:2px; }
+        .cr-titre { font-size:16px; font-weight:800; color:#2d3a55; }
+        .cr-ref { font-size:11px; color:#8896b0; margin-top:2px; }
+
+        .cr-identite { display:flex; gap:24px; background:#f8faff; border:1px solid #e8ecf4; border-radius:10px; padding:12px 16px; margin-bottom:16px; }
+        .cr-identite-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#8896b0; }
+        .cr-identite-val { font-size:13px; font-weight:700; color:#2d3a55; margin-top:2px; }
+
+        .cr-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+        .cr-table thead th { background:#f8faff; color:#6b7a99; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:10px 14px; border-bottom:1px solid #e8ecf4; text-align:left; }
+        .cr-table tbody td { padding:10px 14px; border-bottom:1px solid #f0f3fa; font-size:13px; vertical-align:middle; }
+        .cr-row-initial { background:#eef6ff; }
+
+        .cr-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+        .cr-badge-initial { background:#dbeafe; color:#1e40af; }
+        .cr-badge-retenue { background:#fee2e2; color:#991b1b; }
+        .cr-badge-ajout   { background:#d1fae5; color:#065f46; }
+
+        .cr-solde { display:flex; align-items:center; justify-content:space-between; background:#0f172a; color:#fff; border-radius:10px; padding:16px 20px; margin-bottom:8px; }
+        .cr-solde-lbl { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#cbd5e1; }
+        .cr-solde-val { font-size:22px; font-weight:800; }
+
+        .cr-signatures { display:flex; justify-content:space-between; margin-top:40px; padding-top:16px; }
+        .cr-signature-box { width:45%; }
+        .cr-signature-note { font-size:10px; color:#8896b0; margin-top:24px; }
+
+        .cr-footer { margin-top:30px; text-align:center; font-size:10px; color:#8896b0; border-top:1px solid #e8ecf4; padding-top:8px; }
+
         /* ── Impression du relevé d'historique de caution ──
            window.print() imprime par défaut toute la page (menu, tableau...) en plus
            du relevé affiché dans la modale : on isole #printableArea (injecté par
@@ -132,9 +165,18 @@ $avatarColors = [
                 top: 0; left: 0;
                 width: 100%;
                 padding: 0;
+                font-size: 11px;
             }
             .vmodal-overlay { position: static !important; background: none !important; }
             .vmodal-box { max-width: none !important; max-height: none !important; box-shadow: none !important; overflow: visible !important; }
+
+            @page { size: A4; margin: 10mm 14mm; }
+            .cr-header { margin-bottom: 8px; padding-bottom: 6px; }
+            .cr-identite { padding: 8px 14px; margin-bottom: 10px; }
+            .cr-table thead th, .cr-table tbody td { padding: 6px 10px; }
+            .cr-solde { padding: 10px 16px; margin-bottom: 4px; }
+            .cr-solde-val { font-size: 18px; }
+            .cr-signatures { margin-top: 26px; }
         }
 
         /* ── Pagination ── */
@@ -242,9 +284,14 @@ $avatarColors = [
         <div style="flex:1;">
             <p class="text-muted small mb-0 mt-1">Suivi des dépôts de garantie et restitutions</p>
         </div>
-        <button onclick="showModal('modalRestitution')" class="btn btn-warning btn-sm fw-bold shadow-sm" style="border-radius:8px;">
-            <i class="fa fa-hand-holding-dollar me-2"></i>Restituer / Retenue
-        </button>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="rapport_cautions.php" target="_blank" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
+                <i class="fa fa-print me-2"></i>Rapport détaillé
+            </a>
+            <button onclick="showModal('modalRestitution')" class="btn btn-warning btn-sm fw-bold shadow-sm" style="border-radius:8px;">
+                <i class="fa fa-hand-holding-dollar me-2"></i>Restituer / Retenue
+            </button>
+        </div>
     </div>
 
     <div class="row g-2 mb-3">
@@ -297,11 +344,12 @@ $avatarColors = [
 <div id="vueListe">
 <table class="table mb-0 tbl-full">
     <thead><tr>
-        <th style="width:26%;">Locataire</th>
-        <th style="width:20%;">Bien &amp; Contrat</th>
-        <th style="width:12%;">Statut</th>
-        <th class="text-end" style="width:16%;">Dépôt initial</th>
-        <th style="width:18%;">Solde &amp; utilisation</th>
+        <th style="width:22%;">Locataire</th>
+        <th style="width:16%;">Bien &amp; Contrat</th>
+        <th style="width:10%;">Statut</th>
+        <th class="text-end" style="width:14%;">Dépôt initial</th>
+        <th style="width:16%;">Solde &amp; utilisation</th>
+        <th style="width:14%;">Dernière action par</th>
         <th class="text-center" style="width:8%;">Actions</th>
     </tr></thead>
     <tbody>
@@ -346,6 +394,13 @@ $avatarColors = [
             </div>
             <?php if ($row['total_mouvements'] != 0): ?>
             <div style="font-size:10px;color:#8896b0;margin-top:2px;">Mouv: <?= ($row['total_mouvements']>0?'+':'').number_format($row['total_mouvements'],0,',',' ') ?> FCFA</div>
+            <?php endif; ?>
+        </td>
+        <td class="text-muted small">
+            <?php if (!empty($row['derniere_action_par'])): ?>
+            <i class="fa fa-user-circle me-1"></i><?= htmlspecialchars($row['derniere_action_par']) ?>
+            <?php else: ?>
+            <span style="color:#c5cbd8;">—</span>
             <?php endif; ?>
         </td>
         <td class="text-center">

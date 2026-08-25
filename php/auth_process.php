@@ -48,6 +48,7 @@ if ($user && password_verify($password_saisi, $user['mot_de_passe'])) {
     $_SESSION['nom_complet'] = $user['nom_complet'];
     $_SESSION['role']       = $user['role'];
     $_SESSION['last_activity'] = time();
+    $_SESSION['session_timeout'] = (int)($user['session_timeout_minutes'] ?? 10) * 60;
 
     $pdo->prepare("UPDATE users SET dernier_acces = NOW() WHERE id = ?")->execute([$user['id']]);
     insertLog($pdo, "Connexion", "Connexion réussie depuis $ip");

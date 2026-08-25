@@ -7,16 +7,23 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$search  = trim($_GET['search'] ?? '');
+$search      = trim($_GET['search']    ?? '');
+$filtreDateEnr  = trim($_GET['date_enr']  ?? '');
+$filtreMoisEnr  = trim($_GET['mois_enr']  ?? '');
+$filtreAnneeEnr = trim($_GET['annee_enr'] ?? '');
 $perPage = 12;
 $page    = max(1, (int)($_GET['page'] ?? 1));
 
-$where      = '';
+$conds      = [];
 $bindSearch = [];
 if ($search) {
-    $where      = "WHERE nom LIKE :s OR code_bailleur LIKE :s2 OR telephone1 LIKE :s3";
-    $bindSearch = [':s' => "%$search%", ':s2' => "%$search%", ':s3' => "%$search%"];
+    $conds[] = "(nom LIKE :s OR code_bailleur LIKE :s2 OR telephone1 LIKE :s3)";
+    $bindSearch[':s'] = $bindSearch[':s2'] = $bindSearch[':s3'] = "%$search%";
 }
+if ($filtreDateEnr)       { $conds[] = "DATE(created_at) = :date_enr";              $bindSearch[':date_enr']  = $filtreDateEnr; }
+elseif ($filtreMoisEnr)  { $conds[] = "DATE_FORMAT(created_at,'%Y-%m') = :mois_enr"; $bindSearch[':mois_enr']  = $filtreMoisEnr; }
+elseif ($filtreAnneeEnr) { $conds[] = "YEAR(created_at) = :annee_enr";               $bindSearch[':annee_enr'] = $filtreAnneeEnr; }
+$where = $conds ? 'WHERE ' . implode(' AND ', $conds) : '';
 
 $totalBailleurs = (int)$pdo->query("SELECT COUNT(*) FROM bailleurs")->fetchColumn();
 
@@ -38,9 +45,34 @@ $totalSolde       = (float)$pdo->query("SELECT COALESCE(SUM(solde_du_bailleur),0
 $totalCommissions = (float)$pdo->query("SELECT COALESCE(SUM(total_commissions_entreprises),0) FROM bailleurs")->fetchColumn();
 $nbAvecSolde      = (int)  $pdo->query("SELECT COUNT(*) FROM bailleurs WHERE solde_du_bailleur > 0")->fetchColumn();
 
+// Jeu de données complet (toutes pages confondues, mêmes filtres) pour les exports PDF/Excel
+$stmtAllB = $pdo->prepare("SELECT * FROM bailleurs $where ORDER BY nom ASC");
+$stmtAllB->execute($bindSearch);
+$exportRowsBailleurs = array_map(function ($b) {
+    return [
+        'nom'       => $b['nom'],
+        'code'      => $b['code_bailleur'] ?: '—',
+        'sexe'      => $b['sexe'] ?: '—',
+        'cni'       => $b['numero_cni'] ?: '—',
+        'tel1'      => $b['telephone1'] ?? '',
+        'tel2'      => $b['telephone2'] ?? '',
+        'email'     => $b['email'] ?? '',
+        'adresse'   => $b['adresse'] ?? '',
+        'solde_num' => (float)($b['solde_du_bailleur'] ?? 0),
+        'solde'     => number_format((float)($b['solde_du_bailleur'] ?? 0), 0, ',', ' ') . ' FCFA',
+        'date_enr'  => !empty($b['created_at']) ? date('d/m/Y', strtotime($b['created_at'])) : '—',
+    ];
+}, $stmtAllB->fetchAll());
+
+// Coordonnées agence (en-tête des exports)
+$entrepriseExport = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch();
+if (!$entrepriseExport) {
+    $entrepriseExport = ['nom_entreprise' => 'BailManager', 'adresse_siege' => '', 'contact_telephone' => '', 'contact_email' => ''];
+}
+
 function buildUrlB(array $extra = []): string {
-    global $search, $page;
-    $p = array_filter(['search' => $search, 'page' => $page], fn($v) => $v !== '' && $v !== null && $v !== 0);
+    global $search, $page, $filtreDateEnr, $filtreMoisEnr, $filtreAnneeEnr;
+    $p = array_filter(['search' => $search, 'page' => $page, 'date_enr' => $filtreDateEnr, 'mois_enr' => $filtreMoisEnr, 'annee_enr' => $filtreAnneeEnr], fn($v) => $v !== '' && $v !== null && $v !== 0);
     return '?' . http_build_query(array_merge($p, $extra));
 }
 
@@ -60,6 +92,7 @@ $avatarColors = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Répertoire des Bailleurs — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -350,10 +383,14 @@ $avatarColors = [
         <div>
             <p class="text-muted small mb-0 mt-1"><?= $totalBailleurs ?> propriétaire<?= $totalBailleurs>1?'s':'' ?> enregistré<?= $totalBailleurs>1?'s':'' ?></p>
         </div>
-        <button class="btn btn-danger btn-sm shadow-sm" style="border-radius:8px;"
-                data-bs-toggle="modal" data-bs-target="#modalBailleur">
-            <i class="fa fa-plus-circle me-2"></i>Nouveau Bailleur
-        </button>
+        <div class="d-flex gap-2 flex-wrap">
+            <button onclick="exportToExcel()" class="btn btn-sm btn-outline-success" style="border-radius:8px;"><i class="fa fa-file-excel me-1"></i>Excel</button>
+            <button onclick="exportToPDF()"  class="btn btn-sm btn-outline-danger"  style="border-radius:8px;"><i class="fa fa-file-pdf me-1"></i>PDF</button>
+            <button class="btn btn-danger btn-sm shadow-sm" style="border-radius:8px;"
+                    data-bs-toggle="modal" data-bs-target="#modalBailleur">
+                <i class="fa fa-plus-circle me-2"></i>Nouveau Bailleur
+            </button>
+        </div>
     </div>
 
     <!-- KPI -->
@@ -403,7 +440,11 @@ $avatarColors = [
             <input type="text" id="searchInput" name="search" value="<?= htmlspecialchars($search) ?>"
                    class="form-control form-control-sm" style="max-width:300px;border-radius:8px;"
                    placeholder="Nom, code, téléphone…" autocomplete="off">
-            <?php if ($search): ?>
+            <span class="text-muted small">Enregistré le :</span>
+            <input type="date" name="date_enr" value="<?= htmlspecialchars($filtreDateEnr) ?>" class="form-control form-control-sm" style="max-width:150px;border-radius:8px;" onchange="this.form.mois_enr.value='';this.form.annee_enr.value='';this.form.submit()">
+            <input type="month" name="mois_enr" value="<?= htmlspecialchars($filtreMoisEnr) ?>" class="form-control form-control-sm" style="max-width:140px;border-radius:8px;" onchange="this.form.date_enr.value='';this.form.annee_enr.value='';this.form.submit()">
+            <input type="number" name="annee_enr" value="<?= htmlspecialchars($filtreAnneeEnr) ?>" placeholder="Année" min="2000" max="2100" class="form-control form-control-sm" style="max-width:100px;border-radius:8px;" onchange="this.form.date_enr.value='';this.form.mois_enr.value='';this.form.submit()">
+            <?php if ($search || $filtreDateEnr || $filtreMoisEnr || $filtreAnneeEnr): ?>
             <a href="bailleurs.php" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;"><i class="fa fa-times"></i></a>
             <?php endif; ?>
             <div class="ms-auto text-muted small me-2"><?= $totalRows ?> résultat<?= $totalRows>1?'s':'' ?></div>
@@ -433,12 +474,12 @@ $avatarColors = [
         <table class="table mb-0 tbl-full">
                 <thead>
                     <tr>
-                        <th style="width:28%;">Bailleur</th>
-                        <th style="width:20%;">Contact</th>
-                        <th style="width:22%;">Adresse</th>
+                        <th style="width:26%;">Bailleur</th>
+                        <th style="width:18%;">Contact</th>
+                        <th style="width:20%;">Adresse</th>
                         <th class="text-end" style="width:14%;">Solde actuel</th>
-                        <th class="text-end" style="width:10%;">Commissions</th>
-                        <th class="text-center" style="width:6%;">Actions</th>
+                        <th style="width:12%;">Enregistré le</th>
+                        <th class="text-center" style="width:10%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -446,7 +487,6 @@ $avatarColors = [
                         $initiale = mb_strtoupper(mb_substr($b['nom'], 0, 1));
                         $col      = $avatarColors[$i % count($avatarColors)];
                         $solde    = (float)($b['solde_du_bailleur'] ?? 0);
-                        $comm     = (float)($b['total_commissions_entreprises'] ?? 0);
                     ?>
                     <tr>
                         <td>
@@ -471,7 +511,7 @@ $avatarColors = [
                             <span class="<?= $solde>=0?'solde-pos':'solde-neg' ?>"><?= ($solde<0?'-':'') . number_format(abs($solde),0,',',' ') ?></span>
                             <small class="text-muted d-block" style="font-size:10px;">FCFA</small>
                         </td>
-                        <td class="text-end"><span class="comm-pill"><?= number_format($comm,0,',',' ') ?> FCFA</span></td>
+                        <td class="text-muted small"><?= !empty($b['created_at']) ? date('d/m/Y', strtotime($b['created_at'])) : '—' ?></td>
                         <td class="text-center" style="white-space:nowrap;">
                             <a href="voir_bailleur.php?id=<?= (int)$b['id'] ?>" class="btn btn-sm btn-outline-primary"   style="border-radius:6px;" title="Voir"><i class="fa fa-eye"></i></a>
                             <button type="button" class="btn btn-sm btn-outline-secondary btn-edit-bailleur" style="border-radius:6px;" title="Modifier"
@@ -490,6 +530,7 @@ $avatarColors = [
                                     data-initiale="<?= htmlspecialchars($initiale) ?>"
                             ><i class="fa fa-edit"></i></button>
                             <a href="compte_bailleur.php?bailleur_id=<?= (int)$b['id'] ?>" class="btn btn-sm btn-outline-success" style="border-radius:6px;" title="Compte courant"><i class="fa fa-wallet"></i></a>
+                            <a href="documents.php?type=bailleur&id=<?= (int)$b['id'] ?>" class="btn btn-sm btn-outline-dark" style="border-radius:6px;" title="Documents"><i class="fa fa-paperclip"></i></a>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -567,6 +608,7 @@ $avatarColors = [
                                 data-initiale="<?= htmlspecialchars($initiale) ?>"
                         ><i class="fa fa-edit"></i></button>
                         <a href="compte_bailleur.php?bailleur_id=<?= (int)$b['id'] ?>" style="color:#065f46;border-color:#a7f3d0;background:#ecfdf5;" title="Compte courant"><i class="fa fa-wallet"></i></a>
+                        <a href="documents.php?type=bailleur&id=<?= (int)$b['id'] ?>" style="color:#374151;border-color:#e5e7eb;background:#f9fafb;" title="Documents"><i class="fa fa-paperclip"></i></a>
                     </div>
 
                 </div>
@@ -602,6 +644,9 @@ $avatarColors = [
 </div><!-- /main-content -->
 
 <script src="../js/bootstrap.bundle.min.js"></script>
+<script src="../js/xlsx.full.min.js"></script>
+<script src="../js/jspdf.umd.min.js"></script>
+<script src="../js/jspdf.plugin.autotable.min.js"></script>
 <script>
 function setView(v) {
     document.getElementById('vueListe').style.display  = v === 'liste'  ? 'block' : 'none';
@@ -675,6 +720,133 @@ document.getElementById('photoInputEdit').addEventListener('change', function() 
     };
     reader.readAsDataURL(file);
 });
+
+// ── Exports PDF / Excel (répertoire complet, indépendant de la pagination) ──
+var exportRowsBailleurs = <?= json_encode($exportRowsBailleurs, JSON_UNESCAPED_UNICODE) ?>;
+var agenceInfoBailleurs = {
+    nom: <?= json_encode($entrepriseExport['nom_entreprise'], JSON_UNESCAPED_UNICODE) ?>,
+    adresse: <?= json_encode($entrepriseExport['adresse_siege'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    tel: <?= json_encode($entrepriseExport['contact_telephone'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    email: <?= json_encode($entrepriseExport['contact_email'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    logo: <?= (!empty($entrepriseExport['logo_url']) && file_exists('../uploads/' . $entrepriseExport['logo_url']))
+        ? json_encode('../uploads/' . $entrepriseExport['logo_url'], JSON_UNESCAPED_UNICODE)
+        : 'null' ?>
+};
+
+function loadImageAsDataURLBailleurs(url) {
+    return new Promise(function(resolve) {
+        if (!url) { resolve(null); return; }
+        var img = new Image();
+        img.onload = function() {
+            try {
+                var canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve({ dataUrl: canvas.toDataURL('image/png'), ratio: img.naturalWidth / img.naturalHeight });
+            } catch (e) { resolve(null); }
+        };
+        img.onerror = function() { resolve(null); };
+        img.src = url;
+    });
+}
+
+function exportToExcel() {
+    var rows = exportRowsBailleurs.map(function(r) {
+        return {
+            'Nom': r.nom,
+            'Code bailleur': r.code,
+            'Sexe': r.sexe,
+            'N° CNI': r.cni,
+            'Téléphone 1': r.tel1,
+            'Téléphone 2': r.tel2,
+            'Email': r.email,
+            'Adresse': r.adresse,
+            'Solde actuel (FCFA)': r.solde_num,
+            'Date d\'enregistrement': r.date_enr
+        };
+    });
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:22},{wch:14},{wch:8},{wch:16},{wch:14},{wch:14},{wch:22},{wch:28},{wch:16},{wch:16}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Bailleurs');
+    XLSX.writeFile(wb, 'Liste_Bailleurs.xlsx');
+}
+
+function exportToPDF() {
+    loadImageAsDataURLBailleurs(agenceInfoBailleurs.logo).then(function(logo) {
+    var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    var marine = [0, 33, 71];
+    var pageW = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(marine[0], marine[1], marine[2]);
+    doc.text(agenceInfoBailleurs.nom || 'BailManager', 14, 16);
+
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(90, 90, 90);
+    var coordLine = [agenceInfoBailleurs.tel, agenceInfoBailleurs.email].filter(Boolean).join('  •  ');
+    if (agenceInfoBailleurs.adresse) doc.text(agenceInfoBailleurs.adresse, 14, 21);
+    if (coordLine) doc.text(coordLine, 14, 25);
+
+    if (logo) {
+        var logoH = 16, logoW = logoH * logo.ratio;
+        doc.addImage(logo.dataUrl, 'PNG', pageW - 14 - logoW, 8, logoW, logoH);
+    }
+
+    doc.setDrawColor(marine[0], marine[1], marine[2]);
+    doc.setLineWidth(0.6);
+    doc.line(14, 28, pageW - 14, 28);
+
+    doc.setFontSize(12.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 30, 30);
+    doc.text('Répertoire des Bailleurs', 14, 36);
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+        exportRowsBailleurs.length + ' bailleur' + (exportRowsBailleurs.length > 1 ? 's' : '') + ' enregistré' + (exportRowsBailleurs.length > 1 ? 's' : ''),
+        14, 42
+    );
+    doc.text('Généré le ' + new Date().toLocaleDateString('fr-FR'), pageW - 14, 42, { align: 'right' });
+
+    doc.autoTable({
+        startY: 47,
+        head: [['Bailleur', 'Contact', 'Email', 'Adresse', 'Solde actuel', 'Enregistré le']],
+        body: exportRowsBailleurs.map(function(r) {
+            var identite = r.nom + (r.code && r.code !== '—' ? '\n' + r.code : '');
+            var contact  = [r.tel1, r.tel2].filter(Boolean).join('\n');
+            return [identite, contact, r.email || '—', r.adresse || '—', r.solde, r.date_enr];
+        }),
+        theme: 'striped',
+        styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
+        headStyles: { fillColor: marine, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 252] },
+        columnStyles: {
+            0: { cellWidth: 42 },
+            4: { cellWidth: 28, halign: 'right' },
+            5: { cellWidth: 24 }
+        },
+        didDrawPage: function(data) {
+            var pageCount = doc.internal.getNumberOfPages();
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+                'BailManager — page ' + data.pageNumber + '/' + pageCount,
+                pageW / 2,
+                doc.internal.pageSize.getHeight() - 8,
+                { align: 'center' }
+            );
+        }
+    });
+
+    doc.save('Liste_Bailleurs.pdf');
+    });
+}
 </script>
 </body>
 </html>

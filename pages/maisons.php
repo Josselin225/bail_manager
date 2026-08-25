@@ -10,6 +10,9 @@ if (!isset($_SESSION['user_id'])) {
 $search  = trim($_GET['search']  ?? '');
 $filtreType   = trim($_GET['type']   ?? '');
 $filtreStatut = trim($_GET['statut'] ?? '');
+$filtreDateEnr  = trim($_GET['date_enr']  ?? '');
+$filtreMoisEnr  = trim($_GET['mois_enr']  ?? '');
+$filtreAnneeEnr = trim($_GET['annee_enr'] ?? '');
 $perPage = 12;
 $page    = max(1, (int)($_GET['page'] ?? 1));
 
@@ -17,6 +20,9 @@ $conds = []; $bind = [];
 if ($search)       { $conds[] = "(m.designation LIKE :s OR m.adresse LIKE :s2 OR b.nom LIKE :s3)"; $bind[':s']=$bind[':s2']=$bind[':s3']="%$search%"; }
 if ($filtreType)   { $conds[] = "m.type_maison = :type";   $bind[':type']   = $filtreType; }
 if ($filtreStatut) { $conds[] = "m.statut = :statut";      $bind[':statut'] = $filtreStatut; }
+if ($filtreDateEnr)       { $conds[] = "DATE(m.created_at) = :date_enr";              $bind[':date_enr']  = $filtreDateEnr; }
+elseif ($filtreMoisEnr)  { $conds[] = "DATE_FORMAT(m.created_at,'%Y-%m') = :mois_enr"; $bind[':mois_enr']  = $filtreMoisEnr; }
+elseif ($filtreAnneeEnr) { $conds[] = "YEAR(m.created_at) = :annee_enr";               $bind[':annee_enr'] = $filtreAnneeEnr; }
 $where = $conds ? "WHERE " . implode(" AND ", $conds) : "";
 
 $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM maisons m JOIN bailleurs b ON m.bailleur_id=b.id $where");
@@ -37,6 +43,31 @@ $stmtList->bindValue(':off', $offset,  PDO::PARAM_INT);
 $stmtList->execute();
 $maisons = $stmtList->fetchAll();
 
+// Jeu de données complet (toutes pages confondues, mêmes filtres) pour les exports PDF/Excel
+$stmtAllM = $pdo->prepare("SELECT m.*, b.nom AS nom_bailleur, l.nom AS locataire_actuel, c.loyer_mensuel AS loyer_contrat
+     FROM maisons m JOIN bailleurs b ON m.bailleur_id=b.id
+     LEFT JOIN contrats c ON m.id=c.maison_id AND c.statut_contrat='actif'
+     LEFT JOIN locataires l ON c.locataire_id=l.id
+     $where ORDER BY m.id DESC");
+$stmtAllM->execute($bind);
+$exportRowsMaisons = array_map(function ($m) {
+    return [
+        'designation' => $m['designation'],
+        'type'        => $m['type_maison'] ?: '—',
+        'bailleur'    => $m['nom_bailleur'],
+        'adresse'     => $m['adresse'] ?: '—',
+        'statut'      => $m['statut'] === 'disponible' ? 'Disponible' : 'Occupé',
+        'locataire'   => $m['locataire_actuel'] ?: '—',
+        'loyer_num'   => (float)($m['loyer'] ?? 0),
+        'date_enr'    => !empty($m['created_at']) ? date('d/m/Y', strtotime($m['created_at'])) : '—',
+    ];
+}, $stmtAllM->fetchAll());
+
+$entrepriseExport = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch();
+if (!$entrepriseExport) {
+    $entrepriseExport = ['nom_entreprise' => 'BailManager', 'adresse_siege' => '', 'contact_telephone' => '', 'contact_email' => ''];
+}
+
 // KPI
 $totalMaisons = (int)$pdo->query("SELECT COUNT(*) FROM maisons")->fetchColumn();
 $nbDispos     = (int)$pdo->query("SELECT COUNT(*) FROM maisons WHERE statut='disponible'")->fetchColumn();
@@ -48,8 +79,8 @@ $tauxOccupation = $totalMaisons > 0 ? round(($nbOccupes / $totalMaisons) * 100) 
 $bailleurs = $pdo->query("SELECT id, nom FROM bailleurs ORDER BY nom ASC")->fetchAll();
 
 function buildUrlM(array $extra = []): string {
-    global $search, $page, $filtreType, $filtreStatut;
-    $p = array_filter(['search'=>$search,'type'=>$filtreType,'statut'=>$filtreStatut,'page'=>$page], fn($v)=>$v!==''&&$v!==null&&$v!==0);
+    global $search, $page, $filtreType, $filtreStatut, $filtreDateEnr, $filtreMoisEnr, $filtreAnneeEnr;
+    $p = array_filter(['search'=>$search,'type'=>$filtreType,'statut'=>$filtreStatut,'page'=>$page,'date_enr'=>$filtreDateEnr,'mois_enr'=>$filtreMoisEnr,'annee_enr'=>$filtreAnneeEnr], fn($v)=>$v!==''&&$v!==null&&$v!==0);
     return '?' . http_build_query(array_merge($p, $extra));
 }
 ?>
@@ -58,6 +89,7 @@ function buildUrlM(array $extra = []): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Parc Immobilier — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -281,9 +313,13 @@ function buildUrlM(array $extra = []): string {
         <div>
             <p class="text-muted small mb-0 mt-1"><?= $totalMaisons ?> bien<?= $totalMaisons>1?'s':'' ?> immobilier<?= $totalMaisons>1?'s':'' ?></p>
         </div>
-        <button class="btn btn-danger btn-sm shadow-sm" style="border-radius:8px;" data-bs-toggle="modal" data-bs-target="#modalMaison">
-            <i class="fa fa-plus-circle me-2"></i>Ajouter une Maison
-        </button>
+        <div class="d-flex gap-2 flex-wrap">
+            <button onclick="exportToExcel()" class="btn btn-sm btn-outline-success" style="border-radius:8px;"><i class="fa fa-file-excel me-1"></i>Excel</button>
+            <button onclick="exportToPDF()"  class="btn btn-sm btn-outline-danger"  style="border-radius:8px;"><i class="fa fa-file-pdf me-1"></i>PDF</button>
+            <button class="btn btn-danger btn-sm shadow-sm" style="border-radius:8px;" data-bs-toggle="modal" data-bs-target="#modalMaison">
+                <i class="fa fa-plus-circle me-2"></i>Ajouter une Maison
+            </button>
+        </div>
     </div>
 
 
@@ -330,7 +366,11 @@ function buildUrlM(array $extra = []): string {
                 <option value="disponible" <?= $filtreStatut==='disponible'?'selected':'' ?>>Disponible</option>
                 <option value="occupe"     <?= $filtreStatut==='occupe'?'selected':'' ?>>Occupé</option>
             </select>
-            <?php if ($search || $filtreType || $filtreStatut): ?>
+            <span class="text-muted small">Enregistré le :</span>
+            <input type="date" name="date_enr" value="<?= htmlspecialchars($filtreDateEnr) ?>" class="form-control form-control-sm" style="max-width:150px;border-radius:8px;" onchange="this.form.mois_enr.value='';this.form.annee_enr.value='';this.form.submit()">
+            <input type="month" name="mois_enr" value="<?= htmlspecialchars($filtreMoisEnr) ?>" class="form-control form-control-sm" style="max-width:140px;border-radius:8px;" onchange="this.form.date_enr.value='';this.form.annee_enr.value='';this.form.submit()">
+            <input type="number" name="annee_enr" value="<?= htmlspecialchars($filtreAnneeEnr) ?>" placeholder="Année" min="2000" max="2100" class="form-control form-control-sm" style="max-width:100px;border-radius:8px;" onchange="this.form.date_enr.value='';this.form.mois_enr.value='';this.form.submit()">
+            <?php if ($search || $filtreType || $filtreStatut || $filtreDateEnr || $filtreMoisEnr || $filtreAnneeEnr): ?>
             <a href="maisons.php" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;"><i class="fa fa-times"></i></a>
             <?php endif; ?>
             <div class="ms-auto text-muted small me-2"><?= $totalRows ?> résultat<?= $totalRows>1?'s':'' ?></div>
@@ -356,12 +396,13 @@ function buildUrlM(array $extra = []): string {
 <table class="table mb-0 tbl-full">
     <thead><tr>
         <th style="width:6%;">Photo</th>
-        <th style="width:20%;">Désignation</th>
-        <th style="width:13%;">Propriétaire</th>
-        <th style="width:14%;">Adresse</th>
-        <th style="width:9%;">Statut</th>
-        <th style="width:14%;">Locataire actuel</th>
-        <th class="text-end" style="width:12%;">Loyer</th>
+        <th style="width:17%;">Désignation</th>
+        <th style="width:11%;">Propriétaire</th>
+        <th style="width:12%;">Adresse</th>
+        <th style="width:8%;">Statut</th>
+        <th style="width:12%;">Locataire actuel</th>
+        <th class="text-end" style="width:10%;">Loyer</th>
+        <th style="width:10%;">Enregistré le</th>
         <th class="text-center" style="width:12%;">Actions</th>
     </tr></thead>
     <tbody>
@@ -395,6 +436,7 @@ function buildUrlM(array $extra = []): string {
             <?php endif; ?>
         </td>
         <td class="text-end fw-bold" style="color:var(--marine);"><?= number_format($m['loyer'],0,',',' ') ?> <small class="text-muted fw-normal">FCFA</small></td>
+        <td class="text-muted small"><?= !empty($m['created_at']) ? date('d/m/Y', strtotime($m['created_at'])) : '—' ?></td>
         <td class="text-center" style="white-space:nowrap;">
             <button type="button" class="btn btn-sm btn-outline-primary btn-edit-maison" style="border-radius:6px;" title="Modifier"
                     data-bs-toggle="modal" data-bs-target="#modalEditMaison"
@@ -411,6 +453,7 @@ function buildUrlM(array $extra = []): string {
                     data-img2="<?= !empty($m['image2']) ? htmlspecialchars('../uploads/maisons/'.trim($m['image2'])) : '' ?>"
                     data-img3="<?= !empty($m['image3']) ? htmlspecialchars('../uploads/maisons/'.trim($m['image3'])) : '' ?>"
             ><i class="fa fa-edit"></i></button>
+            <a href="documents.php?type=maison&id=<?= (int)$m['id'] ?>" class="btn btn-sm btn-outline-dark ms-1" style="border-radius:6px;" title="Documents"><i class="fa fa-paperclip"></i></a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role']==='admin' && $m['statut']!=='occupe'): ?>
             <form action="../php/delete_maison.php" method="POST" style="display:inline" onsubmit="return confirm('Supprimer définitivement ?')">
                 <input type="hidden" name="token" value="<?= csrf_generate() ?>">
@@ -452,7 +495,7 @@ function buildUrlM(array $extra = []): string {
                 <div class="b-info-row"><i class="fa fa-user" style="color:#059669;"></i><span style="color:#059669;font-weight:600;"><?= htmlspecialchars($m['locataire_actuel']) ?></span></div>
                 <?php endif; ?>
                 <?php if (!empty($m['condition']) && $m['condition'] > 0): ?>
-                <div class="b-info-row"><i class="fa fa-shield-halved"></i><span>Caution : <?= $m['condition'] ?> mois</span></div>
+                <div class="b-info-row"><i class="fa fa-shield-halved"></i><span>Caution : <?= htmlspecialchars($m['condition']) ?> mois</span></div>
                 <?php endif; ?>
             </div>
         </div>
@@ -472,6 +515,7 @@ function buildUrlM(array $extra = []): string {
                     data-img2="<?= !empty($m['image2']) ? htmlspecialchars('../uploads/maisons/'.trim($m['image2'])) : '' ?>"
                     data-img3="<?= !empty($m['image3']) ? htmlspecialchars('../uploads/maisons/'.trim($m['image3'])) : '' ?>"
             ><i class="fa fa-edit"></i></button>
+            <a href="documents.php?type=maison&id=<?= (int)$m['id'] ?>" style="color:#374151;border-color:#e5e7eb;background:#f9fafb;" title="Documents"><i class="fa fa-paperclip"></i></a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role']==='admin' && $m['statut']!=='occupe'): ?>
             <form action="../php/delete_maison.php" method="POST" style="display:contents" onsubmit="return confirm('Supprimer définitivement ?')">
                 <input type="hidden" name="token" value="<?= csrf_generate() ?>">
@@ -504,6 +548,9 @@ function buildUrlM(array $extra = []): string {
 </div><!-- /main-content -->
 
 <script src="../js/bootstrap.bundle.min.js"></script>
+<script src="../js/xlsx.full.min.js"></script>
+<script src="../js/jspdf.umd.min.js"></script>
+<script src="../js/jspdf.plugin.autotable.min.js"></script>
 <script>
 function setView(v) {
     document.getElementById('vueListe').style.display  = v==='liste'  ? 'block':'none';
@@ -542,6 +589,144 @@ document.getElementById('modalEditMaison').addEventListener('show.bs.modal', fun
         else { img.style.display = 'none'; }
     });
 });
+
+// ── Exports PDF / Excel (répertoire complet, indépendant de la pagination) ──
+var exportRowsMaisons = <?= json_encode($exportRowsMaisons, JSON_UNESCAPED_UNICODE) ?>;
+var agenceInfoMaisons = {
+    nom: <?= json_encode($entrepriseExport['nom_entreprise'], JSON_UNESCAPED_UNICODE) ?>,
+    adresse: <?= json_encode($entrepriseExport['adresse_siege'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    tel: <?= json_encode($entrepriseExport['contact_telephone'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    email: <?= json_encode($entrepriseExport['contact_email'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    logo: <?= (!empty($entrepriseExport['logo_url']) && file_exists('../uploads/' . $entrepriseExport['logo_url']))
+        ? json_encode('../uploads/' . $entrepriseExport['logo_url'], JSON_UNESCAPED_UNICODE)
+        : 'null' ?>
+};
+
+function loadImageAsDataURLMaisons(url) {
+    return new Promise(function(resolve) {
+        if (!url) { resolve(null); return; }
+        var img = new Image();
+        img.onload = function() {
+            try {
+                var canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve({ dataUrl: canvas.toDataURL('image/png'), ratio: img.naturalWidth / img.naturalHeight });
+            } catch (e) { resolve(null); }
+        };
+        img.onerror = function() { resolve(null); };
+        img.src = url;
+    });
+}
+
+function exportToExcel() {
+    var rows = exportRowsMaisons.map(function(r) {
+        return {
+            'Désignation': r.designation,
+            'Type': r.type,
+            'Propriétaire': r.bailleur,
+            'Adresse': r.adresse,
+            'Statut': r.statut,
+            'Locataire actuel': r.locataire,
+            'Loyer (FCFA)': r.loyer_num,
+            'Date d\'enregistrement': r.date_enr
+        };
+    });
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:26},{wch:14},{wch:20},{wch:28},{wch:12},{wch:20},{wch:14},{wch:16}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Maisons');
+    XLSX.writeFile(wb, 'Liste_Maisons.xlsx');
+}
+
+function fmtNumPdf(n) {
+    // jsPDF (police standard) ne sait pas afficher l'espace fine insécable
+    // que produit Intl.NumberFormat('fr-FR') pour les milliers : le texte
+    // apparaît alors éclaté lettre par lettre. On force un espace normal.
+    return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function exportToPDF() {
+    loadImageAsDataURLMaisons(agenceInfoMaisons.logo).then(function(logo) {
+    var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    var marine = [0, 33, 71];
+    var pageW = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(marine[0], marine[1], marine[2]);
+    doc.text(agenceInfoMaisons.nom || 'BailManager', 14, 16);
+
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(90, 90, 90);
+    var coordLine = [agenceInfoMaisons.tel, agenceInfoMaisons.email].filter(Boolean).join('  •  ');
+    if (agenceInfoMaisons.adresse) doc.text(agenceInfoMaisons.adresse, 14, 21);
+    if (coordLine) doc.text(coordLine, 14, 25);
+
+    if (logo) {
+        var logoH = 16, logoW = logoH * logo.ratio;
+        doc.addImage(logo.dataUrl, 'PNG', pageW - 14 - logoW, 8, logoW, logoH);
+    }
+
+    doc.setDrawColor(marine[0], marine[1], marine[2]);
+    doc.setLineWidth(0.6);
+    doc.line(14, 28, pageW - 14, 28);
+
+    doc.setFontSize(12.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 30, 30);
+    doc.text('Répertoire des Maisons', 14, 36);
+
+    var nbDispo = exportRowsMaisons.filter(function(r) { return r.statut === 'Disponible'; }).length;
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+        exportRowsMaisons.length + ' bien' + (exportRowsMaisons.length > 1 ? 's' : '') +
+        ' — ' + nbDispo + ' disponible' + (nbDispo > 1 ? 's' : '') + ', ' + (exportRowsMaisons.length - nbDispo) + ' occupé' + ((exportRowsMaisons.length - nbDispo) > 1 ? 's' : ''),
+        14, 42
+    );
+    doc.text('Généré le ' + new Date().toLocaleDateString('fr-FR'), pageW - 14, 42, { align: 'right' });
+
+    doc.autoTable({
+        startY: 47,
+        head: [['Désignation', 'Propriétaire', 'Adresse', 'Statut', 'Locataire actuel', 'Loyer', 'Enregistré le']],
+        body: exportRowsMaisons.map(function(r) {
+            return [r.designation + (r.type && r.type !== '—' ? '\n' + r.type : ''), r.bailleur, r.adresse, r.statut, r.locataire, fmtNumPdf(r.loyer_num) + ' FCFA', r.date_enr];
+        }),
+        theme: 'striped',
+        styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
+        headStyles: { fillColor: marine, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 252] },
+        columnStyles: {
+            0: { cellWidth: 42 },
+            5: { cellWidth: 26, halign: 'right' },
+            6: { cellWidth: 22 }
+        },
+        didParseCell: function(data) {
+            if (data.section === 'body' && data.column.index === 3) {
+                data.cell.styles.textColor = data.cell.raw === 'Disponible' ? [5, 150, 105] : [217, 119, 6];
+                data.cell.styles.fontStyle = 'bold';
+            }
+        },
+        didDrawPage: function(data) {
+            var pageCount = doc.internal.getNumberOfPages();
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+                'BailManager — page ' + data.pageNumber + '/' + pageCount,
+                pageW / 2,
+                doc.internal.pageSize.getHeight() - 8,
+                { align: 'center' }
+            );
+        }
+    });
+
+    doc.save('Liste_Maisons.pdf');
+    });
+}
 </script>
 </body>
 </html>

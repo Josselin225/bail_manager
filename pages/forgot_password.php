@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 ?>
@@ -7,6 +7,7 @@ require_once('../config/db.php');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Récupération - BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -20,8 +21,15 @@ require_once('../config/db.php');
         <div class="col-md-4">
             <div class="card shadow p-4">
                 <h4 class="text-center fw-bold mb-4">Récupération</h4>
+
+                <?php if (isset($_GET['sent'])): ?>
+                <div class="alert alert-success small">Si un compte existe avec cet email, un lien de réinitialisation vient de lui être envoyé. Vérifiez votre boîte de réception.</div>
+                <?php elseif (isset($_GET['error']) && $_GET['error'] === 'too_many'): ?>
+                <div class="alert alert-warning small">Trop de demandes. Veuillez réessayer dans quelques minutes.</div>
+                <?php else: ?>
                 <p class="text-muted small">Saisissez votre email pour recevoir un lien de réinitialisation.</p>
-                
+                <?php endif; ?>
+
                 <form action="../php/process_forgot.php" method="POST">
                     <input type="hidden" name="token" value="<?= csrf_generate() ?>">
                     <div class="mb-3">

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once('../config/db.php');
 
 $token = $_GET['token'] ?? '';
@@ -21,6 +21,7 @@ if ($token) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Nouveau mot de passe - BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -36,10 +37,15 @@ if ($token) {
                 <?php if ($isValid): ?>
                     <h4 class="text-center fw-bold mb-3">Réinitialisation</h4>
                     <p class="text-center text-muted small">Veuillez choisir un nouveau mot de passe sécurisé.</p>
-                    
+                    <?php if (isset($_GET['error'])): ?>
+                    <div class="alert alert-danger small py-2">
+                        <?= $_GET['error'] === 'mismatch' ? "Les mots de passe ne correspondent pas (ou sont trop courts, 6 caractères minimum)." : "Une erreur est survenue, veuillez réessayer." ?>
+                    </div>
+                    <?php endif; ?>
+
                     <form action="../php/complete_reset.php" method="POST">
                         <input type="hidden" name="token" value="<?= csrf_generate() ?>">
-                        <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+                        <input type="hidden" name="reset_token" value="<?= htmlspecialchars($token) ?>">
                         
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Nouveau mot de passe</label>

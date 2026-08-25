@@ -41,6 +41,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $pdo->beginTransaction();
         $user = $_SESSION['nom_complet'] ?? 'Administrateur';
 
+        $stmtBailleurId = $pdo->prepare("SELECT bailleur_id FROM maisons WHERE id = ?");
+        $stmtBailleurId->execute([$contratActif['maison_id']]);
+        $bailleur_id = $stmtBailleurId->fetchColumn();
+
         // --- LOGIQUE DE DÉBIT DE LA CAUTION ---
         if ($est_restitution_finale) {
             // CAS 1 : On vide tout car le locataire part
@@ -58,15 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         // --- TRANSFERTS VERS AGENCE OU BAILLEUR ---
         if ($retenue_reparation > 0) {
-            $stmtAgence = $pdo->prepare("INSERT INTO mouvements_caisse_entreprise (type_mouvement, montant, commentaire, effectue_par) VALUES ('Entrée (Réparation)', ?, ?, ?)");
-            $stmtAgence->execute([$retenue_reparation, "Réparation locataire ID: $locataire_id", $user]);
+            $stmtAgence = $pdo->prepare("INSERT INTO mouvements_caisse_entreprise (bailleur_id, type_mouvement, montant, commentaire, effectue_par) VALUES (?, 'Entrée (Réparation)', ?, ?, ?)");
+            $stmtAgence->execute([$bailleur_id ?: null, $retenue_reparation, "Réparation locataire ID: $locataire_id", $user]);
         }
 
         if ($retenue_loyer > 0) {
-            $stmtBailleurId = $pdo->prepare("SELECT bailleur_id FROM maisons WHERE id = ?");
-            $stmtBailleurId->execute([$contratActif['maison_id']]);
-            $bailleur_id = $stmtBailleurId->fetchColumn();
-
             if ($bailleur_id) {
                 $pdo->prepare(
                     "INSERT INTO compte_courant_bailleur (bailleur_id, montant, type_operation, commentaire)

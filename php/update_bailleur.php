@@ -14,18 +14,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $adresse = $_POST['adresse'];
 
     // Gestion de la nouvelle photo (facultative — on garde l'ancienne si absente)
-    $allowed_mime = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     $photo_sql = '';
     $photo_name = null;
     if (isset($_FILES['photo']) && $_FILES['photo']['error'] === 0) {
         $mime = mime_content_type($_FILES['photo']['tmp_name']);
-        if (!in_array($mime, $allowed_mime)) {
+        $ext  = mimeToImageExt($mime);
+        if ($ext === null) {
             flash('error', "Format de fichier non autorisé.");
             header('Location: ../pages/bailleurs.php');
             exit();
         }
-        $ext = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
-        $new_name = "BA_" . time() . "." . strtolower($ext);
+        $new_name = "BA_" . time() . "." . $ext;
         if (move_uploaded_file($_FILES['photo']['tmp_name'], "../uploads/bailleurs/" . $new_name)) {
             $photo_name = $new_name;
             $photo_sql = ', photo = ?';

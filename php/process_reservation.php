@@ -4,8 +4,14 @@ require_once('../config/db.php');
 
 if (!isset($_SESSION['user_id'])) { header('Location: ../pages/login.php'); exit(); }
 
-$id     = isset($_GET['id'])     ? (int)$_GET['id']     : 0;
-$action = isset($_GET['action']) ? trim($_GET['action']) : '';
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ../pages/liste_reservations.php');
+    exit();
+}
+csrf_validate();
+
+$id     = isset($_POST['id'])     ? (int)$_POST['id']     : 0;
+$action = isset($_POST['action']) ? trim($_POST['action']) : '';
 
 if (!$id || !in_array($action, ['terminer','supprimer'])) {
     header('Location: ../pages/liste_reservations.php');

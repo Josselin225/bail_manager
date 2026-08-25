@@ -62,6 +62,31 @@ CREATE TABLE `charges_locatives` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `clauses_contrat`
+--
+
+DROP TABLE IF EXISTS `clauses_contrat`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `clauses_contrat` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `titre` varchar(150) NOT NULL,
+  `contenu` text NOT NULL,
+  `ordre_affichage` int NOT NULL DEFAULT '0',
+  `actif` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+INSERT INTO `clauses_contrat` (`titre`, `contenu`, `ordre_affichage`, `actif`) VALUES
+('Cadre légal', 'Le présent bail est régi par les lois en vigueur relatives aux baux à usage d\'habitation.', 1, 1),
+('Préavis de résiliation', 'Le préavis de résiliation est fixé à trois (03) mois, notifié par lettre recommandée ou acte d\'huissier.', 2, 1),
+('Paiement du loyer', 'Le preneur s\'engage à payer le loyer au plus tard le 05 de chaque mois.', 3, 1),
+('Charges et abonnements', 'Les charges d\'abonnement et de consommation d\'eau et d\'électricité sont à la charge exclusive du preneur.', 4, 1);
+
+--
 -- Table structure for table `compte_courant_bailleur`
 --
 
@@ -99,6 +124,8 @@ CREATE TABLE `contrats` (
   `statut_contrat` enum('actif','termine') DEFAULT 'actif',
   `date_contrat` date DEFAULT NULL COMMENT 'date de signature du contrat',
   `depot_garantie` decimal(10,2) DEFAULT NULL COMMENT 'caution',
+  `avance_loyer` decimal(10,2) DEFAULT NULL COMMENT 'avance de loyer versée à la signature',
+  `droit_agence` decimal(10,2) DEFAULT NULL COMMENT 'frais d''agence non remboursables',
   `solde_actuel` decimal(10,2) DEFAULT NULL,
   `depot_garantie_actuel` decimal(10,2) DEFAULT NULL,
   `date_prochain_loyer` date DEFAULT NULL,
@@ -163,6 +190,7 @@ CREATE TABLE `locataires` (
   `nom` varchar(100) NOT NULL,
   `telephone1` varchar(14) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   `telephone2` varchar(14) DEFAULT NULL,
+  `email` varchar(150) DEFAULT NULL,
   `piece_identite` varchar(50) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `photo_locataire` varchar(255) DEFAULT NULL,
@@ -170,6 +198,48 @@ CREATE TABLE `locataires` (
   `photo_cni_verso` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `documents`
+--
+
+DROP TABLE IF EXISTS `documents`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `documents` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `entity_type` enum('bailleur','locataire','contrat','maison') NOT NULL,
+  `entity_id` int NOT NULL,
+  `nom_original` varchar(255) NOT NULL,
+  `nom_fichier` varchar(255) NOT NULL,
+  `type_mime` varchar(100) DEFAULT NULL,
+  `taille` int DEFAULT NULL,
+  `uploaded_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_entity` (`entity_type`,`entity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `messages_locataires`
+--
+
+DROP TABLE IF EXISTS `messages_locataires`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `messages_locataires` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `locataire_id` int NOT NULL,
+  `expediteur` enum('locataire','agence') NOT NULL,
+  `contenu` text NOT NULL,
+  `lu` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `locataire_id` (`locataire_id`),
+  CONSTRAINT `messages_locataires_ibfk_1` FOREIGN KEY (`locataire_id`) REFERENCES `locataires` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -230,6 +300,7 @@ CREATE TABLE `maisons` (
   `image1` varchar(255) DEFAULT NULL,
   `image2` varchar(255) DEFAULT NULL,
   `image3` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `bailleur_id` (`bailleur_id`),
   CONSTRAINT `maisons_ibfk_1` FOREIGN KEY (`bailleur_id`) REFERENCES `bailleurs` (`id`) ON DELETE CASCADE
@@ -394,6 +465,7 @@ CREATE TABLE `settings` (
   `contact_email` varchar(255) DEFAULT NULL,
   `contact_telephone` varchar(50) DEFAULT NULL,
   `taux_commission` decimal(5,2) DEFAULT '10.00',
+  `rappels_actifs` tinyint(1) NOT NULL DEFAULT '1',
   `adresse_siege` text,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `logo_url` varchar(255) DEFAULT NULL,
@@ -414,6 +486,8 @@ CREATE TABLE `users` (
   `email` varchar(100) NOT NULL,
   `mot_de_passe` varchar(255) NOT NULL,
   `role` enum('admin','agent') DEFAULT 'agent',
+  `session_timeout_minutes` int NOT NULL DEFAULT '10',
+  `photo_profil` varchar(255) DEFAULT NULL,
   `dernier_acces` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `reset_token` varchar(255) DEFAULT NULL,

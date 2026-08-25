@@ -3,6 +3,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once('../config/db.php');
 
 if (!isset($_SESSION['user_id'])) { header('Location: login.php'); exit(); }
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') { header('Location: dashboard.php'); exit(); }
 
 $contrat_id = isset($_GET['contrat_id']) ? (int)$_GET['contrat_id'] : 0;
 
@@ -14,7 +15,7 @@ $params = []; $where = "";
 if ($contrat_id) { $where = "WHERE r.contrat_id = ?"; $params = [$contrat_id]; }
 
 $stmtRev = $pdo->prepare(
-    "SELECT r.*, c.loyer_mensuel AS ancien_loyer, l.nom AS locataire, m.designation AS maison, u.nom_complet AS effectue_par_nom
+    "SELECT r.*, l.nom AS locataire, m.designation AS maison, u.nom_complet AS effectue_par_nom
      FROM revisions_loyer r JOIN contrats c ON r.contrat_id=c.id JOIN locataires l ON c.locataire_id=l.id JOIN maisons m ON c.maison_id=m.id LEFT JOIN users u ON r.effectue_par=u.id
      $where ORDER BY r.created_at DESC LIMIT 100"
 );
@@ -30,6 +31,7 @@ $revBaisse     = (int)  $pdo->query("SELECT COUNT(*) FROM revisions_loyer WHERE 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Révisions de loyer — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -62,6 +64,7 @@ $revBaisse     = (int)  $pdo->query("SELECT COUNT(*) FROM revisions_loyer WHERE 
 <div class="modal fade" id="modalRevision" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form class="modal-content border-0 shadow-lg" action="../php/add_revision_loyer.php" method="POST">
+            <input type="hidden" name="token" value="<?= csrf_generate() ?>">
             <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#002147,#004080);">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-circle bg-white bg-opacity-10 d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="fa fa-arrow-trend-up text-white"></i></div>
@@ -85,7 +88,7 @@ $revBaisse     = (int)  $pdo->query("SELECT COUNT(*) FROM revisions_loyer WHERE 
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Nouveau loyer (FCFA) <span class="text-danger">*</span></label>
-                        <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-arrow-up text-muted"></i></span><input type="number" name="nouveau_loyer" class="form-control border-start-0 ps-0" min="1" step="1000" required></div>
+                        <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-arrow-up text-muted"></i></span><input type="number" name="nouveau_loyer" class="form-control border-start-0 ps-0" min="1000" step="1000" required></div>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Motif</label>

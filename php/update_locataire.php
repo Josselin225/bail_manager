@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nom = htmlspecialchars($_POST['nom']);
     $tel1 = htmlspecialchars($_POST['telephone1']);
     $tel2 = htmlspecialchars($_POST['telephone2']);
+    $email = trim($_POST['email'] ?? '') ?: null;
     $piece = htmlspecialchars($_POST['piece_identite']);
 
     try {
@@ -20,14 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 2. Gestion du téléchargement de la nouvelle photo de profil (si présente)
         if (isset($_FILES['photo_locataire']) && $_FILES['photo_locataire']['error'] === 0) {
-            $allowed_mime = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            if (!in_array(mime_content_type($_FILES['photo_locataire']['tmp_name']), $allowed_mime)) {
+            $extension = mimeToImageExt(mime_content_type($_FILES['photo_locataire']['tmp_name']));
+            if ($extension === null) {
                 flash('error', "Format de fichier non autorisé.");
                 header('Location: ../pages/locataires.php');
                 exit();
             }
             $upload_dir = '../uploads/locataires/';
-            $extension = strtolower(pathinfo($_FILES['photo_locataire']['name'], PATHINFO_EXTENSION));
             $new_filename = 'loc_' . time() . '_' . uniqid() . '.' . $extension;
 
             if (move_uploaded_file($_FILES['photo_locataire']['tmp_name'], $upload_dir . $new_filename)) {
@@ -40,19 +40,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // 3. Mise à jour de la base de données
-        $sql = "UPDATE locataires SET 
-                nom = :nom, 
-                telephone1 = :tel1, 
-                telephone2 = :tel2, 
-                piece_identite = :piece, 
-                photo_locataire = :photo 
+        $sql = "UPDATE locataires SET
+                nom = :nom,
+                telephone1 = :tel1,
+                telephone2 = :tel2,
+                email = :email,
+                piece_identite = :piece,
+                photo_locataire = :photo
                 WHERE id = :id";
-        
+
         $update = $pdo->prepare($sql);
         $update->execute([
             ':nom' => $nom,
             ':tel1' => $tel1,
             ':tel2' => $tel2,
+            ':email' => $email,
             ':piece' => $piece,
             ':photo' => $photo_name,
             ':id' => $id

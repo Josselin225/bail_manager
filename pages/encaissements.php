@@ -55,6 +55,7 @@ $moisList = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août',
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Suivi des Encaissements — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -161,6 +162,9 @@ $moisList = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août',
         <div>
             <p class="text-muted small mb-0 mt-1">Contrats actifs — loyers en attente</p>
         </div>
+        <a href="liste_encaissements.php" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
+            <i class="fa fa-list me-2"></i>Tous les encaissements
+        </a>
     </div>
 
     <?php if (!empty($alertesEnc)): ?>

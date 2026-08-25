@@ -2,8 +2,15 @@
 session_start();
 require_once('../config/db.php');
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ../pages/dashboard.php');
+    exit();
+}
+csrf_validate();
+
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ../pages/dashboard.php?msg=access_denied');
+    flash('error', "Accès refusé : réservé à l'administrateur.");
+    header('Location: ../pages/dashboard.php');
     exit();
 }
 
@@ -41,9 +48,10 @@ exec($command, $output, $returnVar);
 
 if ($returnVar === 0) {
     insertLog($pdo, "Sauvegarde DB", "Fichier : $filename");
-    header("Location: ../pages/dashboard.php?backup=success&file=" . urlencode($filename));
+    flash('success', "Sauvegarde créée : $filename");
 } else {
     error_log("Erreur mysqldump : " . implode("\n", $output));
-    header("Location: ../pages/dashboard.php?backup=error");
+    flash('error', "Échec de la sauvegarde. Consultez les logs pour plus de détails.");
 }
+header("Location: ../pages/dashboard.php");
 exit();

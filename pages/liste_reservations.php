@@ -44,6 +44,7 @@ function buildUrlR(array $extra = []): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Réservations — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -73,7 +74,7 @@ function buildUrlR(array $extra = []): string {
         .visitor-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#002147,#004080); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .badge-attente { background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; }
         .badge-termine { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; }
-        .action-btn { width:32px; height:32px; border-radius:8px; border:1.5px solid transparent; display:inline-flex; align-items:center; justify-content:center; font-size:13px; cursor:pointer; transition:all .15s; text-decoration:none; }
+        .action-btn { width:32px; height:32px; border-radius:8px; border:1.5px solid transparent; display:inline-flex; align-items:center; justify-content:center; font-size:13px; cursor:pointer; transition:all .15s; text-decoration:none; background:transparent; padding:0; font-family:inherit; }
         .action-btn.whatsapp { border-color:#22c55e; color:#22c55e; }
         .action-btn.whatsapp:hover { background:#22c55e; color:#fff; }
         .action-btn.validate { border-color:var(--marine); color:var(--marine); }
@@ -167,9 +168,19 @@ function buildUrlR(array $extra = []): string {
             <div class="d-flex gap-1 justify-content-center">
                 <a href="https://wa.me/<?= $waNum ?>" target="_blank" class="action-btn whatsapp" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
                 <?php if ($res['statut']==='en_attente'): ?>
-                <a href="../php/process_reservation.php?action=terminer&id=<?= $res['id'] ?>" class="action-btn validate" onclick="return confirm('Marquer comme effectuée ?')" title="Valider"><i class="fa fa-check"></i></a>
+                <form method="POST" action="../php/process_reservation.php" style="display:inline" onsubmit="return confirm('Marquer comme effectuée ?')">
+                    <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+                    <input type="hidden" name="action" value="terminer">
+                    <input type="hidden" name="id" value="<?= (int)$res['id'] ?>">
+                    <button type="submit" class="action-btn validate" title="Valider"><i class="fa fa-check"></i></button>
+                </form>
                 <?php endif; ?>
-                <a href="../php/process_reservation.php?action=supprimer&id=<?= $res['id'] ?>" class="action-btn delete" onclick="return confirm('Supprimer définitivement ?')" title="Supprimer"><i class="fa fa-trash"></i></a>
+                <form method="POST" action="../php/process_reservation.php" style="display:inline" onsubmit="return confirm('Supprimer définitivement ?')">
+                    <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+                    <input type="hidden" name="action" value="supprimer">
+                    <input type="hidden" name="id" value="<?= (int)$res['id'] ?>">
+                    <button type="submit" class="action-btn delete" title="Supprimer"><i class="fa fa-trash"></i></button>
+                </form>
             </div>
         </td>
     </tr>

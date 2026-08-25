@@ -103,10 +103,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             recalculerSoldeBailleur($pdo, $bailleur_id);
 
-            $sqlCaisse = "INSERT INTO mouvements_caisse_entreprise (type_mouvement, montant, commentaire, date_operation) 
-                        VALUES ('Commission Gestion', ?, ?, NOW())";
+            $sqlCaisse = "INSERT INTO mouvements_caisse_entreprise (bailleur_id, type_mouvement, montant, commentaire, date_operation)
+                        VALUES (?, 'Commission Gestion', ?, ?, NOW())";
             $com_a = "Commission $taux% sur $periode - Reçu $ref";
-            $pdo->prepare($sqlCaisse)->execute([$commission_agence, $com_a]);
+            $pdo->prepare($sqlCaisse)->execute([$bailleur_id, $commission_agence, $com_a]);
         }
 
         $pdo->commit();

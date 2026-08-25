@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 
@@ -41,6 +41,7 @@ if (!$maisons) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Nos Maisons - BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -237,7 +238,7 @@ if (!$maisons) {
                 <h5 class="text-uppercase fw-bold border-bottom border-danger d-inline-block">Contact</h5>
                 <p class="mt-3">
                     <i class="fa fa-envelope me-2 text-danger"></i> 
-                    <a href="mailto:<?= $entreprise['contact_email'] ?>" class="text-white text-decoration-none">
+                    <a href="mailto:<?= htmlspecialchars($entreprise['contact_email']) ?>" class="text-white text-decoration-none">
                         <?= htmlspecialchars($entreprise['contact_email']) ?>
                     </a>
                 </p>

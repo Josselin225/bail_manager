@@ -5,8 +5,11 @@ require_once('../config/db.php');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
     $maison_id = $_POST['maison_id'];
-    $nom = htmlspecialchars($_POST['nom_visiteur']);
-    $tel = htmlspecialchars($_POST['tel_visiteur']);
+    // Stocké tel quel (non échappé) : l'échappement se fait à l'affichage (HTML) selon
+    // le contexte, pas à l'enregistrement — sinon les entités survivent au JSON/JS et
+    // sont ré-interprétées comme du HTML actif une fois décodées côté navigateur.
+    $nom = trim($_POST['nom_visiteur']);
+    $tel = trim($_POST['tel_visiteur']);
     $date_visite = $_POST['date_visite'];
 
     try {

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 
@@ -37,6 +37,7 @@ if (!$c) die("Contrat introuvable.");
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Reçu de solde de tout compte - <?= htmlspecialchars($c['locataire_nom']) ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">

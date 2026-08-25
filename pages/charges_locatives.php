@@ -32,6 +32,7 @@ $typesCharges = ['Eau','Électricité','Ordures','Entretien','Réparation','Copr
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Charges locatives — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -85,7 +86,7 @@ $typesCharges = ['Eau','Électricité','Ordures','Entretien','Réparation','Copr
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Montant (FCFA) <span class="text-danger">*</span></label>
-                        <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-money-bill text-muted"></i></span><input type="number" name="montant" class="form-control border-start-0 ps-0" min="1" step="100" required></div>
+                        <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-money-bill text-muted"></i></span><input type="number" name="montant" class="form-control border-start-0 ps-0" min="100" step="100" required></div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date <span class="text-danger">*</span></label>

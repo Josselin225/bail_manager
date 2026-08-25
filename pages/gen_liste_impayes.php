@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (!isset($_SESSION['user_id'])) { header('Location: login.php'); exit(); }
 require_once('../config/db.php');
@@ -35,6 +35,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Liste des Impayés - <?= $mois_actuel ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -80,9 +81,9 @@ try {
                         <tbody>
                             <?php foreach($impayes as $i): ?>
                             <tr>
-                                <td class="fw-bold"><?= $i['locataire'] ?></td>
-                                <td><?= $i['contact'] ?? '<span class="text-muted">Non renseigné</span>' ?></td>
-                                <td><?= $i['maison'] ?></td>
+                                <td class="fw-bold"><?= htmlspecialchars($i['locataire']) ?></td>
+                                <td><?= !empty($i['contact']) ? htmlspecialchars($i['contact']) : '<span class="text-muted">Non renseigné</span>' ?></td>
+                                <td><?= htmlspecialchars($i['maison']) ?></td>
                                 <td class="text-end fw-bold text-danger"><?= number_format($i['loyer_mensuel'], 0, ',', ' ') ?> FCFA</td>
                                 <td class="text-center no-print">
                                     <?php if(!empty($i['contact'])): ?>

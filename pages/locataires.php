@@ -9,6 +9,9 @@ if (!isset($_SESSION['user_id'])) {
 
 $search  = trim($_GET['search'] ?? '');
 $filtre  = $_GET['filtre'] ?? 'tous'; // tous | actif | libre
+$filtreDateEnr  = trim($_GET['date_enr']  ?? '');
+$filtreMoisEnr  = trim($_GET['mois_enr']  ?? '');
+$filtreAnneeEnr = trim($_GET['annee_enr'] ?? '');
 $perPage = 12;
 $page    = max(1, (int)($_GET['page'] ?? 1));
 
@@ -27,6 +30,9 @@ if ($filtre === 'actif') {
 } elseif ($filtre === 'libre') {
     $conditions[] = "c.id IS NULL";
 }
+if ($filtreDateEnr)       { $conditions[] = "DATE(l.created_at) = :date_enr";              $bindSearch[':date_enr']  = $filtreDateEnr; }
+elseif ($filtreMoisEnr)  { $conditions[] = "DATE_FORMAT(l.created_at,'%Y-%m') = :mois_enr"; $bindSearch[':mois_enr']  = $filtreMoisEnr; }
+elseif ($filtreAnneeEnr) { $conditions[] = "YEAR(l.created_at) = :annee_enr";               $bindSearch[':annee_enr'] = $filtreAnneeEnr; }
 $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
 $totalLocataires = (int)$pdo->query("SELECT COUNT(*) FROM locataires")->fetchColumn();
@@ -62,9 +68,34 @@ $stmtList->bindValue(':off', $offset,  PDO::PARAM_INT);
 $stmtList->execute();
 $locataires = $stmtList->fetchAll();
 
+// Jeu de données complet (toutes pages confondues, mêmes filtres) pour les exports PDF/Excel
+$stmtAll = $pdo->prepare("$baseQuery ORDER BY l.nom ASC");
+$stmtAll->execute($bindSearch);
+$exportRows = array_map(function ($l) {
+    $isActif = !empty($l['contrat_id']);
+    return [
+        'nom'       => $l['nom'],
+        'piece'     => $l['piece_identite'] ?: '—',
+        'statut'    => $isActif ? 'Actif' : 'Libre',
+        'maison'    => $isActif && !empty($l['nom_maison']) ? $l['nom_maison'] : '—',
+        'adresse'   => $isActif ? ($l['adresse_maison'] ?? '') : '',
+        'loyer'     => $isActif && !empty($l['loyer_mensuel']) ? number_format($l['loyer_mensuel'], 0, ',', ' ') . ' FCFA' : '—',
+        'loyer_num' => $isActif && !empty($l['loyer_mensuel']) ? (float)$l['loyer_mensuel'] : null,
+        'tel1'      => $l['telephone1'] ?? '',
+        'tel2'      => $l['telephone2'] ?? '',
+        'date_enr'  => !empty($l['created_at']) ? date('d/m/Y', strtotime($l['created_at'])) : '—',
+    ];
+}, $stmtAll->fetchAll());
+
+// Coordonnées agence (en-tête des exports)
+$entreprise = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch();
+if (!$entreprise) {
+    $entreprise = ['nom_entreprise' => 'BailManager', 'adresse_siege' => '', 'contact_telephone' => '', 'contact_email' => ''];
+}
+
 function buildUrlL(array $extra = []): string {
-    global $search, $page, $filtre;
-    $p = array_filter(['search'=>$search,'page'=>$page,'filtre'=>$filtre], fn($v)=>$v!==''&&$v!==null&&$v!==0&&$v!=='tous');
+    global $search, $page, $filtre, $filtreDateEnr, $filtreMoisEnr, $filtreAnneeEnr;
+    $p = array_filter(['search'=>$search,'page'=>$page,'filtre'=>$filtre,'date_enr'=>$filtreDateEnr,'mois_enr'=>$filtreMoisEnr,'annee_enr'=>$filtreAnneeEnr], fn($v)=>$v!==''&&$v!==null&&$v!==0&&$v!=='tous');
     return '?' . http_build_query(array_merge($p, $extra));
 }
 
@@ -80,6 +111,7 @@ $avatarColors = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Répertoire des Locataires — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -213,6 +245,14 @@ $avatarColors = [
                                 <input type="text" name="telephone2" class="form-control border-start-0 ps-0" placeholder="01XXXXXXXX">
                             </div>
                         </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Email (optionnel)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="fa fa-envelope text-muted"></i></span>
+                                <input type="email" name="email" class="form-control border-start-0 ps-0" placeholder="locataire@exemple.com">
+                            </div>
+                            <small class="text-muted" style="font-size:10px;">Utilisé pour les rappels automatiques de loyer.</small>
+                        </div>
                     </div>
                 </div>
                 <hr class="mx-4 my-0 opacity-10">
@@ -264,6 +304,11 @@ $avatarColors = [
                     <div class="col-md-6">
                         <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Téléphone 2</label>
                         <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-mobile-alt text-muted"></i></span><input type="text" name="telephone2" id="edit_tel2" class="form-control border-start-0 ps-0"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Email (optionnel)</label>
+                        <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-envelope text-muted"></i></span><input type="email" name="email" id="edit_email" class="form-control border-start-0 ps-0" placeholder="locataire@exemple.com"></div>
+                        <small class="text-muted" style="font-size:10px;">Utilisé pour les rappels automatiques de loyer.</small>
                     </div>
                     <div class="col-12">
                         <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">N° Pièce d'identité <span class="text-danger">*</span></label>
@@ -346,6 +391,13 @@ $avatarColors = [
                 <a href="<?= buildUrlL(['search'=>'','page'=>1]) ?>" class="btn btn-sm btn-outline-secondary ms-1" style="border-radius:8px;"><i class="fa fa-times"></i></a>
                 <?php endif; ?>
             </div>
+            <span class="text-muted small">Enregistré le :</span>
+            <input type="date" name="date_enr" value="<?= htmlspecialchars($filtreDateEnr) ?>" class="form-control form-control-sm" style="max-width:150px;border-radius:8px;" onchange="this.form.mois_enr.value='';this.form.annee_enr.value='';this.form.submit()">
+            <input type="month" name="mois_enr" value="<?= htmlspecialchars($filtreMoisEnr) ?>" class="form-control form-control-sm" style="max-width:140px;border-radius:8px;" onchange="this.form.date_enr.value='';this.form.annee_enr.value='';this.form.submit()">
+            <input type="number" name="annee_enr" value="<?= htmlspecialchars($filtreAnneeEnr) ?>" placeholder="Année" min="2000" max="2100" class="form-control form-control-sm" style="max-width:100px;border-radius:8px;" onchange="this.form.date_enr.value='';this.form.mois_enr.value='';this.form.submit()">
+            <?php if ($filtreDateEnr || $filtreMoisEnr || $filtreAnneeEnr): ?>
+            <a href="<?= buildUrlL(['date_enr'=>'','mois_enr'=>'','annee_enr'=>'','page'=>1]) ?>" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;"><i class="fa fa-times"></i></a>
+            <?php endif; ?>
             <div class="text-muted small"><?= $totalRows ?> résultat<?= $totalRows>1?'s':'' ?></div>
             <div class="view-toggle">
                 <button type="button" id="btnVueListe" onclick="setView('liste')" title="Vue liste"><i class="fa fa-list-ul"></i></button>
@@ -368,11 +420,12 @@ $avatarColors = [
 <div id="vueListe">
 <table class="table mb-0 tbl-full" id="locatairesTable">
     <thead><tr>
-        <th style="width:28%;">Locataire</th>
-        <th style="width:14%;">Statut</th>
-        <th style="width:20%;">Maison actuelle</th>
-        <th style="width:14%;">Loyer / mois</th>
-        <th style="width:14%;">Contact</th>
+        <th style="width:24%;">Locataire</th>
+        <th style="width:12%;">Statut</th>
+        <th style="width:18%;">Maison actuelle</th>
+        <th style="width:12%;">Loyer / mois</th>
+        <th style="width:12%;">Contact</th>
+        <th style="width:12%;">Enregistré le</th>
         <th class="text-center" style="width:10%;">Actions</th>
     </tr></thead>
     <tbody>
@@ -427,16 +480,18 @@ $avatarColors = [
             <div class="small"><i class="fa fa-phone me-1 text-muted"></i><?= htmlspecialchars($l['telephone1'] ?? '') ?></div>
             <?php if (!empty($l['telephone2'])): ?><div class="small text-muted"><i class="fa fa-mobile-alt me-1"></i><?= htmlspecialchars($l['telephone2']) ?></div><?php endif; ?>
         </td>
+        <td class="text-muted small"><?= !empty($l['created_at']) ? date('d/m/Y', strtotime($l['created_at'])) : '—' ?></td>
         <td class="text-center" style="white-space:nowrap;">
             <div class="d-flex justify-content-center gap-1">
             <button class="btn btn-sm btn-outline-primary btn-edit" style="border-radius:6px;"
                     data-bs-toggle="modal" data-bs-target="#modalEditLocataire"
                     data-id="<?= $l['id'] ?>" data-nom="<?= htmlspecialchars($l['nom']) ?>"
-                    data-tel1="<?= htmlspecialchars($l['telephone1']) ?>" data-tel2="<?= htmlspecialchars($l['telephone2'] ?? '') ?>"
+                    data-tel1="<?= htmlspecialchars($l['telephone1']) ?>" data-tel2="<?= htmlspecialchars($l['telephone2'] ?? '') ?>" data-email="<?= htmlspecialchars($l['email'] ?? '') ?>"
                     data-piece="<?= htmlspecialchars($l['piece_identite']) ?>" title="Modifier"><i class="fa fa-edit"></i></button>
             <?php if ($waNum): ?>
             <a href="https://wa.me/<?= $waNum ?>" target="_blank" class="btn btn-sm btn-outline-success" style="border-radius:6px;" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
             <?php endif; ?>
+            <a href="documents.php?type=locataire&id=<?= $l['id'] ?>" class="btn btn-sm btn-outline-dark" style="border-radius:6px;" title="Documents"><i class="fa fa-paperclip"></i></a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
             <form action="../php/delete_locataire.php" method="POST" style="display:inline" onsubmit="return confirm('Supprimer définitivement ?')">
                 <input type="hidden" name="token" value="<?= csrf_generate() ?>">
@@ -502,11 +557,12 @@ $avatarColors = [
             <button class="btn-edit" style="color:#1d4ed8;border-color:#bfdbfe;background:#eff6ff;" title="Modifier"
                     data-bs-toggle="modal" data-bs-target="#modalEditLocataire"
                     data-id="<?= $l['id'] ?>" data-nom="<?= htmlspecialchars($l['nom']) ?>"
-                    data-tel1="<?= htmlspecialchars($l['telephone1']) ?>" data-tel2="<?= htmlspecialchars($l['telephone2'] ?? '') ?>"
+                    data-tel1="<?= htmlspecialchars($l['telephone1']) ?>" data-tel2="<?= htmlspecialchars($l['telephone2'] ?? '') ?>" data-email="<?= htmlspecialchars($l['email'] ?? '') ?>"
                     data-piece="<?= htmlspecialchars($l['piece_identite']) ?>"><i class="fa fa-edit"></i></button>
             <?php if ($waNum): ?>
             <a href="https://wa.me/<?= $waNum ?>" target="_blank" style="color:#16a34a;border-color:#bbf7d0;background:#f0fdf4;" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
             <?php endif; ?>
+            <a href="documents.php?type=locataire&id=<?= $l['id'] ?>" style="color:#374151;border-color:#e5e7eb;background:#f9fafb;" title="Documents"><i class="fa fa-paperclip"></i></a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
             <form action="../php/delete_locataire.php" method="POST" style="display:contents" onsubmit="return confirm('Supprimer définitivement ?')">
                 <input type="hidden" name="token" value="<?= csrf_generate() ?>">
@@ -571,6 +627,7 @@ document.querySelectorAll('.btn-edit').forEach(function(btn) {
         document.getElementById('edit_nom').value   = this.dataset.nom;
         document.getElementById('edit_tel1').value  = this.dataset.tel1;
         document.getElementById('edit_tel2').value  = this.dataset.tel2;
+        document.getElementById('edit_email').value = this.dataset.email || '';
         document.getElementById('edit_piece').value = this.dataset.piece;
     });
 });
@@ -584,15 +641,141 @@ document.getElementById('photoLocInput').addEventListener('change', function() {
     reader.readAsDataURL(file);
 });
 
+var exportRows = <?= json_encode($exportRows, JSON_UNESCAPED_UNICODE) ?>;
+var agenceInfo = {
+    nom: <?= json_encode($entreprise['nom_entreprise'], JSON_UNESCAPED_UNICODE) ?>,
+    adresse: <?= json_encode($entreprise['adresse_siege'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    tel: <?= json_encode($entreprise['contact_telephone'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    email: <?= json_encode($entreprise['contact_email'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    logo: <?= (!empty($entreprise['logo_url']) && file_exists('../uploads/' . $entreprise['logo_url']))
+        ? json_encode('../uploads/' . $entreprise['logo_url'], JSON_UNESCAPED_UNICODE)
+        : 'null' ?>
+};
+
+function loadImageAsDataURL(url) {
+    return new Promise(function(resolve) {
+        if (!url) { resolve(null); return; }
+        var img = new Image();
+        img.onload = function() {
+            try {
+                var canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve({ dataUrl: canvas.toDataURL('image/png'), ratio: img.naturalWidth / img.naturalHeight });
+            } catch (e) { resolve(null); }
+        };
+        img.onerror = function() { resolve(null); };
+        img.src = url;
+    });
+}
+
 function exportToExcel() {
-    var wb = XLSX.utils.table_to_book(document.getElementById('locatairesTable'), {sheet:'Locataires'});
+    var rows = exportRows.map(function(r) {
+        return {
+            'Locataire': r.nom,
+            'Pièce d\'identité': r.piece,
+            'Statut': r.statut,
+            'Maison actuelle': r.maison,
+            'Adresse': r.adresse,
+            'Loyer / mois (FCFA)': r.loyer_num,
+            'Téléphone 1': r.tel1,
+            'Téléphone 2': r.tel2,
+            'Date d\'enregistrement': r.date_enr
+        };
+    });
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:24},{wch:16},{wch:10},{wch:24},{wch:28},{wch:16},{wch:14},{wch:14},{wch:16}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Locataires');
     XLSX.writeFile(wb, 'Liste_Locataires.xlsx');
 }
+
 function exportToPDF() {
-    var doc = new window.jspdf.jsPDF();
-    doc.text('Répertoire des Locataires - BailManager', 14, 15);
-    doc.autoTable({ html:'#locatairesTable', startY:20 });
+    loadImageAsDataURL(agenceInfo.logo).then(function(logo) {
+    var doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    var marine = [0, 33, 71];
+    var pageW = doc.internal.pageSize.getWidth();
+
+    // En-tête agence
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(marine[0], marine[1], marine[2]);
+    doc.text(agenceInfo.nom || 'BailManager', 14, 16);
+
+    doc.setFontSize(8.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(90, 90, 90);
+    var coordLine = [agenceInfo.tel, agenceInfo.email].filter(Boolean).join('  •  ');
+    if (agenceInfo.adresse) doc.text(agenceInfo.adresse, 14, 21);
+    if (coordLine) doc.text(coordLine, 14, 25);
+
+    if (logo) {
+        var logoH = 16, logoW = logoH * logo.ratio;
+        doc.addImage(logo.dataUrl, 'PNG', pageW - 14 - logoW, 8, logoW, logoH);
+    }
+
+    doc.setDrawColor(marine[0], marine[1], marine[2]);
+    doc.setLineWidth(0.6);
+    doc.line(14, 28, pageW - 14, 28);
+
+    // Titre + méta
+    doc.setFontSize(12.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 30, 30);
+    doc.text('Répertoire des Locataires', 14, 36);
+
+    var nbActifs = exportRows.filter(function(r) { return r.statut === 'Actif'; }).length;
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+        exportRows.length + ' locataire' + (exportRows.length > 1 ? 's' : '') +
+        ' — ' + nbActifs + ' actif' + (nbActifs > 1 ? 's' : '') + ', ' + (exportRows.length - nbActifs) + ' libre' + ((exportRows.length - nbActifs) > 1 ? 's' : ''),
+        14, 42
+    );
+    doc.text('Généré le ' + new Date().toLocaleDateString('fr-FR'), pageW - 14, 42, { align: 'right' });
+
+    doc.autoTable({
+        startY: 47,
+        head: [['Locataire', 'Statut', 'Maison actuelle', 'Loyer / mois', 'Contact', 'Enregistré le']],
+        body: exportRows.map(function(r) {
+            var identite = r.nom + (r.piece && r.piece !== '—' ? '\n' + r.piece : '');
+            var maison   = r.maison + (r.adresse ? '\n' + r.adresse : '');
+            var contact  = [r.tel1, r.tel2].filter(Boolean).join('\n');
+            return [identite, r.statut, maison, r.loyer, contact, r.date_enr];
+        }),
+        theme: 'striped',
+        styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
+        headStyles: { fillColor: marine, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 252] },
+        columnStyles: {
+            0: { cellWidth: 46 },
+            1: { cellWidth: 18 },
+            3: { cellWidth: 26, halign: 'right' },
+            5: { cellWidth: 22 }
+        },
+        didParseCell: function(data) {
+            if (data.section === 'body' && data.column.index === 1) {
+                data.cell.styles.textColor = data.cell.raw === 'Actif' ? [5, 150, 105] : [148, 163, 184];
+                data.cell.styles.fontStyle = 'bold';
+            }
+        },
+        didDrawPage: function(data) {
+            var pageCount = doc.internal.getNumberOfPages();
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(
+                'BailManager — page ' + data.pageNumber + '/' + pageCount,
+                pageW / 2,
+                doc.internal.pageSize.getHeight() - 8,
+                { align: 'center' }
+            );
+        }
+    });
+
     doc.save('Liste_Locataires.pdf');
+    });
 }
 </script>
 </body>

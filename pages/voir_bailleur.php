@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 
@@ -31,6 +31,7 @@ $maisons = $stmtM->fetchAll();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Détails Bailleur - <?= htmlspecialchars($bailleur['nom']) ?></title>
     <link rel="stylesheet" href="../css/style.css">
     <link href="../css/bootstrap.min.css" rel="stylesheet">

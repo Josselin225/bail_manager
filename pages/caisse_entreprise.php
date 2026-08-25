@@ -9,10 +9,12 @@ if (!isset($_SESSION['user_id'])) {
 
 $filtreUser = trim($_GET['user']    ?? '');
 $filtreDate = trim($_GET['date_op'] ?? '');
+$filtreMois = trim($_GET['mois']    ?? '');
 $namedParams  = [];
 $whereClauses = [];
 if ($filtreUser) { $whereClauses[] = "effectue_par = :user";           $namedParams[':user']    = $filtreUser; }
-if ($filtreDate) { $whereClauses[] = "DATE(date_operation) = :date_op"; $namedParams[':date_op'] = $filtreDate; }
+if ($filtreMois) { $whereClauses[] = "DATE_FORMAT(date_operation,'%Y-%m') = :mois"; $namedParams[':mois'] = $filtreMois; }
+elseif ($filtreDate) { $whereClauses[] = "DATE(date_operation) = :date_op"; $namedParams[':date_op'] = $filtreDate; }
 $whereSql = $whereClauses ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
 $perPage    = 5;
@@ -59,14 +61,13 @@ foreach ($chartRaw as $r) {
 }
 
 $csrfToken = csrf_generate();
-
 $jCaisseLabels  = json_encode($chartLabels  ?: [], JSON_UNESCAPED_UNICODE) ?: '[]';
 $jCaisseEntrees = json_encode($chartEntrees ?: []) ?: '[]';
 $jCaisseSorties = json_encode($chartSorties ?: []) ?: '[]';
 
 function buildUrlC(array $extra = []): string {
-    global $filtreUser, $filtreDate, $page, $periode;
-    $p = array_filter(['user' => $filtreUser, 'date_op' => $filtreDate, 'page' => $page, 'periode' => $periode]);
+    global $filtreUser, $filtreDate, $filtreMois, $page, $periode;
+    $p = array_filter(['user' => $filtreUser, 'date_op' => $filtreDate, 'mois' => $filtreMois, 'page' => $page, 'periode' => $periode]);
     return '?' . http_build_query(array_merge($p, $extra));
 }
 ?>
@@ -75,6 +76,7 @@ function buildUrlC(array $extra = []): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Caisse Entreprise — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -168,8 +170,8 @@ document.addEventListener('DOMContentLoaded', function() {
         data: {
             labels: <?= $jCaisseLabels ?>,
             datasets: [
-                { label:'Entrées', data: <?= $jCaisseEntrees ?>, backgroundColor:'rgba(5,150,105,.7)',  borderRadius:6 },
-                { label:'Sorties', data: <?= $jCaisseSorties ?>, backgroundColor:'rgba(229,62,62,.65)', borderRadius:6 }
+                { label:'Entrées', data: <?= $jCaisseEntrees ?>, backgroundColor:'rgba(0,33,71,.75)',   borderColor:'#002147', borderWidth:1, borderRadius:6 },
+                { label:'Sorties', data: <?= $jCaisseSorties ?>, backgroundColor:'rgba(217,119,6,.7)',  borderColor:'#d97706', borderWidth:1, borderRadius:6 }
             ]
         },
         options: {
@@ -244,10 +246,27 @@ document.addEventListener('DOMContentLoaded', function() {
         <div>
             <p class="text-muted small mb-0 mt-1">Flux financiers internes — recettes et dépenses</p>
         </div>
-        <button type="button" class="btn btn-sm btn-danger shadow-sm" style="border-radius:8px;" id="btnOuvrirRetrait"
-                onclick="document.getElementById('modalRetrait').classList.add('is-open');document.body.style.overflow='hidden';">
-            <i class="fa fa-minus-circle me-2"></i>Nouveau retrait
-        </button>
+        <div class="d-flex gap-2 flex-wrap">
+            <?php
+            $rapportParams = [];
+            if ($filtreUser) $rapportParams['user'] = $filtreUser;
+            if ($filtreMois) {
+                $rapportParams['date_debut'] = $filtreMois . '-01';
+                $rapportParams['date_fin']   = date('Y-m-t', strtotime($filtreMois . '-01'));
+            } elseif ($filtreDate) {
+                $rapportParams['date_debut'] = $filtreDate;
+                $rapportParams['date_fin']   = $filtreDate;
+            }
+            $rapportUrl = 'rapport_caisse.php' . ($rapportParams ? '?' . http_build_query($rapportParams) : '');
+            ?>
+            <a href="<?= htmlspecialchars($rapportUrl) ?>" target="_blank" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
+                <i class="fa fa-print me-2"></i>Rapport détaillé
+            </a>
+            <button type="button" class="btn btn-sm btn-danger shadow-sm" style="border-radius:8px;" id="btnOuvrirRetrait"
+                    onclick="document.getElementById('modalRetrait').classList.add('is-open');document.body.style.overflow='hidden';">
+                <i class="fa fa-minus-circle me-2"></i>Nouveau retrait
+            </button>
+        </div>
     </div>
 
 
@@ -301,8 +320,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <option value="<?= htmlspecialchars($u) ?>" <?= $filtreUser===$u?'selected':'' ?>><?= htmlspecialchars($u) ?></option>
                 <?php endforeach; ?>
             </select>
-            <input type="date" name="date_op" class="form-control form-control-sm" style="max-width:160px;border-radius:8px;" value="<?= htmlspecialchars($filtreDate) ?>" onchange="this.form.submit()">
-            <?php if ($filtreUser || $filtreDate): ?>
+            <input type="month" name="mois" class="form-control form-control-sm" style="max-width:150px;border-radius:8px;" value="<?= htmlspecialchars($filtreMois) ?>" onchange="this.form.date_op.value='';this.form.submit()">
+            <input type="date" name="date_op" class="form-control form-control-sm" style="max-width:160px;border-radius:8px;" value="<?= htmlspecialchars($filtreDate) ?>" onchange="this.form.mois.value='';this.form.submit()">
+            <?php if ($filtreUser || $filtreDate || $filtreMois): ?>
             <a href="caisse_entreprise.php" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;"><i class="fa fa-times"></i> Réinitialiser</a>
             <?php endif; ?>
             <div class="ms-auto text-muted small"><?= $totalRows ?> opération<?= $totalRows>1?'s':'' ?></div>

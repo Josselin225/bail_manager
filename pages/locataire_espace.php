@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 
@@ -71,12 +71,20 @@ $charges = $stmtCharges->fetchAll();
 
 $settings = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch();
 $nomEntreprise = htmlspecialchars($settings['nom_entreprise'] ?? 'BailManager');
+
+// Messagerie avec l'agence
+$stmtMsg = $pdo->prepare("SELECT * FROM messages_locataires WHERE locataire_id = ? ORDER BY created_at ASC");
+$stmtMsg->execute([$locataire_id]);
+$messagesLocataire = $stmtMsg->fetchAll();
+$pdo->prepare("UPDATE messages_locataires SET lu = 1 WHERE locataire_id = ? AND expediteur = 'agence' AND lu = 0")
+    ->execute([$locataire_id]);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Mon espace — <?= $nomEntreprise ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -86,6 +94,11 @@ $nomEntreprise = htmlspecialchars($settings['nom_entreprise'] ?? 'BailManager');
         .top-bar { background: var(--marine); color: white; padding: 14px 24px; }
         .card-contrat { border-left: 5px solid var(--marine); }
         .card-contrat.termine { border-left-color: #adb5bd; opacity: .8; }
+        .lm-thread { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+        .lm-bubble { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; }
+        .lm-bubble.moi { align-self: flex-end; background: var(--marine); color: #fff; border-bottom-right-radius: 3px; }
+        .lm-bubble.agence { align-self: flex-start; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.06); color: #2d3a55; border-bottom-left-radius: 3px; }
+        .lm-time { font-size: 10px; opacity: .6; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -222,6 +235,30 @@ $nomEntreprise = htmlspecialchars($settings['nom_entreprise'] ?? 'BailManager');
         </div>
     </div>
     <?php endif; ?>
+
+    <!-- Messagerie avec l'agence -->
+    <h6 class="text-uppercase text-muted fw-bold mb-3 small" id="messages"><i class="fa fa-comments me-2"></i>Écrire à l'agence</h6>
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <?php if (empty($messagesLocataire)): ?>
+            <p class="text-muted small mb-3">Aucun message échangé pour le moment. Une question sur votre bail, un problème dans le logement ? Écrivez-nous.</p>
+            <?php else: ?>
+            <div class="lm-thread mb-3">
+                <?php foreach ($messagesLocataire as $m): ?>
+                <div class="lm-bubble <?= $m['expediteur']==='locataire' ? 'moi' : 'agence' ?>">
+                    <?= nl2br(htmlspecialchars($m['contenu'])) ?>
+                    <div class="lm-time"><?= date('d/m/Y H:i', strtotime($m['created_at'])) ?></div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+            <form action="../php/envoyer_message_locataire.php" method="POST" class="d-flex gap-2">
+                <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+                <input type="text" name="contenu" class="form-control" placeholder="Votre message…" maxlength="2000" required autocomplete="off">
+                <button type="submit" class="btn btn-dark px-4"><i class="fa fa-paper-plane"></i></button>
+            </form>
+        </div>
+    </div>
 
     <div class="text-center text-muted small pb-4">
         <?= $nomEntreprise ?> — <?= htmlspecialchars($settings['contact_telephone'] ?? '') ?>

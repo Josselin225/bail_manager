@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 ?>
@@ -7,6 +7,7 @@ require_once('../config/db.php');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Connexion - BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -54,7 +55,7 @@ require_once('../config/db.php');
                             <i class="fa fa-question-circle me-1"></i> Mot de passe oublié ?
                         </div>
                     </div>
-                    
+
                     <div class="text-center">
                         <a href="../index.php" class="text-decoration-none text-muted small"><i class="fa fa-arrow-left"></i> Retour au site</a>
                     </div>

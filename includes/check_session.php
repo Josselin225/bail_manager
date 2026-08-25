@@ -1,9 +1,10 @@
 <?php
-$timeout_duration = 600;
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// Durée d'inactivité configurable par utilisateur (page "Mon Profil") ; 600s (10 min) par défaut.
+$timeout_duration = $_SESSION['session_timeout'] ?? 600;
 
 function _redirect(string $url): void {
     if (!headers_sent()) {

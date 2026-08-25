@@ -6,12 +6,16 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') { header('Locati
 
 $search        = trim($_GET['search']       ?? '');
 $filtreDate    = trim($_GET['date_filtre']  ?? '');
+$filtreMois    = trim($_GET['mois_filtre']  ?? '');
+$filtreAnnee   = trim($_GET['annee_filtre'] ?? '');
 $filtreAction  = trim($_GET['action_filtre']?? '');
 $perPage       = 15;
 $page          = max(1, (int)($_GET['page'] ?? 1));
 
 $conds = []; $bind = [];
-if ($filtreDate)   { $conds[] = "DATE(l.date_action) = :date_filtre"; $bind[':date_filtre'] = $filtreDate; }
+if ($filtreDate)        { $conds[] = "DATE(l.date_action) = :date_filtre";               $bind[':date_filtre']  = $filtreDate; }
+elseif ($filtreMois)    { $conds[] = "DATE_FORMAT(l.date_action,'%Y-%m') = :mois_filtre"; $bind[':mois_filtre']  = $filtreMois; }
+elseif ($filtreAnnee)   { $conds[] = "YEAR(l.date_action) = :annee_filtre";               $bind[':annee_filtre'] = $filtreAnnee; }
 if ($filtreAction) { $conds[] = "l.action LIKE :action_filter";       $bind[':action_filter'] = "%$filtreAction%"; }
 if ($search)       { $conds[] = "(u.nom_complet LIKE :search OR l.details LIKE :search2)"; $bind[':search']=$bind[':search2']="%$search%"; }
 $where = $conds ? "WHERE ".implode(" AND ",$conds) : "";
@@ -35,8 +39,8 @@ $logAujourd  = (int)$pdo->query("SELECT COUNT(*) FROM logs WHERE DATE(date_actio
 $nbUtilisateurs = (int)$pdo->query("SELECT COUNT(DISTINCT utilisateur_id) FROM logs WHERE DATE(date_action)=CURDATE()")->fetchColumn();
 
 function buildUrlJ(array $extra = []): string {
-    global $search, $page, $filtreDate, $filtreAction;
-    $p = array_filter(['search'=>$search,'date_filtre'=>$filtreDate,'action_filtre'=>$filtreAction,'page'=>$page], fn($v)=>$v!==''&&$v!==null&&$v!==0);
+    global $search, $page, $filtreDate, $filtreMois, $filtreAnnee, $filtreAction;
+    $p = array_filter(['search'=>$search,'date_filtre'=>$filtreDate,'mois_filtre'=>$filtreMois,'annee_filtre'=>$filtreAnnee,'action_filtre'=>$filtreAction,'page'=>$page], fn($v)=>$v!==''&&$v!==null&&$v!==0);
     return '?' . http_build_query(array_merge($p, $extra));
 }
 ?>
@@ -45,6 +49,7 @@ function buildUrlJ(array $extra = []): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Journal d'activités — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -109,14 +114,16 @@ function buildUrlJ(array $extra = []): string {
             <input type="text" id="searchInput" name="search" value="<?= htmlspecialchars($search) ?>"
                    class="form-control form-control-sm" style="max-width:200px;border-radius:8px;"
                    placeholder="Nom, détails…" autocomplete="off">
-            <input type="date" name="date_filtre" value="<?= htmlspecialchars($filtreDate) ?>" class="form-control form-control-sm" style="max-width:150px;border-radius:8px;" onchange="this.form.submit()">
+            <input type="date" name="date_filtre" value="<?= htmlspecialchars($filtreDate) ?>" class="form-control form-control-sm" style="max-width:150px;border-radius:8px;" onchange="this.form.mois_filtre.value='';this.form.annee_filtre.value='';this.form.submit()">
+            <input type="month" name="mois_filtre" value="<?= htmlspecialchars($filtreMois) ?>" class="form-control form-control-sm" style="max-width:140px;border-radius:8px;" onchange="this.form.date_filtre.value='';this.form.annee_filtre.value='';this.form.submit()">
+            <input type="number" name="annee_filtre" value="<?= htmlspecialchars($filtreAnnee) ?>" placeholder="Année" min="2000" max="2100" class="form-control form-control-sm" style="max-width:100px;border-radius:8px;" onchange="this.form.date_filtre.value='';this.form.mois_filtre.value='';this.form.submit()">
             <select name="action_filtre" class="form-select form-select-sm" style="max-width:160px;border-radius:8px;" onchange="this.form.submit()">
                 <option value="">— Toutes actions —</option>
                 <option value="Connexion"   <?= $filtreAction==='Connexion'?'selected':'' ?>>Connexions</option>
                 <option value="Création"    <?= $filtreAction==='Création'?'selected':'' ?>>Créations</option>
                 <option value="Suppression" <?= $filtreAction==='Suppression'?'selected':'' ?>>Suppressions</option>
             </select>
-            <?php if ($search || $filtreDate || $filtreAction): ?>
+            <?php if ($search || $filtreDate || $filtreMois || $filtreAnnee || $filtreAction): ?>
             <a href="journal_activites.php" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;"><i class="fa fa-times"></i></a>
             <?php endif; ?>
             <div class="ms-auto text-muted small"><?= $totalRows ?> entrée<?= $totalRows>1?'s':'' ?></div>

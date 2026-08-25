@@ -42,6 +42,14 @@ $loyerTotal    = (float)$pdo->query("SELECT COALESCE(SUM(loyer_mensuel),0) FROM 
 $maisons_libres   = $pdo->query("SELECT id, designation, loyer, `condition` FROM maisons WHERE statut='disponible'")->fetchAll();
 $locataires_liste = $pdo->query("SELECT id, nom FROM locataires ORDER BY nom")->fetchAll();
 
+$renewContrat = null;
+$renewId = (int)($_GET['renew_id'] ?? 0);
+if ($renewId > 0) {
+    $stmtRenew = $pdo->prepare("SELECT c.id, c.date_fin, l.nom AS nom_locataire FROM contrats c JOIN locataires l ON c.locataire_id = l.id WHERE c.id = ? AND c.statut_contrat = 'actif'");
+    $stmtRenew->execute([$renewId]);
+    $renewContrat = $stmtRenew->fetch();
+}
+
 function buildUrlCt(array $extra = []): string {
     global $search, $page, $filtreStatut, $filtreDate;
     $p = array_filter(['search'=>$search,'statut'=>$filtreStatut,'date_debut'=>$filtreDate,'page'=>$page], fn($v)=>$v!==''&&$v!==null&&$v!==0);
@@ -53,6 +61,7 @@ function buildUrlCt(array $extra = []): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Gestion des Contrats — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -118,7 +127,7 @@ function buildUrlCt(array $extra = []): string {
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Maison disponible <span class="text-danger">*</span></label>
                             <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-home text-muted"></i></span>
-                            <select name="maison_id" id="selectMaison" class="form-select border-start-0" style="border-radius:0 .375rem .375rem 0" required>
+                            <select name="maison_id" id="selectMaison" class="form-select border-start-0 js-search-select" data-placeholder="Rechercher une maison…" style="border-radius:0 .375rem .375rem 0" required>
                                 <option value="" data-loyer="0">Choisir une maison…</option>
                                 <?php foreach($maisons_libres as $m): ?><option value="<?= $m['id'] ?>" data-loyer="<?= $m['loyer'] ?>"><?= htmlspecialchars($m['designation']) ?></option><?php endforeach; ?>
                             </select></div>
@@ -126,7 +135,7 @@ function buildUrlCt(array $extra = []): string {
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Locataire <span class="text-danger">*</span></label>
                             <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-user text-muted"></i></span>
-                            <select name="locataire_id" class="form-select border-start-0" style="border-radius:0 .375rem .375rem 0" required>
+                            <select name="locataire_id" class="form-select border-start-0 js-search-select" data-placeholder="Rechercher un locataire…" style="border-radius:0 .375rem .375rem 0" required>
                                 <option value="">Choisir un locataire…</option>
                                 <?php foreach($locataires_liste as $l): ?><option value="<?= $l['id'] ?>"><?= htmlspecialchars($l['nom']) ?></option><?php endforeach; ?>
                             </select></div>
@@ -144,11 +153,25 @@ function buildUrlCt(array $extra = []): string {
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Dépôt de garantie <span class="text-danger">*</span></label>
-                            <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-shield-alt text-muted"></i></span><input type="number" name="depot_garantie" class="form-control border-start-0 ps-0" placeholder="Montant caution" required></div>
+                            <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-shield-alt text-muted"></i></span><input type="number" name="depot_garantie" id="inputCaution" class="form-control border-start-0 ps-0 bg-light fst-italic" readonly required></div>
+                            <small class="text-muted" style="font-size:10px;">2 mois de loyer — rempli automatiquement</small>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Commission (%)</label>
-                            <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-percent text-muted"></i></span><input type="number" step="0.01" name="commission_pourcentage" class="form-control border-start-0 ps-0" value="10.00"></div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Avance de loyer <span class="text-danger">*</span></label>
+                            <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-money-bill-wave text-muted"></i></span><input type="number" name="avance_loyer" id="inputAvance" class="form-control border-start-0 ps-0" required></div>
+                            <small class="text-muted" style="font-size:10px;">2 mois de loyer par défaut — modifiable</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Droit d'agence <span class="text-danger">*</span></label>
+                            <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-handshake text-muted"></i></span><input type="number" name="droit_agence" id="inputDroitAgence" class="form-control border-start-0 ps-0" required></div>
+                            <small class="text-muted" style="font-size:10px;">1 mois de loyer par défaut — modifiable</small>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center justify-content-between p-3 rounded-3" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                                <span class="fw-bold text-uppercase small" style="letter-spacing:.04em; color:#166534;"><i class="fa fa-calculator me-2"></i>Total à payer à la signature</span>
+                                <span class="fw-bold fs-5" style="color:#166534;"><span id="inputTotal">0</span> FCFA</span>
+                            </div>
+                            <small class="text-muted" style="font-size:10px;">Dépôt de garantie + Avance de loyer + Droit d'agence</small>
                         </div>
                     </div>
                 </div>
@@ -211,6 +234,32 @@ function buildUrlCt(array $extra = []): string {
             <div class="modal-footer border-top bg-light px-4">
                 <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i>Annuler</button>
                 <button type="submit" class="btn btn-danger px-5 fw-semibold"><i class="fa fa-check me-2"></i>Confirmer la résiliation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ MODAL ÉCHÉANCE / RENOUVELLEMENT ══ -->
+<div class="modal fade" id="modalDateFin" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content border-0 shadow-lg" action="../php/definir_date_fin.php" method="POST">
+            <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+            <input type="hidden" name="contrat_id" id="fin_id">
+            <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#4338ca,#6366f1);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-white bg-opacity-10 d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="fa fa-calendar-days text-white"></i></div>
+                    <div><h5 class="modal-title fw-bold mb-0">Échéance du Contrat</h5><small class="opacity-75" id="fin_locataire"></small></div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-4">
+                <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date de fin du bail</label>
+                <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-calendar text-muted"></i></span><input type="date" name="date_fin" id="fin_date" class="form-control border-start-0 ps-0"></div>
+                <small class="text-muted" style="font-size:10.5px;">Laisser vide pour retirer toute échéance programmée. Une alerte apparaît sur le tableau de bord et le calendrier dans les 30 jours précédant cette date.</small>
+            </div>
+            <div class="modal-footer border-top bg-light px-4">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i>Annuler</button>
+                <button type="submit" class="btn btn-primary px-5 fw-semibold"><i class="fa fa-check me-2"></i>Enregistrer</button>
             </div>
         </form>
     </div>
@@ -297,6 +346,14 @@ function buildUrlCt(array $extra = []): string {
         <td><span class="<?= $isActif?'st-actif':'st-resilié' ?>"><?= ucfirst($c['statut_contrat']) ?></span></td>
         <td class="text-center" style="white-space:nowrap;">
             <a href="recu_contrat.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-outline-info" style="border-radius:6px;" title="PDF"><i class="fa fa-print"></i></a>
+            <a href="documents.php?type=contrat&id=<?= $c['id'] ?>" class="btn btn-sm btn-outline-dark ms-1" style="border-radius:6px;" title="Documents"><i class="fa fa-paperclip"></i></a>
+            <?php if ($isActif): ?>
+            <button class="btn btn-sm btn-outline-primary ms-1 btn-echeance" style="border-radius:6px;" title="<?= $c['date_fin'] ? 'Renouveler' : 'Définir échéance' ?>"
+                    data-bs-toggle="modal" data-bs-target="#modalDateFin"
+                    data-id="<?= $c['id'] ?>" data-locataire="<?= htmlspecialchars($c['nom_locataire']) ?>" data-datefin="<?= $c['date_fin'] ?? '' ?>">
+                <i class="fa fa-calendar-days"></i>
+            </button>
+            <?php endif; ?>
             <?php if ($isActif && $user_role==='admin'): ?>
             <button class="btn btn-sm btn-outline-danger ms-1 btn-resilier" style="border-radius:6px;" title="Résilier"
                     data-bs-toggle="modal" data-bs-target="#modalResiliation"
@@ -336,6 +393,14 @@ function buildUrlCt(array $extra = []): string {
         </div>
         <div class="b-card-actions">
             <a href="recu_contrat.php?id=<?= $c['id'] ?>" style="color:#0891b2;border-color:#bae6fd;background:#f0f9ff;" title="PDF"><i class="fa fa-print"></i></a>
+            <a href="documents.php?type=contrat&id=<?= $c['id'] ?>" style="color:#374151;border-color:#e5e7eb;background:#f9fafb;" title="Documents"><i class="fa fa-paperclip"></i></a>
+            <?php if ($isActif): ?>
+            <button class="btn-echeance" style="color:#4338ca;border-color:#c7d2fe;background:#eef2ff;" title="<?= $c['date_fin'] ? 'Renouveler' : 'Définir échéance' ?>"
+                    data-bs-toggle="modal" data-bs-target="#modalDateFin"
+                    data-id="<?= $c['id'] ?>" data-locataire="<?= htmlspecialchars($c['nom_locataire']) ?>" data-datefin="<?= $c['date_fin'] ?? '' ?>">
+                <i class="fa fa-calendar-days"></i>
+            </button>
+            <?php endif; ?>
             <?php if ($isActif && $user_role==='admin'): ?>
             <button class="btn-resilier" style="flex:1;text-align:center;padding:5px 4px;border-radius:8px;font-size:11px;font-weight:600;border:1.5px solid #fecaca;color:#991b1b;background:#fff1f2;cursor:pointer;"
                     data-bs-toggle="modal" data-bs-target="#modalResiliation"
@@ -371,6 +436,7 @@ function buildUrlCt(array $extra = []): string {
 </div><!-- /main-content -->
 
 <script src="../js/bootstrap.bundle.min.js"></script>
+<script src="../js/searchable-select.js"></script>
 <script>
 function setView(v) {
     document.getElementById('vueListe').style.display  = v==='liste'  ? 'block':'none';
@@ -387,9 +453,24 @@ document.getElementById('searchInput').addEventListener('input', function() {
     searchTimer = setTimeout(function() { document.querySelector('.filter-bar form').submit(); }, 350);
 });
 
+function updateTotalAPayer() {
+    var caution = parseFloat(document.getElementById('inputCaution').value) || 0;
+    var avance  = parseFloat(document.getElementById('inputAvance').value) || 0;
+    var droit   = parseFloat(document.getElementById('inputDroitAgence').value) || 0;
+    document.getElementById('inputTotal').textContent = (caution + avance + droit).toLocaleString('fr-FR');
+}
+
 document.getElementById('selectMaison').addEventListener('change', function() {
     var loyer = this.options[this.selectedIndex].getAttribute('data-loyer');
     document.getElementById('inputLoyer').value = loyer > 0 ? loyer : '';
+    document.getElementById('inputCaution').value = loyer > 0 ? loyer * 2 : '';
+    document.getElementById('inputAvance').value = loyer > 0 ? loyer * 2 : '';
+    document.getElementById('inputDroitAgence').value = loyer > 0 ? loyer * 1 : '';
+    updateTotalAPayer();
+});
+
+['inputAvance', 'inputDroitAgence'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', updateTotalAPayer);
 });
 
 document.querySelectorAll('.btn-resilier').forEach(function(btn) {
@@ -400,6 +481,21 @@ document.querySelectorAll('.btn-resilier').forEach(function(btn) {
         document.getElementById('res_solde').value      = this.dataset.solde   || 0;
     });
 });
+
+document.querySelectorAll('.btn-echeance').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.getElementById('fin_id').value = this.dataset.id;
+        document.getElementById('fin_locataire').textContent = 'Locataire : ' + this.dataset.locataire;
+        document.getElementById('fin_date').value = this.dataset.datefin || '';
+    });
+});
+
+<?php if ($renewContrat): ?>
+document.getElementById('fin_id').value = <?= (int)$renewContrat['id'] ?>;
+document.getElementById('fin_locataire').textContent = 'Locataire : ' + <?= json_encode($renewContrat['nom_locataire']) ?>;
+document.getElementById('fin_date').value = <?= json_encode($renewContrat['date_fin'] ?? '') ?>;
+new bootstrap.Modal(document.getElementById('modalDateFin')).show();
+<?php endif; ?>
 </script>
 </body>
 </html>

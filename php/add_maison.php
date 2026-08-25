@@ -14,7 +14,7 @@ if (true) {
     $bailleur_id = $_POST['bailleur_id'];
     $adresse     = $_POST['adresse'];
     $loyer       = $_POST['loyer'];
-    $condition   = $_POST['condition'] ?? 1;
+    $condition   = (int)($_POST['condition'] ?? 1);
     $statut      = $_POST['statut'] ?? 'disponible';
     $description = $_POST['description'] ?? '';
 
@@ -26,17 +26,16 @@ if (true) {
 
     $image_names = ['image1' => null, 'image2' => null, 'image3' => null];
     $input_names = ['img1' => 'image1', 'img2' => 'image2', 'img3' => 'image3'];
-    $allowed_mime = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
     foreach ($input_names as $input => $col) {
         if (isset($_FILES[$input]) && $_FILES[$input]['error'] == 0) {
             $mime = mime_content_type($_FILES[$input]['tmp_name']);
-            if (!in_array($mime, $allowed_mime)) {
+            $extension = mimeToImageExt($mime);
+            if ($extension === null) {
                 flash('error', "Format de fichier non autorisé.");
                 header("Location: ../pages/maisons.php");
                 exit();
             }
-            $extension = strtolower(pathinfo($_FILES[$input]['name'], PATHINFO_EXTENSION));
             $new_name = "maison_" . time() . "_" . uniqid() . "." . $extension;
 
             if (move_uploaded_file($_FILES[$input]['tmp_name'], $upload_dir . $new_name)) {

@@ -4,6 +4,17 @@ require_once('check_session.php');
 ob_start(); // empêche toute troncature PHP
 $countRes = $pdo->query("SELECT COUNT(*) FROM reservations WHERE statut = 'en_attente'")->fetchColumn() ?: 0;
 $countMsg = $pdo->query("SELECT COUNT(*) FROM messages WHERE statut = 'non_lu'")->fetchColumn() ?: 0;
+$countMsgLocataires = $pdo->query("SELECT COUNT(*) FROM messages_locataires WHERE expediteur='locataire' AND lu=0")->fetchColumn() ?: 0;
+
+$photoProfilCourant = null;
+if (isset($_SESSION['user_id'])) {
+    $stmtPhotoNav = $pdo->prepare("SELECT photo_profil FROM users WHERE id = ?");
+    $stmtPhotoNav->execute([$_SESSION['user_id']]);
+    $photoProfilCourant = $stmtPhotoNav->fetchColumn();
+    if ($photoProfilCourant && !file_exists(__DIR__ . '/../uploads/users/' . $photoProfilCourant)) {
+        $photoProfilCourant = null;
+    }
+}
 $currentPageFile = basename($_SERVER['PHP_SELF']);
 
 $groupPatrimoine = in_array($currentPageFile, ['bailleurs.php','maisons.php','locataires.php']);
@@ -28,8 +39,12 @@ $breadcrumbMap = [
     'gestion_cautions.php'   => ['Finances',          'Cautions',            'fa-shield-halved'],
     'liste_reservations.php' => [null,                'Réservations',        'fa-calendar-check'],
     'liste_messages.php'     => [null,                'Messages',            'fa-envelope'],
+    'messages_locataires.php'=> [null,                'Messages Locataires', 'fa-comments'],
     'rapports.php'           => [null,                'Rapports',            'fa-chart-bar'],
     'journal_activites.php'  => [null,                'Journal',             'fa-history'],
+    'profil.php'             => [null,                'Mon Profil',          'fa-user-circle'],
+    'guide.php'              => [null,                'Guide d\'utilisation','fa-book-open'],
+    'a_propos.php'           => [null,                'À propos',            'fa-circle-info'],
 ];
 if (isset($breadcrumbMap[$currentPageFile])) {
     [$breadcrumbGroup, $breadcrumbTitle, $breadcrumbIcon] = $breadcrumbMap[$currentPageFile];
@@ -335,6 +350,20 @@ html.sidebar-collapsed .app-topbar { left: var(--sb-w-c); }
 .topbar-title .tt-current { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 575px) { .topbar-title .tt-group, .topbar-title .tt-sep { display: none; } }
 
+/* Recherche globale */
+.tb-search-wrap { position: relative; margin-right: 14px; flex-shrink: 0; }
+.tb-search-wrap .tb-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #aab; font-size: 12px; pointer-events: none; }
+.tb-search-input { width: 210px; height: 34px; padding-left: 32px; border: 1.5px solid #e0e6f0; border-radius: 8px; font-size: 13px; outline: none; transition: border-color .15s, width .15s; background: #fff; color: #2d3a55; }
+.tb-search-input:focus { border-color: var(--menu-color); width: 250px; }
+.tb-search-results { display: none; position: absolute; top: 40px; left: 0; width: 320px; max-height: 420px; overflow-y: auto; background: #fff; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.15); border: 1px solid #e8ecf4; z-index: 2000; }
+.tb-search-group-title { padding: 8px 14px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #8896b0; }
+.tb-search-item { display: block; padding: 9px 14px; text-decoration: none; color: #2d3a55; border-bottom: 1px solid #f0f3fa; }
+.tb-search-item:hover { background: #f4f7fe; }
+.tb-search-item .tsi-label { font-size: 13px; font-weight: 600; }
+.tb-search-item .tsi-sub { font-size: 11px; color: #8896b0; margin-left: 22px; }
+.tb-search-empty { padding: 16px; text-align: center; color: #aab; font-size: 13px; }
+@media (max-width: 820px) { .tb-search-wrap { display: none; } }
+
 .tb-link {
     display: flex; align-items: center; justify-content: center;
     width: 34px; height: 34px; border-radius: 50%;
@@ -464,12 +493,16 @@ html.sidebar-collapsed .app-topbar { left: var(--sb-w-c); }
                 </button>
                 <div class="collapse snav-submenu <?= $groupGestion ? 'show' : '' ?>" id="sgGestion" data-bs-parent="#sidebarAccordion">
                     <a class="<?= $currentPageFile === 'charges_locatives.php' ? 'is-active' : '' ?>" href="charges_locatives.php"><i class="fa fa-bolt"></i>Charges locatives</a>
+                    <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                     <a class="<?= $currentPageFile === 'revisions_loyer.php' ? 'is-active' : '' ?>" href="revisions_loyer.php"><i class="fa fa-arrow-trend-up"></i>Révisions de loyer</a>
+                    <?php endif; ?>
                 </div>
                 <div class="snav-flyout">
                     <div class="flyout-title">Gestion locative</div>
                     <a href="charges_locatives.php"><i class="fa fa-bolt"></i>Charges locatives</a>
+                    <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                     <a href="revisions_loyer.php"><i class="fa fa-arrow-trend-up"></i>Révisions de loyer</a>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -503,6 +536,11 @@ html.sidebar-collapsed .app-topbar { left: var(--sb-w-c); }
                 <?php if ($countMsg > 0): ?><span class="snav-badge" id="navBadgeMessages"><?= $countMsg ?></span><?php endif; ?>
             </a>
 
+            <a href="messages_locataires.php" class="snav-link <?= $currentPageFile === 'messages_locataires.php' ? 'is-active' : '' ?>">
+                <i class="fa fa-comments snav-icon"></i><span class="snav-label">Messages Locataires</span>
+                <?php if ($countMsgLocataires > 0): ?><span class="snav-badge"><?= $countMsgLocataires ?></span><?php endif; ?>
+            </a>
+
             <a href="rapports.php" class="snav-link <?= $currentPageFile === 'rapports.php' ? 'is-active' : '' ?>">
                 <i class="fa fa-chart-bar snav-icon"></i><span class="snav-label">Rapports</span>
             </a>
@@ -515,6 +553,14 @@ html.sidebar-collapsed .app-topbar { left: var(--sb-w-c); }
 
         </div>
     </div>
+
+    <a href="guide.php" class="snav-link <?= $currentPageFile === 'guide.php' ? 'is-active' : '' ?>" style="margin:4px 10px;">
+        <i class="fa fa-book-open snav-icon"></i><span class="snav-label">Guide d'utilisation</span>
+    </a>
+
+    <a href="a_propos.php" class="snav-link <?= $currentPageFile === 'a_propos.php' ? 'is-active' : '' ?>" style="margin:4px 10px;">
+        <i class="fa fa-circle-info snav-icon"></i><span class="snav-label">À propos</span>
+    </a>
 
     <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Réduire / agrandir le menu">
         <i class="fa fa-angles-left"></i><span class="scb-label">Réduire le menu</span>
@@ -536,6 +582,13 @@ html.sidebar-collapsed .app-topbar { left: var(--sb-w-c); }
         <span class="tt-sep"><i class="fa fa-chevron-right" style="font-size:9px;"></i></span>
         <?php endif; ?>
         <span class="tt-current"><?= htmlspecialchars($breadcrumbTitle) ?></span>
+    </div>
+
+    <!-- Recherche globale -->
+    <div class="tb-search-wrap">
+        <i class="fa fa-search tb-search-icon"></i>
+        <input type="text" id="globalSearchInput" class="tb-search-input" placeholder="Rechercher…" autocomplete="off">
+        <div id="globalSearchResults" class="tb-search-results"></div>
     </div>
 
     <!-- Sélecteur de couleur du menu -->
@@ -584,7 +637,11 @@ html.sidebar-collapsed .app-topbar { left: var(--sb-w-c); }
     <!-- User dropdown -->
     <div class="dropdown">
         <button class="topnav-user" data-bs-toggle="dropdown" aria-expanded="false">
+            <?php if ($photoProfilCourant): ?>
+            <div class="avatar" style="padding:0;overflow:hidden;"><img src="../uploads/users/<?= htmlspecialchars($photoProfilCourant) ?>" style="width:100%;height:100%;object-fit:cover;"></div>
+            <?php else: ?>
             <div class="avatar"><i class="fa fa-user-shield" style="font-size:10px;"></i></div>
+            <?php endif; ?>
             <span class="fw-semibold text-truncate d-none d-lg-inline" style="max-width:130px;">
                 <?= htmlspecialchars($_SESSION['nom_complet'] ?? 'Admin') ?>
             </span>
@@ -597,6 +654,7 @@ html.sidebar-collapsed .app-topbar { left: var(--sb-w-c); }
                     <span class="badge bg-danger mt-1" style="font-size:9px;"><?= strtoupper($_SESSION['role'] ?? 'user') ?></span>
                 </div>
             </li>
+            <li><a class="dropdown-item" href="profil.php"><i class="fa fa-user-circle"></i>Mon Profil</a></li>
             <li>
                 <button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalPassword">
                     <i class="fa fa-key"></i>Changer le mot de passe
@@ -735,6 +793,58 @@ function hideLoader() {
 // Masquer après chargement complet OU après 2.5s maximum
 window.addEventListener('load', hideLoader);
 setTimeout(hideLoader, 2500);
+
+// ── Recherche globale ────────────────────────────────────────
+(function() {
+    var input = document.getElementById('globalSearchInput');
+    var panel = document.getElementById('globalSearchResults');
+    if (!input || !panel) return;
+
+    var timer;
+    input.addEventListener('input', function() {
+        clearTimeout(timer);
+        var q = this.value.trim();
+        if (q.length < 2) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+        timer = setTimeout(function() {
+            fetch('../php/recherche_globale.php?q=' + encodeURIComponent(q))
+                .then(function(r) { return r.json(); })
+                .then(renderResults)
+                .catch(function() {});
+        }, 300);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (e.target !== input && !panel.contains(e.target)) panel.style.display = 'none';
+    });
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function section(title, items, icon) {
+        if (!items || !items.length) return '';
+        var html = '<div class="tb-search-group-title">' + esc(title) + '</div>';
+        items.forEach(function(it) {
+            html += '<a href="' + esc(it.url) + '" class="tb-search-item">' +
+                    '<i class="fa ' + icon + ' me-2"></i>' +
+                    '<span class="tsi-label">' + esc(it.label) + '</span>' +
+                    (it.sub ? '<div class="tsi-sub">' + esc(it.sub) + '</div>' : '') +
+                    '</a>';
+        });
+        return html;
+    }
+
+    function renderResults(data) {
+        var html = section('Bailleurs', data.bailleurs, 'fa-user-tie') +
+                   section('Locataires', data.locataires, 'fa-users') +
+                   section('Maisons', data.maisons, 'fa-home') +
+                   section('Contrats', data.contrats, 'fa-file-contract');
+        panel.innerHTML = html || '<div class="tb-search-empty">Aucun résultat</div>';
+        panel.style.display = 'block';
+    }
+})();
 </script>
 <script src="../js/theme.js"></script>
 <script src="../js/toast.js"></script>

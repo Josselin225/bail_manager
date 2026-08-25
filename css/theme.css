@@ -147,6 +147,15 @@ html[data-theme="dark"] .topbar-title .tt-icon { background-color: #262b35 !impo
 html[data-theme="dark"] .topbar-title .tt-group { color: #8a94a3 !important; }
 html[data-theme="dark"] .topbar-title .tt-sep { color: #4a515e !important; }
 
+html[data-theme="dark"] .tb-search-input { background-color: #262b35 !important; border-color: #3a4150 !important; color: #e4e6eb !important; }
+html[data-theme="dark"] .tb-search-input::placeholder { color: #7a8291 !important; }
+html[data-theme="dark"] .tb-search-results { background-color: #1e222b !important; border-color: #2e333d !important; box-shadow: 0 8px 30px rgba(0,0,0,.4) !important; }
+html[data-theme="dark"] .tb-search-group-title { color: #8a94a3 !important; }
+html[data-theme="dark"] .tb-search-item { color: #e4e6eb !important; border-bottom-color: #2e333d !important; }
+html[data-theme="dark"] .tb-search-item:hover { background-color: #262b35 !important; }
+html[data-theme="dark"] .tb-search-item .tsi-sub { color: #8a94a3 !important; }
+html[data-theme="dark"] .tb-search-empty { color: #6b7280 !important; }
+
 /* Menu utilisateur (topbar) et panneau flottant du menu replié : fond blanc
    par défaut → texte utilisant var(--menu-color) devient invisible en sombre
    si on ne le corrige pas explicitement ici. */

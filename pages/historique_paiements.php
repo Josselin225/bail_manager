@@ -42,6 +42,7 @@ $total_du = array_sum(array_filter($reliquats, fn($v) => $v > 0));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Historique — <?= htmlspecialchars($nom_affiche) ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">

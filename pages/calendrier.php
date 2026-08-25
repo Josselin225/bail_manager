@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 
@@ -12,6 +12,7 @@ if (!isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Calendrier — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -86,9 +87,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p = info.event.extendedProps;
                 document.getElementById('tooltipTitle').textContent   = info.event.title.replace(/^.{2}/, '');
                 document.getElementById('tooltipMaison').textContent  = p.maison ?? '';
-                document.getElementById('tooltipExtra').innerHTML     = p.tel
-                    ? `<i class="fa fa-phone me-1"></i>${p.tel}`
-                    : (p.statut ? `Statut : ${p.statut}` : '');
+                var tooltipExtra = document.getElementById('tooltipExtra');
+                tooltipExtra.innerHTML = '';
+                if (p.tel) {
+                    var icon = document.createElement('i');
+                    icon.className = 'fa fa-phone me-1';
+                    tooltipExtra.appendChild(icon);
+                    tooltipExtra.appendChild(document.createTextNode(p.tel));
+                } else if (p.statut) {
+                    tooltipExtra.textContent = 'Statut : ' + p.statut;
+                }
                 document.getElementById('tooltipLink').href = p.url ?? '#';
 
                 tooltip.style.display = 'block';

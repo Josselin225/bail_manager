@@ -1,36 +1,46 @@
 <?php
+session_start();
 require_once('../config/db.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $token = $_POST['token'];
-    $pass = $_POST['password'];
-    $confirm = $_POST['confirm_password'];
+    csrf_validate();
 
-    if ($pass !== $confirm) {
-        header('Location: ../pages/reset_password.php?token=' . urlencode($token) . '&error=mismatch');
+    $token   = $_POST['reset_token'] ?? '';
+    $pass    = $_POST['password'] ?? '';
+    $confirm = $_POST['confirm_password'] ?? '';
+
+    if ($token === '') {
+        header('Location: ../pages/reset_password_step2.php?error=invalid');
         exit();
     }
 
-    // 1. On hache le nouveau mot de passe
-    $hash = password_hash($pass, PASSWORD_DEFAULT);
+    if ($pass !== $confirm || strlen($pass) < 6) {
+        header('Location: ../pages/reset_password_step2.php?token=' . urlencode($token) . '&error=mismatch');
+        exit();
+    }
 
-    // Récupérer l'utilisateur concerné avant d'invalider le token, pour le journal
-    $stmtUser = $pdo->prepare("SELECT id, email FROM users WHERE reset_token = ?");
+    // Le token doit exister ET ne pas être expiré — vérifié ici même (pas seulement
+    // à l'affichage du formulaire), sinon un token périmé reste utilisable indéfiniment.
+    $stmtUser = $pdo->prepare("SELECT id, email FROM users WHERE reset_token = ? AND token_expire > NOW()");
     $stmtUser->execute([$token]);
     $userConcerne = $stmtUser->fetch();
 
-    // 2. On met à jour l'utilisateur et on vide le token
-    $stmt = $pdo->prepare("UPDATE users SET mot_de_passe = ?, reset_token = NULL, token_expire = NULL WHERE reset_token = ?");
-    $result = $stmt->execute([$hash, $token]);
+    if (!$userConcerne) {
+        header('Location: ../pages/reset_password_step2.php?error=expired');
+        exit();
+    }
 
-    if ($result) {
-        if ($userConcerne) {
-            insertLog($pdo, "Sécurité", "Mot de passe réinitialisé pour " . $userConcerne['email']);
-        }
+    $hash = password_hash($pass, PASSWORD_DEFAULT);
+
+    $stmt = $pdo->prepare("UPDATE users SET mot_de_passe = ?, reset_token = NULL, token_expire = NULL WHERE id = ? AND reset_token = ? AND token_expire > NOW()");
+    $result = $stmt->execute([$hash, $userConcerne['id'], $token]);
+
+    if ($result && $stmt->rowCount() === 1) {
+        insertLog($pdo, "Sécurité", "Mot de passe réinitialisé pour " . $userConcerne['email']);
         header('Location: ../pages/login.php?msg=reset_success');
         exit();
     } else {
-        header('Location: ../pages/reset_password.php?token=' . urlencode($token) . '&error=update_failed');
+        header('Location: ../pages/reset_password_step2.php?token=' . urlencode($token) . '&error=update_failed');
         exit();
     }
 }

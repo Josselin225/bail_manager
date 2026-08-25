@@ -1,15 +1,15 @@
-﻿<?php
+<?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (!isset($_SESSION['user_id'])) { header('Location: login.php'); exit(); }
 require_once('../config/db.php');
 
 // Récupération du mois et de l'année (par défaut mois actuel)
-$mois = isset($_GET['mois']) ? $_GET['mois'] : date('m');
-$annee = isset($_GET['annee']) ? $_GET['annee'] : date('Y');
+$mois = isset($_GET['mois']) ? (int)$_GET['mois'] : (int)date('m');
+$annee = isset($_GET['annee']) ? (int)$_GET['annee'] : (int)date('Y');
 
 // Nom du mois en français
 // S'assurer que le mois est toujours sur 2 chiffres (01, 02...)
-$mois = str_pad($mois, 2, "0", STR_PAD_LEFT);
+$mois = str_pad((string)$mois, 2, "0", STR_PAD_LEFT);
 
 $mois_fr = [
     "01"=>"Janvier", "02"=>"Février", "03"=>"Mars", "04"=>"Avril", 
@@ -73,6 +73,7 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Rapport Mensuel - <?= $titre_periode ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -104,18 +105,18 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
             <?php
             $logo = "../uploads/" . $agence['logo_url'];
             if(!empty($agence['logo_url']) && file_exists($logo)): ?>
-                <img src="<?= $logo ?>" alt="Logo" style="max-height: 70px;" class="mb-2">
+                <img src="<?= htmlspecialchars($logo) ?>" alt="Logo" style="max-height: 70px;" class="mb-2">
             <?php endif; ?>
-            <h4 class="fw-bold mb-0" style="color: #002d72;"><?= strtoupper($agence['nom_entreprise']) ?></h4>
-            <small><?= $agence['adresse_siege'] ?></small>
+            <h4 class="fw-bold mb-0" style="color: #002d72;"><?= htmlspecialchars(strtoupper($agence['nom_entreprise'])) ?></h4>
+            <small><?= htmlspecialchars($agence['adresse_siege']) ?></small>
         </div>
         <div class="col-12 col-md-4 text-center border-start border-end">
             <h2 class="fw-bold mb-0">BILAN MENSUEL</h2>
             <p class="h5 mb-0 text-primary"><?= strtoupper($titre_periode) ?></p>
         </div>
         <div class="col-12 col-md-4 text-md-end">
-            <p class="mb-0 fw-bold"><?= $agence['contact_telephone'] ?></p>
-            <p class="mb-0"><?= $agence['contact_email'] ?></p>
+            <p class="mb-0 fw-bold"><?= htmlspecialchars($agence['contact_telephone']) ?></p>
+            <p class="mb-0"><?= htmlspecialchars($agence['contact_email']) ?></p>
             <small class="text-muted">Édité le <?= date('d/m/Y') ?></small>
         </div>
     </div>
@@ -143,9 +144,9 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
                     <?php foreach($liste_loyers as $l): ?>
                     <tr>
                         <td class="text-center"><?= date('d/m', strtotime($l['date_encaissement'])) ?></td>
-                        <td><?= $l['locataire'] ?></td>
-                        <td><?= $l['maison'] ?></td>
-                        <td class="text-center"><?= $l['periode_concernee'] ?></td>
+                        <td><?= htmlspecialchars($l['locataire']) ?></td>
+                        <td><?= htmlspecialchars($l['maison']) ?></td>
+                        <td class="text-center"><?= htmlspecialchars($l['periode_concernee']) ?></td>
                         <td class="text-end fw-bold"><?= number_format($l['montant_recu'], 0, ',', ' ') ?></td>
                     </tr>
                     <?php endforeach; ?>
@@ -169,10 +170,10 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
                     <?php 
                     $total_sorties = 0;
                     foreach($liste_retraits as $r): $total_sorties += $r['montant']; ?>
-                        <tr><td>[Bailleur] <?= $r['nom'] ?></td><td class="text-end text-danger">-<?= number_format($r['montant'], 0, ',', ' ') ?></td></tr>
+                        <tr><td>[Bailleur] <?= htmlspecialchars($r['nom']) ?></td><td class="text-end text-danger">-<?= number_format($r['montant'], 0, ',', ' ') ?></td></tr>
                     <?php endforeach; ?>
                     <?php foreach($liste_mouv_agence as $m): if($m['montant'] < 0): $total_sorties += abs($m['montant']); ?>
-                        <tr><td>[Agence] <?= $m['commentaire'] ?></td><td class="text-end text-danger">-<?= number_format(abs($m['montant']), 0, ',', ' ') ?></td></tr>
+                        <tr><td>[Agence] <?= htmlspecialchars($m['commentaire']) ?></td><td class="text-end text-danger">-<?= number_format(abs($m['montant']), 0, ',', ' ') ?></td></tr>
                     <?php endif; endforeach; ?>
                 </tbody>
                 <tfoot>
@@ -197,7 +198,7 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
     </div>
 
     <div class="footer-agence">
-        <?= strtoupper($agence['nom_entreprise']) ?> - <?= $agence['adresse_siege'] ?> - <?= $agence['contact_telephone'] ?> - <?= $agence['contact_email'] ?>
+        <?= htmlspecialchars(strtoupper($agence['nom_entreprise'])) ?> - <?= htmlspecialchars($agence['adresse_siege']) ?> - <?= htmlspecialchars($agence['contact_telephone']) ?> - <?= htmlspecialchars($agence['contact_email']) ?>
     </div>
 </div>
 

@@ -21,16 +21,15 @@ $statut      = $_POST['statut'] ?? 'disponible';
 $upload_dir = "../uploads/maisons/";
 $sql_images = "";
 $params_images = [];
-$allowed_mime = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-
 foreach (['img1' => 'image1', 'img2' => 'image2', 'img3' => 'image3'] as $input => $col) {
     if (isset($_FILES[$input]) && $_FILES[$input]['error'] == 0) {
-        if (!in_array(mime_content_type($_FILES[$input]['tmp_name']), $allowed_mime)) {
+        $ext = mimeToImageExt(mime_content_type($_FILES[$input]['tmp_name']));
+        if ($ext === null) {
             flash('error', "Format de fichier non autorisé.");
             header("Location: ../pages/maisons.php");
             exit();
         }
-        $new_name = "maison_" . time() . "_" . uniqid() . "." . strtolower(pathinfo($_FILES[$input]['name'], PATHINFO_EXTENSION));
+        $new_name = "maison_" . time() . "_" . uniqid() . "." . $ext;
         if (move_uploaded_file($_FILES[$input]['tmp_name'], $upload_dir . $new_name)) {
             // Optionnel : Supprimer l'ancienne image ici si nécessaire
             $sql_images .= ", $col = ?";
@@ -54,7 +53,7 @@ $sql = "UPDATE maisons SET
 
 $stmt = $pdo->prepare($sql);
 $final_params = array_merge(
-    [$designation, $type_maison, $bailleur_id, $adresse, $description, $loyer, $_POST['condition'], $statut],
+    [$designation, $type_maison, $bailleur_id, $adresse, $description, $loyer, (int)($_POST['condition'] ?? 1), $statut],
     $params_images,
     [$id]
 );

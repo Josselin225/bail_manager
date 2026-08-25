@@ -174,3 +174,17 @@ body {
     padding: 12px;
     font-size: 0.85rem;
 }
+
+/* ── Champ de recherche par popup (js/searchable-select.js) ────────────────── */
+.ss-hidden-select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+}

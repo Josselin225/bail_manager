@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once('../config/db.php');
 
@@ -55,7 +55,7 @@ $s->execute(); $alertesLoyers = $s->fetchAll();
 
 // ── Contrats expirant J-30 ─────────────────────────────────────────────────────
 $s = $pdo->prepare(
-    "SELECT c.date_fin, c.loyer_mensuel,
+    "SELECT c.id, c.date_fin, c.loyer_mensuel,
             l.nom AS locataire, m.designation AS maison,
             DATEDIFF(c.date_fin, CURDATE()) AS jours_restants
      FROM contrats c
@@ -117,6 +117,49 @@ $totalBailleurs  = (int)  $pdo->query("SELECT COUNT(*) FROM bailleurs")->fetchCo
 $soldeBailleurs  = (float)$pdo->query("SELECT COALESCE(SUM(solde_du_bailleur),0) FROM bailleurs")->fetchColumn();
 $cautionsTotales = (float)$pdo->query("SELECT COALESCE(SUM(depot_garantie),0) FROM contrats WHERE statut_contrat='actif'")->fetchColumn();
 $revenuPotentiel = (float)$pdo->query("SELECT COALESCE(SUM(loyer),0) FROM maisons WHERE statut='disponible'")->fetchColumn();
+$soldeCaisse     = (float)$pdo->query("SELECT COALESCE(SUM(montant),0) FROM mouvements_caisse_entreprise")->fetchColumn();
+
+// Charges locatives (année en cours)
+$stmtCharges = $pdo->prepare("SELECT COUNT(*) AS nb, COALESCE(SUM(montant),0) AS total FROM charges_locatives WHERE YEAR(date_charge) = ?");
+$stmtCharges->execute([$annee]);
+$chargesData  = $stmtCharges->fetch();
+$nbCharges    = (int)$chargesData['nb'];
+$totalCharges = (float)$chargesData['total'];
+
+// Révisions de loyer (année en cours) + dernières révisions
+$stmtRevKpi = $pdo->prepare("SELECT COUNT(*) AS nb,
+        SUM(CASE WHEN nouveau_loyer > ancien_loyer THEN 1 ELSE 0 END) AS hausses,
+        SUM(CASE WHEN nouveau_loyer < ancien_loyer THEN 1 ELSE 0 END) AS baisses
+     FROM revisions_loyer WHERE YEAR(created_at) = ?");
+$stmtRevKpi->execute([$annee]);
+$revKpi      = $stmtRevKpi->fetch();
+$nbRevisions = (int)$revKpi['nb'];
+$revHausses  = (int)$revKpi['hausses'];
+$revBaisses  = (int)$revKpi['baisses'];
+
+$dernieresRevisions = $pdo->query(
+    "SELECT r.*, l.nom AS locataire, m.designation AS maison
+     FROM revisions_loyer r
+     JOIN contrats c   ON r.contrat_id  = c.id
+     JOIN locataires l ON c.locataire_id = l.id
+     JOIN maisons m    ON c.maison_id    = m.id
+     ORDER BY r.created_at DESC LIMIT 5"
+)->fetchAll();
+
+// Répartition par bailleur (nb maisons, revenu de l'année, solde à reverser)
+$stmtParBailleur = $pdo->prepare(
+    "SELECT b.id, b.nom, COUNT(DISTINCT m.id) AS nb_maisons, b.solde_du_bailleur,
+            COALESCE(SUM(CASE WHEN YEAR(e.date_encaissement) = ? THEN e.montant_recu ELSE 0 END),0) AS revenu_annee
+     FROM bailleurs b
+     LEFT JOIN maisons m     ON m.bailleur_id = b.id
+     LEFT JOIN contrats c    ON c.maison_id   = m.id
+     LEFT JOIN encaissements e ON e.contrat_id = c.id
+     GROUP BY b.id, b.nom, b.solde_du_bailleur
+     ORDER BY revenu_annee DESC LIMIT 6"
+);
+$stmtParBailleur->execute([$annee]);
+$parBailleur   = $stmtParBailleur->fetchAll();
+$maxRevenuBail = $parBailleur ? max(array_column($parBailleur, 'revenu_annee')) : 0;
 
 // Impayés détaillés avec contact
 $stmtTopImp = $pdo->prepare("
@@ -181,6 +224,7 @@ if ($isAdmin) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Tableau de bord — BailManager</title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -231,6 +275,8 @@ if ($isAdmin) {
             transition: all .15s ease;
             border: 1.5px solid;
             white-space: nowrap;
+            font-family: inherit;
+            cursor: pointer;
         }
         .quick-btn.marine { background: var(--marine); border-color: var(--marine); color: #fff; }
         .quick-btn.marine:hover { background: #003580; color: #fff; }
@@ -367,21 +413,17 @@ if ($isAdmin) {
                 <i class="fa fa-file-alt"></i>Rapports
             </a>
             <?php if ($isAdmin): ?>
-            <a href="../php/backup.php" class="quick-btn outline no-print">
-                <i class="fa fa-database"></i>Sauvegarde
-            </a>
+            <form method="POST" action="../php/backup.php" class="no-print" style="display:inline">
+                <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+                <button type="submit" class="quick-btn outline">
+                    <i class="fa fa-database"></i>Sauvegarde
+                </button>
+            </form>
             <?php endif; ?>
         </div>
     </div>
 
-    <?php if (isset($_GET['backup']) && $_GET['backup'] === 'success'): ?>
-    <div class="alert alert-success alert-dismissible fade show mb-4">
-        <strong>Succès !</strong> Sauvegarde créée : <?= htmlspecialchars($_GET['file'] ?? '') ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php endif; ?>
-
-    <!-- ── 5 KPI cards ─────────────────────────────────────────────────── -->
+<!-- ── 5 KPI cards ─────────────────────────────────────────────────── -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-4 col-lg">
             <a href="encaissements.php" class="kpi-card" title="Voir les encaissements">
@@ -447,7 +489,7 @@ if ($isAdmin) {
 
     <!-- ── KPI row 2 — Bailleurs & finance ──────────────────────────────── -->
     <div class="row g-2 mb-4">
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
             <a href="bailleurs.php" class="kpi2-card" title="Voir les bailleurs">
                 <div class="kpi2-icon" style="background:#f0fdf4;"><i class="fa fa-address-book" style="color:#059669;"></i></div>
                 <div>
@@ -456,7 +498,7 @@ if ($isAdmin) {
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
             <a href="compte_bailleur.php" class="kpi2-card" title="Voir le compte courant bailleurs">
                 <div class="kpi2-icon" style="background:#fef9c3;"><i class="fa fa-scale-balanced" style="color:#ca8a04;"></i></div>
                 <div>
@@ -466,7 +508,7 @@ if ($isAdmin) {
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
             <a href="gestion_cautions.php" class="kpi2-card" title="Voir la gestion des cautions">
                 <div class="kpi2-icon" style="background:#ede9fe;"><i class="fa fa-shield-halved" style="color:#7c3aed;"></i></div>
                 <div>
@@ -476,13 +518,33 @@ if ($isAdmin) {
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md">
             <a href="maisons.php?statut=disponible" class="kpi2-card" title="Voir les maisons disponibles">
                 <div class="kpi2-icon" style="background:#e0f2fe;"><i class="fa fa-house-circle-check" style="color:#0284c7;"></i></div>
                 <div>
                     <div class="kpi2-val" style="color:#0284c7;"><?= number_format($revenuPotentiel,0,',',' ') ?></div>
                     <div class="kpi2-lbl">Revenu potentiel</div>
                     <div class="kpi2-sub">maisons libres/mois</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md">
+            <a href="caisse_entreprise.php" class="kpi2-card" title="Voir la caisse entreprise">
+                <div class="kpi2-icon" style="background:<?= $soldeCaisse>=0?'#d1fae5':'#fee2e2' ?>;"><i class="fa fa-vault" style="color:<?= $soldeCaisse>=0?'#059669':'#dc2626' ?>;"></i></div>
+                <div>
+                    <div class="kpi2-val" style="color:<?= $soldeCaisse>=0?'#059669':'#dc2626' ?>;"><?= number_format($soldeCaisse,0,',',' ') ?></div>
+                    <div class="kpi2-lbl">Solde de caisse</div>
+                    <div class="kpi2-sub">FCFA disponibles</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md">
+            <a href="charges_locatives.php" class="kpi2-card" title="Voir les charges locatives">
+                <div class="kpi2-icon" style="background:#ffedd5;"><i class="fa fa-bolt" style="color:#ea580c;"></i></div>
+                <div>
+                    <div class="kpi2-val" style="color:#ea580c;"><?= number_format($totalCharges,0,',',' ') ?></div>
+                    <div class="kpi2-lbl">Charges locatives</div>
+                    <div class="kpi2-sub">FCFA — <?= $annee ?> (<?= $nbCharges ?>)</div>
                 </div>
             </a>
         </div>
@@ -555,12 +617,60 @@ if ($isAdmin) {
                             <div class="text-muted" style="font-size:11px;margin-top:2px;"><?= date('d/m/Y', strtotime($c['date_fin'])) ?></div>
                         </div>
                     </div>
+                    <a href="contrats.php?renew_id=<?= $c['id'] ?>" class="btn btn-sm w-100 mt-2" style="background:#ede9fe;color:#4338ca;font-size:11px;font-weight:600;"><i class="fa fa-rotate me-1"></i>Renouveler</a>
                 </div>
                 <?php endforeach; ?>
             </div>
         </div>
         <?php endif; ?>
 
+    </div>
+    <?php endif; ?>
+
+    <!-- ── Locataires en retard de paiement ────────────────────────────── -->
+    <?php if (!empty($topImpayes)): ?>
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="section-title"><i class="fa fa-triangle-exclamation" style="color:var(--red);"></i>Locataires en retard de paiement <span class="badge rounded-pill" style="background:#fee2e2;color:#991b1b;font-size:10px;"><?= count($topImpayes) ?></span></div>
+            <div class="chart-card p-0">
+                <table class="table mb-0" style="font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8faff;">
+                            <th class="ps-3" style="font-size:11px;color:#6b7a99;text-transform:uppercase;">Locataire</th>
+                            <th style="font-size:11px;color:#6b7a99;text-transform:uppercase;">Maison</th>
+                            <th style="font-size:11px;color:#6b7a99;text-transform:uppercase;">Téléphone</th>
+                            <th class="text-end" style="font-size:11px;color:#6b7a99;text-transform:uppercase;">Loyer</th>
+                            <th class="text-center" style="font-size:11px;color:#6b7a99;text-transform:uppercase;">Retard</th>
+                            <th class="text-center pe-3" style="font-size:11px;color:#6b7a99;text-transform:uppercase;">Rappel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($topImpayes as $imp):
+                            $waNum = preg_replace('/[^0-9]/', '', $imp['telephone1'] ?? '');
+                            if (strlen($waNum) === 10 && $waNum[0] === '0') $waNum = '225' . substr($waNum, 1);
+                            $waMsg = "Bonjour {$imp['locataire']}, votre loyer de " . number_format($imp['loyer_mensuel'],0,',',' ') . " FCFA pour {$imp['maison']} est en retard de {$imp['jours_retard']} jour(s). Merci de régulariser dans les meilleurs délais. — " . ($entreprise['nom_entreprise'] ?? 'BailManager');
+                        ?>
+                        <tr>
+                            <td class="ps-3 fw-semibold" style="color:#2d3a55;"><?= htmlspecialchars($imp['locataire']) ?></td>
+                            <td class="text-muted"><?= htmlspecialchars($imp['maison']) ?></td>
+                            <td>
+                                <?php if (!empty($imp['telephone1'])): ?>
+                                <a href="tel:<?= htmlspecialchars($imp['telephone1']) ?>" class="text-decoration-none"><i class="fa fa-phone me-1" style="color:var(--green);"></i><?= htmlspecialchars($imp['telephone1']) ?></a>
+                                <?php else: ?>—<?php endif; ?>
+                            </td>
+                            <td class="text-end fw-bold" style="color:var(--marine);"><?= number_format($imp['loyer_mensuel'],0,',',' ') ?> FCFA</td>
+                            <td class="text-center"><span class="badge rounded-pill bg-danger" style="font-size:11px;"><?= (int)$imp['jours_retard'] ?> j</span></td>
+                            <td class="text-center pe-3">
+                                <?php if ($waNum): ?>
+                                <a href="https://wa.me/<?= $waNum ?>?text=<?= rawurlencode($waMsg) ?>" target="_blank" class="btn btn-sm btn-outline-success" style="border-radius:6px;" title="Envoyer un rappel WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                                <?php else: ?>—<?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <?php endif; ?>
 
@@ -737,6 +847,81 @@ if ($isAdmin) {
                             <?php endforeach; ?>
                         </div>
                     </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Répartition par bailleur + Révisions de loyer ───────────────── -->
+    <div class="row g-3 mb-4">
+
+        <!-- Répartition par bailleur -->
+        <div class="col-lg-7">
+            <div class="chart-card h-100">
+                <div class="chart-card-header">
+                    <div>
+                        <div class="title"><i class="fa fa-users-line me-2" style="color:var(--marine);"></i>Répartition par bailleur</div>
+                        <div class="sub">Revenu <?= $annee ?> et solde à reverser</div>
+                    </div>
+                </div>
+                <div class="chart-card-body">
+                    <?php if (empty($parBailleur)): ?>
+                    <div class="text-muted small text-center py-3">Aucun bailleur enregistré.</div>
+                    <?php else: ?>
+                    <?php foreach ($parBailleur as $pb):
+                        $pctB = $maxRevenuBail > 0 ? round($pb['revenu_annee'] / $maxRevenuBail * 100) : 0;
+                        $soldeB = (float)$pb['solde_du_bailleur'];
+                    ?>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <div class="d-flex align-items-center gap-2">
+                                <span style="font-size:12px;font-weight:600;color:#2d3a55;"><?= htmlspecialchars($pb['nom']) ?></span>
+                                <span class="text-muted" style="font-size:10px;"><?= (int)$pb['nb_maisons'] ?> bien<?= $pb['nb_maisons']>1?'s':'' ?></span>
+                            </div>
+                            <div class="text-end">
+                                <span style="font-size:11px;font-weight:700;color:var(--green);"><?= number_format($pb['revenu_annee'],0,',',' ') ?> F</span>
+                                <span class="text-muted" style="font-size:10px;"> · <?= number_format($soldeB,0,',',' ') ?> F à reverser</span>
+                            </div>
+                        </div>
+                        <div class="top-bar-wrap">
+                            <div class="top-bar-fill" style="width:<?= $pctB ?>%;"></div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dernières révisions de loyer -->
+        <div class="col-lg-5">
+            <div class="chart-card h-100">
+                <div class="chart-card-header">
+                    <div>
+                        <div class="title"><i class="fa fa-arrow-trend-up me-2" style="color:#6366f1;"></i>Révisions de loyer</div>
+                        <div class="sub"><?= $annee ?> — <?= $nbRevisions ?> révision<?= $nbRevisions>1?'s':'' ?> (<?= $revHausses ?> hausse<?= $revHausses>1?'s':'' ?>, <?= $revBaisses ?> baisse<?= $revBaisses>1?'s':'' ?>)</div>
+                    </div>
+                </div>
+                <div class="chart-card-body">
+                    <?php if (empty($dernieresRevisions)): ?>
+                    <div class="text-muted small text-center py-3">Aucune révision enregistrée.</div>
+                    <?php else: ?>
+                    <?php foreach ($dernieresRevisions as $rev):
+                        $up = $rev['nouveau_loyer'] > $rev['ancien_loyer'];
+                    ?>
+                    <div class="d-flex align-items-center justify-content-between mb-2 pb-2" style="border-bottom:1px solid #f0f3fa;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:#2d3a55;"><?= htmlspecialchars($rev['locataire']) ?></div>
+                            <div class="text-muted" style="font-size:10px;"><?= htmlspecialchars($rev['maison']) ?> · <?= date('d/m/Y', strtotime($rev['created_at'])) ?></div>
+                        </div>
+                        <div class="text-end" style="font-size:11px;">
+                            <span class="text-muted"><?= number_format($rev['ancien_loyer'],0,',',' ') ?></span>
+                            <i class="fa fa-arrow-right mx-1" style="color:<?= $up?'var(--red)':'var(--green)' ?>;font-size:9px;"></i>
+                            <span class="fw-bold" style="color:<?= $up?'var(--red)':'var(--green)' ?>;"><?= number_format($rev['nouveau_loyer'],0,',',' ') ?></span>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
             </div>

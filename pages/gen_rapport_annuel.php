@@ -1,9 +1,9 @@
-﻿<?php
+<?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (!isset($_SESSION['user_id'])) { header('Location: login.php'); exit(); }
 require_once('../config/db.php');
 
-$annee = isset($_GET['annee']) ? $_GET['annee'] : date('Y');
+$annee = isset($_GET['annee']) ? (int)$_GET['annee'] : (int)date('Y');
 
 // --- RÉCUPÉRATION DES INFOS DE L'AGENCE ---
 $query_agence = $pdo->query("SELECT * FROM settings LIMIT 1");
@@ -56,6 +56,7 @@ $mois_fr = [1=>"Janvier", 2=>"Février", 3=>"Mars", 4=>"Avril", 5=>"Mai", 6=>"Ju
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Bilan Annuel <?= $annee ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
@@ -78,9 +79,9 @@ $mois_fr = [1=>"Janvier", 2=>"Février", 3=>"Mars", 4=>"Avril", 5=>"Mai", 6=>"Ju
     <div class="row mb-4 align-items-center g-3">
         <div class="col-12 col-md-4">
             <?php $logo = "../uploads/" . $agence['logo_url']; if(file_exists($logo)): ?>
-                <img src="<?= $logo ?>" style="max-height: 60px;">
+                <img src="<?= htmlspecialchars($logo) ?>" style="max-height: 60px;">
             <?php endif; ?>
-            <h5 class="fw-bold mb-0"><?= strtoupper($agence['nom_entreprise']) ?></h5>
+            <h5 class="fw-bold mb-0"><?= htmlspecialchars(strtoupper($agence['nom_entreprise'])) ?></h5>
         </div>
         <div class="col-12 col-md-4 text-center border-start border-end">
             <h2 class="fw-bold mb-0">RAPPORT ANNUEL</h2>
@@ -88,7 +89,7 @@ $mois_fr = [1=>"Janvier", 2=>"Février", 3=>"Mars", 4=>"Avril", 5=>"Mai", 6=>"Ju
         </div>
         <div class="col-12 col-md-4 text-md-end">
             <button onclick="window.print()" class="btn btn-sm btn-primary no-print mb-2"><i class="fa fa-print"></i> Imprimer</button>
-            <p class="mb-0 small text-muted"><?= $agence['adresse_siege'] ?><br>Tél: <?= $agence['contact_telephone'] ?></p>
+            <p class="mb-0 small text-muted"><?= htmlspecialchars($agence['adresse_siege']) ?><br>Tél: <?= htmlspecialchars($agence['contact_telephone']) ?></p>
         </div>
     </div>
 
@@ -170,7 +171,7 @@ $mois_fr = [1=>"Janvier", 2=>"Février", 3=>"Mars", 4=>"Avril", 5=>"Mai", 6=>"Ju
     </div>
 
     <div class="footer-agence">
-        <?= $agence['nom_entreprise'] ?> - <?= $agence['adresse_siege'] ?> - <?= $agence['contact_telephone'] ?>
+        <?= htmlspecialchars($agence['nom_entreprise']) ?> - <?= htmlspecialchars($agence['adresse_siege']) ?> - <?= htmlspecialchars($agence['contact_telephone']) ?>
     </div>
 </div>
 

@@ -9,6 +9,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 csrf_validate();
 
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(403);
+    echo "error";
+    exit();
+}
+
 if (isset($_POST['id'])) {
     $id = intval($_POST['id']);
     try {

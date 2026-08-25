@@ -2,7 +2,12 @@
 session_start();
 require_once('../config/db.php');
 
-$id = $_GET['id'] ?? 0;
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
+$id = (int)($_GET['id'] ?? 0);
 
 // 1. Récupération des paramètres de l'entreprise (Settings)
 $query_settings = $pdo->query("SELECT * FROM settings LIMIT 1");
@@ -33,7 +38,14 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute([$id]);
 $contrat = $stmt->fetch();
 
-if (!$contrat) { die("Contrat introuvable"); }
+if (!$contrat) {
+    flash('error', "Contrat introuvable.");
+    header('Location: contrats.php');
+    exit();
+}
+
+// 3. Clauses du contrat (gérées depuis Paramètres)
+$clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY ordre_affichage ASC, id ASC")->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -41,19 +53,20 @@ if (!$contrat) { die("Contrat introuvable"); }
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Contrat de Bail - <?= htmlspecialchars($contrat['locataire_nom']) ?></title>
     <style>
-        @page { 
-            size: A4; 
-            margin: 10mm 15mm; 
+        @page {
+            size: A4;
+            margin: 8mm 12mm;
         }
-        
-        body { 
-            font-family: 'Segoe UI', Helvetica, Arial, sans-serif; 
-            font-size: 11pt; 
-            line-height: 1.4; 
-            color: #222; 
-            margin: 0; 
+
+        body {
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-size: 12pt;
+            line-height: 1.25;
+            color: #222;
+            margin: 0;
         }
 
         /* Filigrane */
@@ -75,39 +88,52 @@ if (!$contrat) { die("Contrat introuvable"); }
             align-items: center;
             justify-content: space-between;
             border-bottom: 2px solid #333;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
         }
-        
-        .agency-info h2 { margin: 0; font-size: 16pt; color: #000080; text-transform: uppercase; }
-        .agency-info p { margin: 0; font-size: 9pt; color: #555; }
-        .agency-logo { max-height: 60px; }
 
-        .contract-title { text-align: center; margin-bottom: 20px; }
-        .contract-title h1 { font-size: 14pt; text-decoration: underline; text-transform: uppercase; margin: 0; }
-        
-        .section { margin-bottom: 15px; }
-        .section h3 { 
-            font-size: 11pt; 
-            margin: 10px 0 5px 0; 
-            background: #f4f4f4; 
-            padding: 5px 10px; 
+        .agency-info h2 { margin: 0; font-size: 13pt; color: #000080; text-transform: uppercase; }
+        .agency-info p { margin: 0; font-size: 8pt; color: #555; }
+        .agency-logo { max-height: 42px; }
+
+        .contract-title { text-align: center; margin-bottom: 10px; }
+        .contract-title h1 { font-size: 12pt; text-decoration: underline; text-transform: uppercase; margin: 0; }
+
+        .section { margin-bottom: 8px; }
+        .section h3 {
+            font-size: 9.5pt;
+            margin: 6px 0 4px 0;
+            background: #f4f4f4;
+            padding: 3px 8px;
             border-left: 5px solid #000080;
             text-transform: uppercase;
         }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-        .info-table td { padding: 4px 0; vertical-align: top; }
-        
-        .financial-table td { border: 1px solid #333; padding: 8px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+        .info-table td { padding: 2px 0; vertical-align: top; }
 
-        .signature-table { margin-top: 30px; }
-        .signature-cell { 
-            border: 1px solid #333; 
-            height: 120px; 
-            padding: 10px; 
-            vertical-align: top; 
+        .financial-table { border: 1px solid #333; table-layout: fixed; width: calc(100% - 2px); }
+        .financial-table td { border: 1px solid #333; padding: 4px; text-align: center; font-size: 8.5pt; }
+
+        .signature-table { margin-top: 15px; width: calc(100% - 2px); table-layout: fixed; }
+        .signature-cell {
+            border: 1px solid #333;
+            height: 70px;
+            padding: 6px;
+            vertical-align: top;
             width: 50%;
+        }
+
+        .print-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 7pt;
+            color: #888;
+            border-top: 1px solid #ddd;
+            padding-top: 6px;
         }
 
         @media print {
@@ -119,6 +145,15 @@ if (!$contrat) { die("Contrat introuvable"); }
 <body>
 
     <div class="watermark">ORIGINAL</div>
+
+    <?php if (!empty($_SESSION['flash'])): ?>
+    <?php foreach ($_SESSION['flash'] as $f): ?>
+    <div class="no-print" style="padding: 12px 15px; text-align: center; color: #fff; font-weight: bold; background: <?= $f['type'] === 'success' ? '#28a745' : '#dc3545' ?>;">
+        <?= htmlspecialchars($f['message']) ?>
+    </div>
+    <?php endforeach; ?>
+    <?php unset($_SESSION['flash']); ?>
+    <?php endif; ?>
 
     <div class="no-print" style="padding: 15px; background: #333; text-align: center; color: white;">
         <strong>Mode Aperçu du Contrat</strong>
@@ -175,28 +210,41 @@ if (!$contrat) { die("Contrat introuvable"); }
             <tr style="background:#f8f8f8; font-weight: bold;">
                 <td>Loyer Mensuel (Net)</td>
                 <td>Dépôt de Garantie</td>
-                <td>Date de Prise d'Effet</td>
+                <td>Avance de Loyer</td>
             </tr>
             <tr>
                 <td><strong><?= number_format($contrat['loyer_mensuel'], 0, ',', ' ') ?> FCFA</strong></td>
                 <td><strong><?= number_format($contrat['depot_garantie'], 0, ',', ' ') ?> FCFA</strong></td>
+                <td><strong><?= number_format($contrat['avance_loyer'] ?? 0, 0, ',', ' ') ?> FCFA</strong></td>
+            </tr>
+            <tr style="background:#f8f8f8; font-weight: bold;">
+                <td>Droit d'Agence</td>
+                <td>Date de Prise d'Effet</td>
+                <td>Total Payé à la Signature</td>
+            </tr>
+            <tr>
+                <td><strong><?= number_format($contrat['droit_agence'] ?? 0, 0, ',', ' ') ?> FCFA</strong></td>
                 <td><?= date('d/m/Y', strtotime($contrat['date_debut'])) ?></td>
+                <td><strong><?= number_format(($contrat['depot_garantie'] ?? 0) + ($contrat['avance_loyer'] ?? 0) + ($contrat['droit_agence'] ?? 0), 0, ',', ' ') ?> FCFA</strong></td>
             </tr>
         </table>
     </div>
 
     <div class="section">
         <h3>4. PRINCIPALES CLAUSES</h3>
-        <p style="font-size: 10pt; text-align: justify;">
-            - Le présent bail est régi par les lois en vigueur relatives aux baux à usage d'habitation.<br>
-            - Le <strong>préavis de résiliation est fixé à trois (03) mois</strong> francs, notifié par lettre recommandée ou acte d'huissier.<br>
-            - Le preneur s'engage à payer le loyer au plus tard le 05 de chaque mois.<br>
-            - Les charges d'abonnement et de consommation d'eau et d'électricité sont à la charge exclusive du preneur.
+        <p style="font-size: 10pt; line-height: 1.25; text-align: justify;">
+        <?php if (empty($clauses)): ?>
+            Aucune clause définie.
+        <?php else: ?>
+            <?php foreach ($clauses as $i => $cl): ?>
+            - <?= nl2br(htmlspecialchars($cl['contenu'])) ?><?= $i < count($clauses) - 1 ? '<br>' : '' ?>
+            <?php endforeach; ?>
+        <?php endif; ?>
         </p>
     </div>
 
-    <p style="margin-top: 20px;">
-        Fait à <?= explode(',', $entreprise['adresse_siege'])[0] ?>, le <strong><?= date('d/m/Y', strtotime($contrat['date_contrat'])) ?></strong>.
+    <p style="margin-top: 10px;">
+        Fait à <?= htmlspecialchars(explode(',', $entreprise['adresse_siege'])[0]) ?>, le <strong><?= date('d/m/Y', strtotime($contrat['date_contrat'])) ?></strong>.
     </p>
 
     <div class="signature-table">
@@ -204,17 +252,17 @@ if (!$contrat) { die("Contrat introuvable"); }
             <tr>
                 <td class="signature-cell">
                     <strong>LE PRENEUR (LOCATAIRE)</strong><br>
-                    <em style="font-size: 9pt;">(Précéder de la mention "Lu et approuvé")</em>
+                    <em style="font-size: 8pt;">(Précéder de la mention "Lu et approuvé")</em>
                 </td>
                 <td class="signature-cell" style="text-align: right;">
                     <strong>POUR L'AGENCE (LE MANDATAIRE)</strong><br>
-                    <em style="font-size: 9pt;">(Signature et Cachet)</em>
+                    <em style="font-size: 8pt;">(Signature et Cachet)</em>
                 </td>
             </tr>
         </table>
     </div>
 
-    <div style="margin-top: 30px; text-align: center; font-size: 8pt; color: #888; border-top: 1px solid #ddd; padding-top: 10px;">
+    <div class="print-footer">
         Contrat généré par <?= htmlspecialchars($entreprise['nom_entreprise']) ?> - Logiciel BailManager
     </div>
 
