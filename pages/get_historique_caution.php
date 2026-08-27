@@ -49,7 +49,7 @@ $solde_couleur = ($solde_final <= $seuil_alerte) ? '#dc2626' : '#059669';
 
 // --- AFFICHAGE ---
 echo '<div class="text-end mb-3">
-        <a class="btn btn-sm btn-dark" href="releve_caution.php?id=' . (int)$id_contrat . '" target="_blank">
+        <a class="btn btn-sm btn-dark" href="releve_caution.php?id=' . (int)$id_contrat . '">
             <i class="fa fa-print me-2"></i>Imprimer le Relevé
         </a>
       </div>';

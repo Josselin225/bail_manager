@@ -285,7 +285,7 @@ $avatarColors = [
             <p class="text-muted small mb-0 mt-1">Suivi des dépôts de garantie et restitutions</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="rapport_cautions.php" target="_blank" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
+            <a href="rapport_cautions.php" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
                 <i class="fa fa-print me-2"></i>Rapport détaillé
             </a>
             <button onclick="showModal('modalRestitution')" class="btn btn-warning btn-sm fw-bold shadow-sm" style="border-radius:8px;">

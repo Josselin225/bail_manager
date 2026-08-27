@@ -73,6 +73,35 @@ function mimeToImageExt(string $mime): ?string {
     return $map[$mime] ?? null;
 }
 
+// ─── Pied de page légal des documents imprimés/exportés ──────────────────────
+// Construit les lignes (siège+tel, CC/RCCM/email, banque/IBAN/SWIFT, site web)
+// à partir d'une ligne `settings`. Utilisé par les pages d'export PDF (jsPDF)
+// et, sous forme de contenu CSS @page, par les pages imprimées via Chrome.
+function buildFooterLines(array $entreprise): array {
+    $lines = [];
+    if (!empty($entreprise['adresse_siege']) || !empty($entreprise['contact_telephone'])) {
+        $lines[] = trim(
+            (!empty($entreprise['adresse_siege']) ? 'Siège social : ' . $entreprise['adresse_siege'] : '') .
+            (!empty($entreprise['contact_telephone']) ? ' - Tel : ' . $entreprise['contact_telephone'] : '')
+        );
+    }
+    $ligneCC = array_filter([
+        !empty($entreprise['cc_numero']) ? 'CC N° : ' . $entreprise['cc_numero'] : '',
+        !empty($entreprise['regime_imposition']) ? 'Régime d\'Imposition : ' . $entreprise['regime_imposition'] : '',
+        !empty($entreprise['rccm_numero']) ? 'N° RCCM : ' . $entreprise['rccm_numero'] : '',
+        !empty($entreprise['contact_email']) ? 'E-mail : ' . $entreprise['contact_email'] : '',
+    ]);
+    if ($ligneCC) $lines[] = implode(' - ', $ligneCC);
+    $ligneBanque = array_filter([
+        !empty($entreprise['compte_bancaire']) ? 'Compte bancaire : ' . $entreprise['compte_bancaire'] : '',
+        !empty($entreprise['iban']) ? 'IBAN ' . $entreprise['iban'] : '',
+        !empty($entreprise['swift']) ? 'SWIFT: ' . $entreprise['swift'] : '',
+    ]);
+    if ($ligneBanque) $lines[] = implode(' - ', $ligneBanque);
+    if (!empty($entreprise['site_web'])) $lines[] = $entreprise['site_web'];
+    return $lines;
+}
+
 // ─── Notifications toast (flash messages) ────────────────────────────────────
 // type attendu : success | error | warning | info. Consommé et affiché en
 // toast par includes/sidebar.php (via js/toast.js) sur la page suivante.

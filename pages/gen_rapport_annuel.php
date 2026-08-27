@@ -9,6 +9,37 @@ $annee = isset($_GET['annee']) ? (int)$_GET['annee'] : (int)date('Y');
 $query_agence = $pdo->query("SELECT * FROM settings LIMIT 1");
 $agence = $query_agence->fetch();
 
+// Pied de page complet (siège, CC, banque...), injecté comme contenu CSS @page pour se répéter
+// fiablement sur CHAQUE page imprimée (position:fixed casse sur les documents multi-pages sous Chrome).
+$footerLines = [];
+if (!empty($agence['adresse_siege']) || !empty($agence['contact_telephone'])) {
+    $footerLines[] = trim(
+        (!empty($agence['adresse_siege']) ? 'Siège social : ' . $agence['adresse_siege'] : '') .
+        (!empty($agence['contact_telephone']) ? ' - Tel : ' . $agence['contact_telephone'] : '')
+    );
+}
+$ligneCC = array_filter([
+    !empty($agence['cc_numero']) ? 'CC N° : ' . $agence['cc_numero'] : '',
+    !empty($agence['regime_imposition']) ? 'Régime d\'Imposition : ' . $agence['regime_imposition'] : '',
+    !empty($agence['rccm_numero']) ? 'N° RCCM : ' . $agence['rccm_numero'] : '',
+    !empty($agence['contact_email']) ? 'E-mail : ' . $agence['contact_email'] : '',
+]);
+if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
+$ligneBanque = array_filter([
+    !empty($agence['compte_bancaire']) ? 'Compte bancaire : ' . $agence['compte_bancaire'] : '',
+    !empty($agence['iban']) ? 'IBAN ' . $agence['iban'] : '',
+    !empty($agence['swift']) ? 'SWIFT: ' . $agence['swift'] : '',
+]);
+if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
+if (!empty($agence['site_web'])) $footerLines[] = $agence['site_web'];
+
+$footerCssParts = [];
+foreach ($footerLines as $i => $line) {
+    if ($i > 0) $footerCssParts[] = '"\A"';
+    $footerCssParts[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $line) . '"';
+}
+$footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
+
 // --- 1. STATISTIQUES GLOBALES DE L'ANNÉE ---
 // Nouveaux contrats
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM contrats WHERE YEAR(date_contrat) = ?");
@@ -65,31 +96,37 @@ $mois_fr = [1=>"Janvier", 2=>"Février", 3=>"Mars", 4=>"Avril", 5=>"Mai", 6=>"Ju
         .card-stat { border-left: 4px solid #002d72; }
         .section-title { border-bottom: 2px solid #002d72; color: #002d72; font-weight: bold; margin-top: 20px; text-transform: uppercase; }
         @media print {
-            @page { size: landscape; margin: 5mm; }
+            @page {
+                size: landscape;
+                margin: 5mm 5mm 20mm 5mm;
+                @bottom-center {
+                    content: <?= $footerCssContent ?>;
+                    white-space: pre-line;
+                    font-family: 'Segoe UI', sans-serif;
+                    font-size: 6.5pt;
+                    color: #444;
+                    text-align: center;
+                    border-top: 1.5px solid #14305c;
+                    padding-top: 3px;
+                    line-height: 1.4;
+                }
+            }
             .no-print { display: none; }
-            .footer-agence { display: block !important; position: fixed; bottom: 0; width: 100%; text-align: center; border-top: 1px solid #000; font-size: 10px; }
         }
-        .footer-agence { display: none; }
     </style>
 </head>
 <body>
 <div class="no-print" style="position:fixed;top:10px;right:10px;z-index:999;"><a href="rapports.php" class="btn btn-sm btn-secondary"><i class="fa fa-arrow-left me-1"></i>Retour</a></div>
 
 <div class="container-fluid py-3">
-    <div class="row mb-4 align-items-center g-3">
-        <div class="col-12 col-md-4">
-            <?php $logo = "../uploads/" . $agence['logo_url']; if(file_exists($logo)): ?>
-                <img src="<?= htmlspecialchars($logo) ?>" style="max-height: 60px;">
-            <?php endif; ?>
-            <h5 class="fw-bold mb-0"><?= htmlspecialchars(strtoupper($agence['nom_entreprise'])) ?></h5>
-        </div>
-        <div class="col-12 col-md-4 text-center border-start border-end">
+    <?php $entreprise = $agence; include('../includes/print_header.php'); ?>
+    <div class="row mb-4 align-items-center g-3 mt-1">
+        <div class="col-12 col-md-8 text-center">
             <h2 class="fw-bold mb-0">RAPPORT ANNUEL</h2>
             <span class="badge bg-dark">EXERCICE <?= $annee ?></span>
         </div>
         <div class="col-12 col-md-4 text-md-end">
             <button onclick="window.print()" class="btn btn-sm btn-primary no-print mb-2"><i class="fa fa-print"></i> Imprimer</button>
-            <p class="mb-0 small text-muted"><?= htmlspecialchars($agence['adresse_siege']) ?><br>Tél: <?= htmlspecialchars($agence['contact_telephone']) ?></p>
         </div>
     </div>
 
@@ -170,9 +207,6 @@ $mois_fr = [1=>"Janvier", 2=>"Février", 3=>"Mars", 4=>"Avril", 5=>"Mai", 6=>"Ju
         </div>
     </div>
 
-    <div class="footer-agence">
-        <?= htmlspecialchars($agence['nom_entreprise']) ?> - <?= htmlspecialchars($agence['adresse_siege']) ?> - <?= htmlspecialchars($agence['contact_telephone']) ?>
-    </div>
 </div>
 
 </body>

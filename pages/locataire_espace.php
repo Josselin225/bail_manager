@@ -102,6 +102,7 @@ $pdo->prepare("UPDATE messages_locataires SET lu = 1 WHERE locataire_id = ? AND 
     </style>
 </head>
 <body>
+<?php include __DIR__ . '/../includes/page_loader.php'; ?>
 
 <!-- Top bar -->
 <div class="top-bar d-flex justify-content-between align-items-center">

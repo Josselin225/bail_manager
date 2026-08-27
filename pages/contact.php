@@ -49,6 +49,7 @@
     </style>
 </head>
 <body class="bg-light">
+<?php include __DIR__ . '/../includes/page_loader.php'; ?>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-marine sticky-top">
     <div class="container">

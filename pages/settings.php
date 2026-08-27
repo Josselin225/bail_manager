@@ -9,6 +9,8 @@ $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
 $current = $stmt->fetch();
 
 $clauses = $pdo->query("SELECT * FROM clauses_contrat ORDER BY ordre_affichage ASC, id ASC")->fetchAll();
+$articlesBailCI = require('../config/articles_bail_ci.php');
+$titresClausesExistantes = array_flip(array_map(fn($cl) => $cl['titre'], $clauses));
 
 // 2. TRAITEMENT DU FORMULAIRE
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -20,6 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $taux = $_POST['taux_commission'];
     $adresse = $_POST['adresse_siege'];
     $rappels_actifs = isset($_POST['rappels_actifs']) ? 1 : 0;
+    $activites = trim($_POST['activites'] ?? '');
+    $cc_numero = trim($_POST['cc_numero'] ?? '');
+    $regime_imposition = trim($_POST['regime_imposition'] ?? '');
+    $rccm_numero = trim($_POST['rccm_numero'] ?? '');
+    $compte_bancaire = trim($_POST['compte_bancaire'] ?? '');
+    $iban = trim($_POST['iban'] ?? '');
+    $swift = trim($_POST['swift'] ?? '');
+    $site_web = trim($_POST['site_web'] ?? '');
 
     // Par défaut, on garde l'ancien logo stocké en DB
     $logo_name = $current['logo_url'];
@@ -52,11 +62,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 3. MISE À JOUR DE LA BASE DE DONNÉES
     $sql = "UPDATE settings SET
             nom_entreprise = ?, contact_email = ?, contact_telephone = ?,
-            taux_commission = ?, rappels_actifs = ?, adresse_siege = ?, logo_url = ?
+            taux_commission = ?, rappels_actifs = ?, adresse_siege = ?, logo_url = ?,
+            activites = ?, cc_numero = ?, regime_imposition = ?, rccm_numero = ?,
+            compte_bancaire = ?, iban = ?, swift = ?, site_web = ?
             WHERE id = 1";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$nom, $email, $tel, $taux, $rappels_actifs, $adresse, $logo_name]);
+    $stmt->execute([
+        $nom, $email, $tel, $taux, $rappels_actifs, $adresse, $logo_name,
+        $activites, $cc_numero, $regime_imposition, $rccm_numero,
+        $compte_bancaire, $iban, $swift, $site_web,
+    ]);
 
     flash('success', "Paramètres mis à jour avec succès !");
     header('Location: settings.php');
@@ -211,6 +227,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label class="form-label fw-bold">Adresse du Siège Social</label>
                             <textarea name="adresse_siege" class="form-control" rows="3"><?= htmlspecialchars($current['adresse_siege'] ?? '') ?></textarea>
                         </div>
+
+                        <div class="col-12"><hr class="mt-0"><h6 class="fw-bold text-muted text-uppercase small mb-3"><i class="fa fa-scale-balanced me-2"></i>Informations légales et bancaires (en-tête / pied de page des documents)</h6></div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label fw-bold">Activités (une par ligne, affichées dans l'en-tête)</label>
+                            <textarea name="activites" class="form-control" rows="5" placeholder="LOTISSEMENTS&#10;BATIMENTS TRAVAUX PUBLICS&#10;IMPORT &amp; EXPORT"><?= htmlspecialchars($current['activites'] ?? '') ?></textarea>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">CC N° (Compte Contribuable)</label>
+                            <input type="text" name="cc_numero" class="form-control" value="<?= htmlspecialchars($current['cc_numero'] ?? '') ?>">
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Régime d'imposition</label>
+                            <input type="text" name="regime_imposition" class="form-control" value="<?= htmlspecialchars($current['regime_imposition'] ?? '') ?>" placeholder="TEE – CDI / Yamoussoukro">
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">N° RCCM</label>
+                            <input type="text" name="rccm_numero" class="form-control" value="<?= htmlspecialchars($current['rccm_numero'] ?? '') ?>">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Compte bancaire</label>
+                            <input type="text" name="compte_bancaire" class="form-control" value="<?= htmlspecialchars($current['compte_bancaire'] ?? '') ?>" placeholder="Banque N°XXXXXXXXXXXX">
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">IBAN</label>
+                            <input type="text" name="iban" class="form-control" value="<?= htmlspecialchars($current['iban'] ?? '') ?>">
+                        </div>
+
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label fw-bold">SWIFT</label>
+                            <input type="text" name="swift" class="form-control" value="<?= htmlspecialchars($current['swift'] ?? '') ?>">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Site web</label>
+                            <input type="text" name="site_web" class="form-control" value="<?= htmlspecialchars($current['site_web'] ?? '') ?>" placeholder="www.exemple.com">
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-end">
@@ -276,6 +334,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </table>
                 </div>
                 <?php endif; ?>
+            </div>
+
+            <div class="card shadow-sm border-0 p-4 mt-4">
+                <h5 class="fw-bold mb-1"><i class="fa fa-scale-balanced me-2" style="color:var(--marine);"></i>Bibliothèque légale — Bail d'habitation (Côte d'Ivoire)</h5>
+                <p class="text-muted small mb-3">
+                    Extraits de la loi n° 2019-576 du 26 juin 2019 instituant le Code de la Construction et de l'Habitat (Sous-titre 2 « Bail à usage d'habitation », articles 408 à 456), reformulés en clauses prêtes à insérer. Cliquez sur « Insérer » pour l'ajouter telle quelle à la liste des clauses ci-dessus — vous pourrez ensuite la modifier ou l'ordonner comme les autres.
+                </p>
+                <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:12%;">Référence</th>
+                            <th style="width:16%;">Thème</th>
+                            <th>Texte proposé</th>
+                            <th style="width:8%;" class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($articlesBailCI as $art):
+                        $titreArt = $art['article'] . ' — ' . $art['theme'];
+                        $dejaAjoutee = isset($titresClausesExistantes[$titreArt]);
+                    ?>
+                    <tr>
+                        <td><span class="badge bg-light text-dark border"><?= htmlspecialchars($art['article']) ?></span></td>
+                        <td class="fw-semibold small"><?= htmlspecialchars($art['theme']) ?></td>
+                        <td class="text-muted small"><?= htmlspecialchars($art['texte']) ?></td>
+                        <td class="text-center">
+                            <?php if ($dejaAjoutee): ?>
+                            <span class="badge bg-success-subtle text-success border" title="Déjà présente dans les clauses"><i class="fa fa-check"></i></span>
+                            <?php else: ?>
+                            <form action="../php/add_clause.php" method="POST">
+                                <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+                                <input type="hidden" name="titre" value="<?= htmlspecialchars($titreArt) ?>">
+                                <input type="hidden" name="contenu" value="<?= htmlspecialchars($art['texte']) ?>">
+                                <input type="hidden" name="ordre_affichage" value="<?= count($clauses) + 1 ?>">
+                                <input type="hidden" name="actif" value="1">
+                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Insérer comme clause"><i class="fa fa-plus"></i></button>
+                            </form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                </div>
+                <p class="text-muted mt-3 mb-0" style="font-size:11px;"><i class="fa fa-circle-info me-1"></i>Ces reformulations sont fournies à titre pratique ; en cas de litige, seul le texte légal officiel fait foi. La loi n° 2019-576 a abrogé la précédente loi n° 2018-575 du 13 juin 2018 sur le même objet.</p>
             </div>
 </div>
 <script src="../js/bootstrap.bundle.min.js"></script>

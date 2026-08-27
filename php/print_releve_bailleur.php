@@ -33,6 +33,14 @@ if (!empty($entreprise['logo_url']) && file_exists($logoPath)) {
     $logoBase64 = 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . $logoData;
 }
 
+// Liste d'activités affichée dans l'en-tête (même contenu que includes/print_header.php)
+$lhActivites = array_filter(array_map('trim', explode("\n", $entreprise['activites'] ?? '')));
+$activitesHtml = implode('<br>', array_map('htmlspecialchars', $lhActivites));
+
+// Ruban de couleur sous l'en-tête (image PNG : le SVG inline n'est pas rendu par Dompdf)
+$wavePath = __DIR__ . '/../assets/img/print_wave.png';
+$waveBase64 = file_exists($wavePath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($wavePath)) : '';
+
 // 2. Données du Bailleur
 $bailleur_id = $_GET['bailleur_id'] ?? null;
 if (!$bailleur_id) { header('Location: ../pages/bailleurs.php?msg=missing_id'); exit(); }
@@ -53,47 +61,93 @@ foreach($mouvements as $m) { $solde += $m['montant']; }
 $qr_data = "RELEVE BAILLEUR: " . $bailleur['nom'] . " | SOLDE: " . number_format($solde, 0, ',', ' ') . " FCFA | DATE: " . date('d/m/Y');
 $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=" . urlencode($qr_data);
 
+// 4bis. Pied de page complet (siège, CC, banque...) — répété sur chaque page (Dompdf gère
+// nativement position:fixed sans les soucis de pagination de Chrome).
+$footerLines = [];
+if (!empty($entreprise['adresse_siege']) || !empty($entreprise['contact_telephone'])) {
+    $footerLines[] = trim(
+        (!empty($entreprise['adresse_siege']) ? 'Siège social : ' . $entreprise['adresse_siege'] : '') .
+        (!empty($entreprise['contact_telephone']) ? ' - Tel : ' . $entreprise['contact_telephone'] : '')
+    );
+}
+$ligneCC = array_filter([
+    !empty($entreprise['cc_numero']) ? 'CC N° : ' . $entreprise['cc_numero'] : '',
+    !empty($entreprise['regime_imposition']) ? 'Régime d\'Imposition : ' . $entreprise['regime_imposition'] : '',
+    !empty($entreprise['rccm_numero']) ? 'N° RCCM : ' . $entreprise['rccm_numero'] : '',
+    !empty($entreprise['contact_email']) ? 'E-mail : ' . $entreprise['contact_email'] : '',
+]);
+if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
+$ligneBanque = array_filter([
+    !empty($entreprise['compte_bancaire']) ? 'Compte bancaire : ' . $entreprise['compte_bancaire'] : '',
+    !empty($entreprise['iban']) ? 'IBAN ' . $entreprise['iban'] : '',
+    !empty($entreprise['swift']) ? 'SWIFT: ' . $entreprise['swift'] : '',
+]);
+if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
+
+$footerHtml = '';
+foreach ($footerLines as $i => $line) {
+    $footerHtml .= '<div' . ($i === 0 ? ' class="footer-main"' : '') . '>' . htmlspecialchars($line) . '</div>';
+}
+if (!empty($entreprise['site_web'])) {
+    $footerHtml .= '<div class="footer-site">' . htmlspecialchars($entreprise['site_web']) . '</div>';
+}
+
 // 5. HTML pour Dompdf
 $html = '
 <!DOCTYPE html>
 <html>
 <head>
     <style>
+        @page { margin: 10mm 15mm 15mm 15mm; }
         body { font-family: "Helvetica", sans-serif; font-size: 10pt; color: #333; margin: 0; }
-        .header-table { width: 100%; border-bottom: 2px solid #002d72; padding-bottom: 10px; margin-bottom: 20px; }
-        .agency-name { color: #002d72; font-size: 16pt; font-weight: bold; text-transform: uppercase; }
-        .logo { max-height: 60px; }
-        
+        .header-table { width: 100%; border-collapse: collapse; }
+        .lh-activites { text-align: right; font-size: 7.5pt; font-weight: 700; color: #14305c; line-height: 1.5; text-transform: uppercase; }
+        .lh-wave { width: 100%; height: 10px; display: block; margin-top: 6px; margin-bottom: 14px; border: none; }
+        .logo { max-height: 52px; max-width: 130px; }
+
         .title-box { text-align: center; margin-bottom: 20px; background: #f0f4f8; padding: 10px; position: relative; }
         .title { color: #002d72; text-transform: uppercase; font-size: 14pt; margin: 0; }
-        
+
         table.data-table { width: 100%; border-collapse: collapse; }
         th { background-color: #002d72; color: white; padding: 8px; font-size: 9pt; }
         td { padding: 8px; border-bottom: 1px solid #eee; font-size: 9pt; }
-        
+
         .montant { text-align: right; }
         .total-row { background-color: #eee; font-weight: bold; }
-        
+
         .qr-container { text-align: right; margin-top: 20px; }
         .qr-container img { width: 80px; }
         .qr-text { font-size: 7pt; color: #999; }
 
-        .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 8pt; border-top: 1px solid #eee; padding-top: 5px; }
+        .footer {
+            position: fixed;
+            bottom: -22px;
+            left: 0;
+            right: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 6.5pt;
+            color: #444;
+            border-top: 1.5px solid #14305c;
+            padding-top: 3px;
+            line-height: 1.35;
+        }
+        .footer .footer-site { color: #14305c; font-weight: 700; }
     </style>
 </head>
 <body>
 
     <table class="header-table">
         <tr>
-            <td style="border:none;">
-                <div class="agency-name">' . htmlspecialchars($entreprise['nom_entreprise']) . '</div>
-                <div style="font-size:8pt;">' . nl2br(htmlspecialchars($entreprise['adresse_siege'])) . '</div>
-            </td>
-            <td style="border:none; text-align:right;">
+            <td style="border:none; vertical-align:middle;">
                 ' . ($logoBase64 ? '<img src="' . $logoBase64 . '" class="logo">' : '') . '
+            </td>
+            <td style="border:none; vertical-align:middle;" class="lh-activites">
+                ' . $activitesHtml . '
             </td>
         </tr>
     </table>
+    ' . ($waveBase64 ? '<img src="' . $waveBase64 . '" class="lh-wave">' : '') . '
 
     <div class="title-box">
         <h1 class="title">Relevé de Compte Bailleur</h1>
@@ -136,7 +190,7 @@ $html = '
     </div>
 
     <div class="footer">
-        ' . htmlspecialchars($entreprise['nom_entreprise']) . ' - Logiciel BailManager
+        ' . $footerHtml . '
     </div>
 
 </body>

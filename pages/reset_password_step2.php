@@ -30,6 +30,7 @@ if ($token) {
     </style>
 </head>
 <body>
+<?php include __DIR__ . '/../includes/page_loader.php'; ?>
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-5">

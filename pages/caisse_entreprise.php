@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             $rapportUrl = 'rapport_caisse.php' . ($rapportParams ? '?' . http_build_query($rapportParams) : '');
             ?>
-            <a href="<?= htmlspecialchars($rapportUrl) ?>" target="_blank" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
+            <a href="<?= htmlspecialchars($rapportUrl) ?>" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
                 <i class="fa fa-print me-2"></i>Rapport détaillé
             </a>
             <button type="button" class="btn btn-sm btn-danger shadow-sm" style="border-radius:8px;" id="btnOuvrirRetrait"

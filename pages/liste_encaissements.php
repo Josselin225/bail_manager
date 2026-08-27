@@ -71,6 +71,8 @@ $entrepriseExport = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch();
 if (!$entrepriseExport) {
     $entrepriseExport = ['nom_entreprise' => 'BailManager', 'adresse_siege' => '', 'contact_telephone' => '', 'contact_email' => ''];
 }
+$footerLinesExport = buildFooterLines($entrepriseExport);
+$activitesExport = array_filter(array_map('trim', explode("\n", $entrepriseExport['activites'] ?? '')));
 
 function buildUrlEnc(array $extra = []): string {
     global $search, $page, $filtreMode, $filtreDateEnr, $filtreMoisEnr, $filtreAnneeEnr;
@@ -138,7 +140,7 @@ $rapportUrl = 'rapport_encaissements.php' . ($rapportParams ? '?' . http_build_q
         <div class="d-flex gap-2 flex-wrap">
             <button onclick="exportToExcel()" class="btn btn-sm btn-outline-success" style="border-radius:8px;"><i class="fa fa-file-excel me-1"></i>Excel</button>
             <button onclick="exportToPDF()"  class="btn btn-sm btn-outline-danger"  style="border-radius:8px;"><i class="fa fa-file-pdf me-1"></i>PDF</button>
-            <a href="<?= htmlspecialchars($rapportUrl) ?>" target="_blank" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
+            <a href="<?= htmlspecialchars($rapportUrl) ?>" class="btn btn-sm btn-outline-dark shadow-sm" style="border-radius:8px;">
                 <i class="fa fa-print me-2"></i>Rapport détaillé
             </a>
             <a href="encaissements.php" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;"><i class="fa fa-arrow-left me-1"></i>Retour</a>
@@ -252,6 +254,8 @@ var agenceInfoEnc = {
     adresse: <?= json_encode($entrepriseExport['adresse_siege'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
     tel: <?= json_encode($entrepriseExport['contact_telephone'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
     email: <?= json_encode($entrepriseExport['contact_email'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+    activites: <?= json_encode(array_values($activitesExport), JSON_UNESCAPED_UNICODE) ?>,
+    footerLines: <?= json_encode($footerLinesExport, JSON_UNESCAPED_UNICODE) ?>,
     logo: <?= (!empty($entrepriseExport['logo_url']) && file_exists('../uploads/' . $entrepriseExport['logo_url']))
         ? json_encode('../uploads/' . $entrepriseExport['logo_url'], JSON_UNESCAPED_UNICODE)
         : 'null' ?>
@@ -307,26 +311,23 @@ function exportToPDF() {
     var marine = [0, 33, 71];
     var pageW = doc.internal.pageSize.getWidth();
 
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(marine[0], marine[1], marine[2]);
-    doc.text(agenceInfoEnc.nom || 'BailManager', 14, 16);
-
-    doc.setFontSize(8.5);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(90, 90, 90);
-    var coordLine = [agenceInfoEnc.tel, agenceInfoEnc.email].filter(Boolean).join('  •  ');
-    if (agenceInfoEnc.adresse) doc.text(agenceInfoEnc.adresse, 14, 21);
-    if (coordLine) doc.text(coordLine, 14, 25);
-
+    // En-tête agence (identique aux documents imprimés : logo à gauche, activités à droite, ruban de couleur)
     if (logo) {
         var logoH = 16, logoW = logoH * logo.ratio;
-        doc.addImage(logo.dataUrl, 'PNG', pageW - 14 - logoW, 8, logoW, logoH);
+        doc.addImage(logo.dataUrl, 'PNG', 14, 8, logoW, logoH);
     }
 
-    doc.setDrawColor(marine[0], marine[1], marine[2]);
-    doc.setLineWidth(0.6);
-    doc.line(14, 28, pageW - 14, 28);
+    doc.setFontSize(7.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(marine[0], marine[1], marine[2]);
+    (agenceInfoEnc.activites || []).forEach(function(act, i) {
+        doc.text(act, pageW - 14, 10 + i * 3.4, { align: 'right' });
+    });
+
+    doc.setFillColor(240, 173, 0);
+    doc.rect(14, 27, pageW - 28, 1.1, 'F');
+    doc.setFillColor(marine[0], marine[1], marine[2]);
+    doc.rect(14, 28.1, pageW - 28, 1.1, 'F');
 
     doc.setFontSize(12.5);
     doc.setFont(undefined, 'bold');
@@ -353,19 +354,26 @@ function exportToPDF() {
         styles: { fontSize: 9, cellPadding: 3, valign: 'middle' },
         headStyles: { fillColor: marine, textColor: 255, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [245, 247, 252] },
+        margin: { bottom: 8 + Math.max(0, (agenceInfoEnc.footerLines || []).length - 1) * 3.3 + 6 },
         columnStyles: {
             4: { halign: 'right' }
         },
         didDrawPage: function(data) {
-            var pageCount = doc.internal.getNumberOfPages();
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text(
-                'BailManager — page ' + data.pageNumber + '/' + pageCount,
-                pageW / 2,
-                doc.internal.pageSize.getHeight() - 8,
-                { align: 'center' }
-            );
+            var lines = agenceInfoEnc.footerLines || [];
+            if (!lines.length) return;
+            var pageH = doc.internal.pageSize.getHeight();
+            var lineH = 3.3, bottomMargin = 8;
+            var startY = pageH - bottomMargin - (lines.length - 1) * lineH;
+            doc.setDrawColor(marine[0], marine[1], marine[2]);
+            doc.setLineWidth(0.3);
+            doc.line(14, startY - 3.5, pageW - 14, startY - 3.5);
+            lines.forEach(function(line, i) {
+                var isLast = i === lines.length - 1;
+                doc.setFontSize(6.5);
+                doc.setFont(undefined, isLast ? 'bold' : 'normal');
+                if (isLast) { doc.setTextColor(marine[0], marine[1], marine[2]); } else { doc.setTextColor(90, 90, 90); }
+                doc.text(line, pageW / 2, startY + i * lineH, { align: 'center' });
+            });
         }
     });
 

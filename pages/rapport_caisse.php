@@ -49,6 +49,37 @@ $entreprise = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch();
 if (!$entreprise) {
     $entreprise = ['nom_entreprise' => 'BailManager', 'logo_url' => '', 'adresse_siege' => '', 'contact_telephone' => '', 'contact_email' => ''];
 }
+
+// Pied de page complet (siège, CC, banque...), injecté comme contenu CSS @page pour se répéter
+// fiablement sur CHAQUE page imprimée (position:fixed casse sur les documents multi-pages sous Chrome).
+$footerLines = [];
+if (!empty($entreprise['adresse_siege']) || !empty($entreprise['contact_telephone'])) {
+    $footerLines[] = trim(
+        (!empty($entreprise['adresse_siege']) ? 'Siège social : ' . $entreprise['adresse_siege'] : '') .
+        (!empty($entreprise['contact_telephone']) ? ' - Tel : ' . $entreprise['contact_telephone'] : '')
+    );
+}
+$ligneCC = array_filter([
+    !empty($entreprise['cc_numero']) ? 'CC N° : ' . $entreprise['cc_numero'] : '',
+    !empty($entreprise['regime_imposition']) ? 'Régime d\'Imposition : ' . $entreprise['regime_imposition'] : '',
+    !empty($entreprise['rccm_numero']) ? 'N° RCCM : ' . $entreprise['rccm_numero'] : '',
+    !empty($entreprise['contact_email']) ? 'E-mail : ' . $entreprise['contact_email'] : '',
+]);
+if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
+$ligneBanque = array_filter([
+    !empty($entreprise['compte_bancaire']) ? 'Compte bancaire : ' . $entreprise['compte_bancaire'] : '',
+    !empty($entreprise['iban']) ? 'IBAN ' . $entreprise['iban'] : '',
+    !empty($entreprise['swift']) ? 'SWIFT: ' . $entreprise['swift'] : '',
+]);
+if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
+if (!empty($entreprise['site_web'])) $footerLines[] = $entreprise['site_web'];
+
+$footerCssParts = [];
+foreach ($footerLines as $i => $line) {
+    if ($i > 0) $footerCssParts[] = '"\A"';
+    $footerCssParts[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $line) . '"';
+}
+$footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -60,7 +91,18 @@ if (!$entreprise) {
     <style>
         @page {
             size: A4 landscape;
-            margin: 10mm 12mm;
+            margin: 10mm 12mm 20mm 12mm;
+            @bottom-center {
+                content: <?= $footerCssContent ?>;
+                white-space: pre-line;
+                font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+                font-size: 6.5pt;
+                color: #444;
+                text-align: center;
+                border-top: 1.5px solid #14305c;
+                padding-top: 3px;
+                line-height: 1.4;
+            }
         }
 
         body {
@@ -105,16 +147,6 @@ if (!$entreprise) {
         .amt-pos { color: #059669; font-weight: bold; }
         .amt-neg { color: #dc2626; font-weight: bold; }
 
-        .print-footer {
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            text-align: center;
-            font-size: 7pt;
-            color: #888;
-            border-top: 1px solid #ddd;
-            padding-top: 5px;
-        }
-
         @media print {
             .no-print { display: none !important; }
             body { background: white; }
@@ -145,16 +177,7 @@ if (!$entreprise) {
     <a href="caisse_entreprise.php" style="margin-left:15px;text-decoration:none;color:#bbb;">Fermer</a>
 </div>
 
-<div class="header-agency">
-    <div class="agency-info">
-        <h2><?= htmlspecialchars($entreprise['nom_entreprise']) ?></h2>
-        <p><?= nl2br(htmlspecialchars($entreprise['adresse_siege'] ?? '')) ?></p>
-        <p>Tél : <?= htmlspecialchars($entreprise['contact_telephone'] ?? '') ?> | Email : <?= htmlspecialchars($entreprise['contact_email'] ?? '') ?></p>
-    </div>
-    <?php if (!empty($entreprise['logo_url']) && file_exists('../uploads/' . $entreprise['logo_url'])): ?>
-    <img src="../uploads/<?= htmlspecialchars($entreprise['logo_url']) ?>" class="agency-logo" alt="Logo">
-    <?php endif; ?>
-</div>
+<?php include('../includes/print_header.php'); ?>
 
 <div class="report-title">
     <h1>Rapport Détaillé de la Caisse Entreprise</h1>
@@ -224,10 +247,6 @@ if (!$entreprise) {
         </tr>
     </tbody>
 </table>
-
-<div class="print-footer">
-    Rapport généré par <?= htmlspecialchars($entreprise['nom_entreprise']) ?> - Logiciel BailManager
-</div>
 
 <script>
 document.getElementById('filtreMois').addEventListener('change', function() {

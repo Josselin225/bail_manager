@@ -78,6 +78,37 @@ $date_paye = strtotime($data['date_encaissement']);
 // --- 3. QR CODE ---
 $qr_data = "Quittance No: " . $data['reference_recu'] . " | Client: " . $data['nom'] . " | Reçu ce jour: " . $data['montant_recu'] . " | Reste: " . $reste_a_payer;
 $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . urlencode($qr_data);
+
+// Pied de page complet (siège, CC, banque...), injecté comme contenu CSS @page pour se répéter
+// fiablement sur CHAQUE page imprimée (position:fixed casse sur les documents multi-pages sous Chrome).
+$footerLines = [];
+if (!empty($entreprise['adresse_siege']) || !empty($entreprise['contact_telephone'])) {
+    $footerLines[] = trim(
+        (!empty($entreprise['adresse_siege']) ? 'Siège social : ' . $entreprise['adresse_siege'] : '') .
+        (!empty($entreprise['contact_telephone']) ? ' - Tel : ' . $entreprise['contact_telephone'] : '')
+    );
+}
+$ligneCC = array_filter([
+    !empty($entreprise['cc_numero']) ? 'CC N° : ' . $entreprise['cc_numero'] : '',
+    !empty($entreprise['regime_imposition']) ? 'Régime d\'Imposition : ' . $entreprise['regime_imposition'] : '',
+    !empty($entreprise['rccm_numero']) ? 'N° RCCM : ' . $entreprise['rccm_numero'] : '',
+    !empty($entreprise['contact_email']) ? 'E-mail : ' . $entreprise['contact_email'] : '',
+]);
+if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
+$ligneBanque = array_filter([
+    !empty($entreprise['compte_bancaire']) ? 'Compte bancaire : ' . $entreprise['compte_bancaire'] : '',
+    !empty($entreprise['iban']) ? 'IBAN ' . $entreprise['iban'] : '',
+    !empty($entreprise['swift']) ? 'SWIFT: ' . $entreprise['swift'] : '',
+]);
+if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
+if (!empty($entreprise['site_web'])) $footerLines[] = $entreprise['site_web'];
+
+$footerCssParts = [];
+foreach ($footerLines as $i => $line) {
+    if ($i > 0) $footerCssParts[] = '"\A"';
+    $footerCssParts[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $line) . '"';
+}
+$footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
 ?>
 
 <!DOCTYPE html>
@@ -88,7 +119,21 @@ $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . url
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <title>Quittance - <?= htmlspecialchars($data['reference_recu']) ?></title>
     <style>
-        @page { size: A4; margin: 10mm; }
+        @page {
+            size: A4;
+            margin: 10mm 10mm 20mm 10mm;
+            @bottom-center {
+                content: <?= $footerCssContent ?>;
+                white-space: pre-line;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 6.5pt;
+                color: #444;
+                text-align: center;
+                border-top: 1.5px solid #14305c;
+                padding-top: 3px;
+                line-height: 1.4;
+            }
+        }
         body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #f8f9fa; color: #333; }
         .quittance-container { background: white; width: 190mm; margin: auto; padding: 30px; border: 1px solid #ddd; position: relative; }
         .header-top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 15px; }
@@ -121,18 +166,7 @@ $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . url
     </div>
 
     <div class="quittance-container">
-        <div class="header-top">
-            <div class="agency-info">
-                <h2><?= htmlspecialchars($entreprise['nom_entreprise']) ?></h2>
-                <div style="font-size: 9pt; color: #666;">
-                    <?= nl2br(htmlspecialchars($entreprise['adresse_siege'])) ?><br>
-                    Tél : <?= htmlspecialchars($entreprise['contact_telephone']) ?>
-                </div>
-            </div>
-            <?php if(!empty($entreprise['logo_url'])): ?>
-                <img src="../uploads/<?= htmlspecialchars($entreprise['logo_url']) ?>" class="logo-img">
-            <?php endif; ?>
-        </div>
+        <?php include('../includes/print_header.php'); ?>
 
         <div class="receipt-title">
             <h1><?= ($reste_a_payer <= 0) ? "QUITTANCE DE SOLDE" : "QUITTANCE DE LOYER" ?></h1>
@@ -218,6 +252,8 @@ $qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . url
                 <div class="stamp-area">Cachet Officiel</div>
             </div>
         </div>
+
     </div>
+
 </body>
 </html>

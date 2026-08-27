@@ -10,6 +10,37 @@ $date_mots = date('d/m/Y', strtotime($date_rapport));
 $query_agence = $pdo->query("SELECT * FROM settings LIMIT 1");
 $agence = $query_agence->fetch();
 
+// Pied de page complet (siège, CC, banque...), injecté comme contenu CSS @page pour se répéter
+// fiablement sur CHAQUE page imprimée (position:fixed casse sur les documents multi-pages sous Chrome).
+$footerLines = [];
+if (!empty($agence['adresse_siege']) || !empty($agence['contact_telephone'])) {
+    $footerLines[] = trim(
+        (!empty($agence['adresse_siege']) ? 'Siège social : ' . $agence['adresse_siege'] : '') .
+        (!empty($agence['contact_telephone']) ? ' - Tel : ' . $agence['contact_telephone'] : '')
+    );
+}
+$ligneCC = array_filter([
+    !empty($agence['cc_numero']) ? 'CC N° : ' . $agence['cc_numero'] : '',
+    !empty($agence['regime_imposition']) ? 'Régime d\'Imposition : ' . $agence['regime_imposition'] : '',
+    !empty($agence['rccm_numero']) ? 'N° RCCM : ' . $agence['rccm_numero'] : '',
+    !empty($agence['contact_email']) ? 'E-mail : ' . $agence['contact_email'] : '',
+]);
+if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
+$ligneBanque = array_filter([
+    !empty($agence['compte_bancaire']) ? 'Compte bancaire : ' . $agence['compte_bancaire'] : '',
+    !empty($agence['iban']) ? 'IBAN ' . $agence['iban'] : '',
+    !empty($agence['swift']) ? 'SWIFT: ' . $agence['swift'] : '',
+]);
+if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
+if (!empty($agence['site_web'])) $footerLines[] = $agence['site_web'];
+
+$footerCssParts = [];
+foreach ($footerLines as $i => $line) {
+    if ($i > 0) $footerCssParts[] = '"\A"';
+    $footerCssParts[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $line) . '"';
+}
+$footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
+
 // --- 1. STATISTIQUES GLOBALES ---
 $total_bailleurs = $pdo->query("SELECT COUNT(*) FROM bailleurs")->fetchColumn();
 $total_locataires = $pdo->query("SELECT COUNT(*) FROM locataires")->fetchColumn();
@@ -73,25 +104,27 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
         .section-title { border-bottom: 2px solid #002d72; color: #002d72; font-weight: bold; margin: 20px 0 10px; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
         .card-stat { border: 1px solid #dee2e6; border-radius: 8px; }
         
-        /* Style Pied de page Agence */
-        .footer-agence { display: none; text-align: center; border-top: 1px solid #000; padding-top: 10px; font-size: 10px; }
-
         @media print {
-            @page { size: landscape; margin: 5mm; }
+            @page {
+                size: landscape;
+                margin: 5mm 5mm 20mm 5mm;
+                @bottom-center {
+                    content: <?= $footerCssContent ?>;
+                    white-space: pre-line;
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    font-size: 6.5pt;
+                    color: #444;
+                    text-align: center;
+                    border-top: 1.5px solid #14305c;
+                    padding-top: 3px;
+                    line-height: 1.4;
+                }
+            }
             body { background: white; margin: 0; padding: 0; }
             .no-print { display: none !important; }
             .container-fluid { width: 100%; max-width: 100%; margin: 0; padding: 0; }
             .shadow-sm { box-shadow: none !important; }
             .bg-white { background-color: white !important; }
-            
-            /* Affichage du pied de page uniquement à l'impression */
-            .footer-agence { 
-                display: block; 
-                position: fixed; 
-                bottom: 0; 
-                width: 100%; 
-            }
-            .container-fluid { padding-bottom: 50px; } /* Espace pour le footer */
         }
     </style>
 </head>
@@ -109,36 +142,14 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
         <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="fa fa-print"></i> Imprimer</button>
     </div>
 
-    <div class="row mb-4 align-items-center g-3">
-    <div class="col-12 col-md-4">
-        <?php
-        // 1. On récupère le nom du fichier depuis la base (ex: logo.png)
-        $nom_fichier_logo = $agence['logo_url']; 
-        
-        // 2. On construit le chemin vers le dossier uploads (on remonte d'un dossier car on est dans /pages/)
-        $chemin_complet_logo = "../uploads/" . $nom_fichier_logo;
-
-        // 3. Affichage
-        if(!empty($nom_fichier_logo) && file_exists($chemin_complet_logo)): ?>
-            <img src="<?= $chemin_complet_logo ?>" alt="Logo" style="max-height: 80px; width: auto; object-fit: contain;" class="mb-2">
-        <?php else: ?>
-            <h4 class="fw-bold mb-0" style="color: #002d72;"><?= strtoupper($agence['nom_entreprise']) ?></h4>
-        <?php endif; ?>
-        
-        <div class="mt-2">
-            <h5 class="fw-bold mb-0" style="color: #002d72;"><?= strtoupper($agence['nom_entreprise']) ?></h5>
-            <small class="text-muted d-block"><?= $agence['adresse_siege'] ?></small>
-        </div>
-    </div>
-    
-    <div class="col-12 col-md-4 text-center">
+    <?php $entreprise = $agence; include('../includes/print_header.php'); ?>
+    <div class="row mb-4 align-items-center g-3 mt-1">
+    <div class="col-12 col-md-8 text-center">
         <h3 class="fw-bold mb-0">RAPPORT JOURNALIER</h3>
         <p class="mb-0 text-uppercase fw-bold text-muted" style="letter-spacing: 2px;">Situation du <?= $date_mots ?></p>
     </div>
 
-    <div class="col-12 col-md-4 text-md-end border-start">
-        <p class="mb-1 fw-bold"><i class="fa fa-phone me-2"></i><?= $agence['contact_telephone'] ?></p>
-        <p class="mb-1"><i class="fa fa-envelope me-2"></i><?= $agence['contact_email'] ?></p>
+    <div class="col-12 col-md-4 text-md-end">
         <small class="text-muted">Généré le <?= date('d/m/Y à H:i') ?></small>
     </div>
 </div>
@@ -269,9 +280,6 @@ $total_loyers = array_sum(array_column($liste_loyers, 'montant_recu'));
         </div>
     </div>
 
-    <div class="footer-agence">
-        <?= $agence['nom_entreprise'] ?> - <?= $agence['adresse_siege'] ?> - Tél: <?= $agence['contact_telephone'] ?> - Email: <?= $agence['contact_email'] ?>
-    </div>
 </div>
 
 </body>

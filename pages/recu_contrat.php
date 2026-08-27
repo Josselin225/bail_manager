@@ -46,6 +46,38 @@ if (!$contrat) {
 
 // 3. Clauses du contrat (gérées depuis Paramètres)
 $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY ordre_affichage ASC, id ASC")->fetchAll();
+
+// 4. Pied de page complet (siège, CC, banque...), injecté comme contenu CSS @page pour se
+// répéter fiablement sur CHAQUE page imprimée — Chrome ne pagine pas correctement les éléments
+// en position:fixed sur les documents multi-pages, contrairement aux marges @page.
+$footerLines = [];
+if (!empty($entreprise['adresse_siege']) || !empty($entreprise['contact_telephone'])) {
+    $footerLines[] = trim(
+        (!empty($entreprise['adresse_siege']) ? 'Siège social : ' . $entreprise['adresse_siege'] : '') .
+        (!empty($entreprise['contact_telephone']) ? ' - Tel : ' . $entreprise['contact_telephone'] : '')
+    );
+}
+$ligneCC = array_filter([
+    !empty($entreprise['cc_numero']) ? 'CC N° : ' . $entreprise['cc_numero'] : '',
+    !empty($entreprise['regime_imposition']) ? 'Régime d\'Imposition : ' . $entreprise['regime_imposition'] : '',
+    !empty($entreprise['rccm_numero']) ? 'N° RCCM : ' . $entreprise['rccm_numero'] : '',
+    !empty($entreprise['contact_email']) ? 'E-mail : ' . $entreprise['contact_email'] : '',
+]);
+if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
+$ligneBanque = array_filter([
+    !empty($entreprise['compte_bancaire']) ? 'Compte bancaire : ' . $entreprise['compte_bancaire'] : '',
+    !empty($entreprise['iban']) ? 'IBAN ' . $entreprise['iban'] : '',
+    !empty($entreprise['swift']) ? 'SWIFT: ' . $entreprise['swift'] : '',
+]);
+if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
+if (!empty($entreprise['site_web'])) $footerLines[] = $entreprise['site_web'];
+
+$footerCssParts = [];
+foreach ($footerLines as $i => $line) {
+    if ($i > 0) $footerCssParts[] = '"\A"';
+    $footerCssParts[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $line) . '"';
+}
+$footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
 ?>
 
 <!DOCTYPE html>
@@ -58,7 +90,18 @@ $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY o
     <style>
         @page {
             size: A4;
-            margin: 8mm 12mm;
+            margin: 8mm 12mm 20mm 12mm;
+            @bottom-center {
+                content: <?= $footerCssContent ?>;
+                white-space: pre-line;
+                font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+                font-size: 6.5pt;
+                color: #444;
+                text-align: center;
+                border-top: 1.5px solid #14305c;
+                padding-top: 3px;
+                line-height: 1.4;
+            }
         }
 
         body {
@@ -69,6 +112,12 @@ $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY o
             margin: 0;
         }
 
+        /* Bloc signature : reste groupé (ne pas couper sur deux pages) mais s'enchaîne naturellement */
+        .signature-page {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            margin-top: 15px;
+        }
         /* Filigrane */
         .watermark {
             position: fixed;
@@ -124,16 +173,13 @@ $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY o
             width: 50%;
         }
 
-        .print-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 7pt;
-            color: #888;
-            border-top: 1px solid #ddd;
-            padding-top: 6px;
+        .clause-item {
+            font-size: 9.5pt;
+            line-height: 1.3;
+            text-align: justify;
+            margin: 0 0 5px 0;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         @media print {
@@ -161,16 +207,7 @@ $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY o
         <a href="contrats.php" style="margin-left:15px; text-decoration:none; color:#bbb;">Fermer</a>
     </div>
 
-    <div class="header-agency">
-        <div class="agency-info">
-            <h2><?= htmlspecialchars($entreprise['nom_entreprise']) ?></h2>
-            <p><?= nl2br(htmlspecialchars($entreprise['adresse_siege'])) ?></p>
-            <p>Tél : <?= htmlspecialchars($entreprise['contact_telephone']) ?> | Email : <?= htmlspecialchars($entreprise['contact_email']) ?></p>
-        </div>
-        <?php if(!empty($entreprise['logo_url']) && file_exists("../uploads/" . $entreprise['logo_url'])): ?>
-            <img src="../uploads/<?= htmlspecialchars($entreprise['logo_url']) ?>" class="agency-logo" alt="Logo">
-        <?php endif; ?>
-    </div>
+    <?php include('../includes/print_header.php'); ?>
 
     <div class="contract-title">
         <h1>Contrat de Bail à Usage d'Habitation</h1>
@@ -181,10 +218,10 @@ $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY o
         <h3>1. LES PARTIES</h3>
         <table class="info-table">
             <tr>
-                <td width="20%"><strong>LE BAILLEUR :</strong></td>
+                <td width="20%"><strong>LE MANDATAIRE :</strong></td>
                 <td>
-                    <strong><?= htmlspecialchars($contrat['bailleur_nom']) ?></strong>, 
-                    domicilié pour les présentes à l'agence <strong><?= htmlspecialchars($entreprise['nom_entreprise']) ?></strong>.
+                    <strong><?= htmlspecialchars($entreprise['nom_entreprise']) ?></strong>,
+                    agissant au nom et pour le compte de <strong><?= htmlspecialchars($contrat['bailleur_nom']) ?></strong>, propriétaire du bien, en vertu d'un mandat de gestion.
                 </td>
             </tr>
             <tr>
@@ -232,38 +269,34 @@ $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY o
 
     <div class="section">
         <h3>4. PRINCIPALES CLAUSES</h3>
-        <p style="font-size: 10pt; line-height: 1.25; text-align: justify;">
         <?php if (empty($clauses)): ?>
-            Aucune clause définie.
+        <p style="font-size: 9.5pt;">Aucune clause définie.</p>
         <?php else: ?>
-            <?php foreach ($clauses as $i => $cl): ?>
-            - <?= nl2br(htmlspecialchars($cl['contenu'])) ?><?= $i < count($clauses) - 1 ? '<br>' : '' ?>
+            <?php foreach ($clauses as $cl): ?>
+            <p class="clause-item">- <strong><?= htmlspecialchars($cl['titre']) ?> :</strong> <?= nl2br(htmlspecialchars($cl['contenu'])) ?></p>
             <?php endforeach; ?>
         <?php endif; ?>
+    </div>
+
+    <div class="signature-page">
+        <p style="margin-top: 10px;">
+            Fait à <?= htmlspecialchars(explode(',', $entreprise['adresse_siege'])[0]) ?>, le <strong><?= date('d/m/Y', strtotime($contrat['date_contrat'])) ?></strong>.
         </p>
-    </div>
 
-    <p style="margin-top: 10px;">
-        Fait à <?= htmlspecialchars(explode(',', $entreprise['adresse_siege'])[0]) ?>, le <strong><?= date('d/m/Y', strtotime($contrat['date_contrat'])) ?></strong>.
-    </p>
-
-    <div class="signature-table">
-        <table>
-            <tr>
-                <td class="signature-cell">
-                    <strong>LE PRENEUR (LOCATAIRE)</strong><br>
-                    <em style="font-size: 8pt;">(Précéder de la mention "Lu et approuvé")</em>
-                </td>
-                <td class="signature-cell" style="text-align: right;">
-                    <strong>POUR L'AGENCE (LE MANDATAIRE)</strong><br>
-                    <em style="font-size: 8pt;">(Signature et Cachet)</em>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="print-footer">
-        Contrat généré par <?= htmlspecialchars($entreprise['nom_entreprise']) ?> - Logiciel BailManager
+        <div class="signature-table">
+            <table>
+                <tr>
+                    <td class="signature-cell">
+                        <strong>LE PRENEUR (LOCATAIRE)</strong><br>
+                        <em style="font-size: 8pt;">(Précéder de la mention "Lu et approuvé")</em>
+                    </td>
+                    <td class="signature-cell" style="text-align: right;">
+                        <strong>POUR L'AGENCE (LE MANDATAIRE)</strong><br>
+                        <em style="font-size: 8pt;">(Signature et Cachet)</em>
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
 
 </body>

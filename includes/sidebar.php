@@ -75,59 +75,8 @@ window.__bmFlashMessages = <?= json_encode(array_map(
     }
 })();
 </script>
-<!-- ══ PAGE LOADER ══ -->
-<div id="pageLoader">
-    <div class="loader-inner">
-        <div class="loader-logo">BAIL<span>MANAGER</span></div>
-        <div class="loader-bar"><div class="loader-bar-fill"></div></div>
-    </div>
-</div>
+<?php include __DIR__ . '/page_loader.php'; ?>
 <style>
-/* ── Page loader ──────────────────────────────────────────── */
-#pageLoader {
-    position: fixed;
-    inset: 0;
-    background: var(--menu-color);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity .4s ease, visibility .4s ease;
-}
-#pageLoader.hidden {
-    opacity: 0;
-    visibility: hidden;
-}
-.loader-inner { text-align: center; }
-.loader-logo {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: 2px;
-    color: #fff;
-    margin-bottom: 28px;
-}
-.loader-logo span { color: #e53e3e; }
-.loader-bar {
-    width: 180px;
-    height: 3px;
-    background: rgba(255,255,255,.15);
-    border-radius: 3px;
-    overflow: hidden;
-    margin: 0 auto;
-}
-.loader-bar-fill {
-    height: 100%;
-    width: 0%;
-    background: #e53e3e;
-    border-radius: 3px;
-    animation: loaderFill 1.2s ease-in-out forwards;
-}
-@keyframes loaderFill {
-    0%   { width: 0%; }
-    60%  { width: 75%; }
-    100% { width: 100%; }
-}
-
 /* ══════════════════ Layout : sidebar verticale + topbar ══════════════════ */
 :root { --sb-w: 240px; --sb-w-c: 72px; --tb-h: 60px; }
 
@@ -784,15 +733,6 @@ backdropEl.addEventListener('click', closeMobileSidebar);
 sidebarEl.querySelectorAll('.snav-link, .snav-submenu a').forEach(function(el) {
     el.addEventListener('click', closeMobileSidebar);
 });
-
-// ── Page loader ───────────────────────────────────────────────
-function hideLoader() {
-    var l = document.getElementById('pageLoader');
-    if (l) l.classList.add('hidden');
-}
-// Masquer après chargement complet OU après 2.5s maximum
-window.addEventListener('load', hideLoader);
-setTimeout(hideLoader, 2500);
 
 // ── Recherche globale ────────────────────────────────────────
 (function() {

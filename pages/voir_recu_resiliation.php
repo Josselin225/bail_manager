@@ -30,6 +30,37 @@ $stmt->execute([$id]);
 $c = $stmt->fetch();
 
 if (!$c) die("Contrat introuvable.");
+
+// Pied de page complet (siège, CC, banque...), injecté comme contenu CSS @page pour se répéter
+// fiablement sur CHAQUE page imprimée (position:fixed casse sur les documents multi-pages sous Chrome).
+$footerLines = [];
+if (!empty($entreprise['adresse_siege']) || !empty($entreprise['contact_telephone'])) {
+    $footerLines[] = trim(
+        (!empty($entreprise['adresse_siege']) ? 'Siège social : ' . $entreprise['adresse_siege'] : '') .
+        (!empty($entreprise['contact_telephone']) ? ' - Tel : ' . $entreprise['contact_telephone'] : '')
+    );
+}
+$ligneCC = array_filter([
+    !empty($entreprise['cc_numero']) ? 'CC N° : ' . $entreprise['cc_numero'] : '',
+    !empty($entreprise['regime_imposition']) ? 'Régime d\'Imposition : ' . $entreprise['regime_imposition'] : '',
+    !empty($entreprise['rccm_numero']) ? 'N° RCCM : ' . $entreprise['rccm_numero'] : '',
+    !empty($entreprise['contact_email']) ? 'E-mail : ' . $entreprise['contact_email'] : '',
+]);
+if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
+$ligneBanque = array_filter([
+    !empty($entreprise['compte_bancaire']) ? 'Compte bancaire : ' . $entreprise['compte_bancaire'] : '',
+    !empty($entreprise['iban']) ? 'IBAN ' . $entreprise['iban'] : '',
+    !empty($entreprise['swift']) ? 'SWIFT: ' . $entreprise['swift'] : '',
+]);
+if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
+if (!empty($entreprise['site_web'])) $footerLines[] = $entreprise['site_web'];
+
+$footerCssParts = [];
+foreach ($footerLines as $i => $line) {
+    if ($i > 0) $footerCssParts[] = '"\A"';
+    $footerCssParts[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $line) . '"';
+}
+$footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
 ?>
 
 <!DOCTYPE html>
@@ -55,31 +86,42 @@ if (!$c) die("Contrat introuvable.");
     .logo-img { max-height: 80px; width: auto; }
 
     /* Correction des Marges d'Impression */
-    @media print { 
+    @media print {
         @page {
             size: A4;
-            margin: 10mm; /* Définit les marges de la feuille */
+            margin: 10mm 10mm 20mm 10mm; /* Définit les marges de la feuille */
+            @bottom-center {
+                content: <?= $footerCssContent ?>;
+                white-space: pre-line;
+                font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+                font-size: 6.5pt;
+                color: #444;
+                text-align: center;
+                border-top: 1.5px solid #14305c;
+                padding-top: 3px;
+                line-height: 1.4;
+            }
         }
-        body { 
-            background-color: white !important; 
+        body {
+            background-color: white !important;
             margin: 0;
             padding: 0;
         }
-        .container { 
-            width: 100% !important; 
-            max-width: 100% !important; 
-            margin: 0 !important; 
-            padding: 0 !important; 
+        .container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
-        .recu-box { 
-            border: none !important; 
-            box-shadow: none !important; 
-            padding: 0 !important; 
+        .recu-box {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
             margin: 0 !important;
             width: 100% !important;
         }
         .btn-print, .btn-secondary { display: none !important; } /* Cache les boutons */
-        
+
         .table {
             width: 100% !important;
         }
@@ -98,18 +140,9 @@ if (!$c) die("Contrat introuvable.");
 
     <div class="card shadow recu-box">
         <div class="header-bail pb-3">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <?php if(!empty($entreprise['logo_url']) && file_exists("../uploads/" . $entreprise['logo_url'])): ?>
-                        <img src="../uploads/<?= htmlspecialchars($entreprise['logo_url']) ?>" class="logo-img mb-2" alt="Logo">
-                    <?php endif; ?>
-                    <h2 class="fw-bold mb-0" style="color: #000080;"><?= htmlspecialchars($entreprise['nom_entreprise']) ?></h2>
-                    <p class="small text-muted mb-0">
-                        <?= nl2br(htmlspecialchars($entreprise['adresse_siege'])) ?><br>
-                        Tél : <?= htmlspecialchars($entreprise['contact_telephone']) ?> | Email : <?= htmlspecialchars($entreprise['contact_email']) ?>
-                    </p>
-                </div>
-                <div class="col-md-6 text-md-end">
+            <?php include('../includes/print_header.php'); ?>
+            <div class="row mt-2">
+                <div class="col-12 text-center">
                     <h3 class="fw-bold text-uppercase mt-2">Arrêté de Compte</h3>
                     <p class="mb-0 text-muted">Fait le : <?= date('d/m/Y') ?></p>
                     <p class="small fw-bold">Réf Contrat : #<?= str_pad($c['id'], 5, '0', STR_PAD_LEFT) ?></p>
@@ -183,9 +216,11 @@ if (!$c) die("Contrat introuvable.");
                     <p class="small mt-2">Cachet et Signature</p>
                 </div>
             </div>
+
         </div>
     </div>
 </div>
+
 
 </body>
 </html>
