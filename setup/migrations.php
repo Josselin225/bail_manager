@@ -40,15 +40,52 @@ $migrations['charges_locatives'] = "
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ";
 
+// ── Table : mandats de gestion (bailleur ↔ agence) ────────────────────────────
+$migrations['mandats_gestion'] = "
+    CREATE TABLE IF NOT EXISTS `mandats_gestion` (
+        `id`              INT AUTO_INCREMENT PRIMARY KEY,
+        `bailleur_id`     INT NOT NULL,
+        `date_signature`  DATE NOT NULL,
+        `date_debut`      DATE NOT NULL,
+        `date_fin`        DATE DEFAULT NULL,
+        `taux_commission` DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+        `statut`          ENUM('actif','resilie','expire') NOT NULL DEFAULT 'actif',
+        `document_signe`  VARCHAR(255) DEFAULT NULL,
+        `created_at`      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        `updated_at`      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (`bailleur_id`) REFERENCES `bailleurs`(`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+
 // ── Table : accès espace locataire ────────────────────────────────────────────
+// code_acces stocke un hash password_hash() (60+ car.), pas le code en clair — VARCHAR(255)
+// pour héberger le hash. Le MODIFY ci-dessous élargit la colonne sur une base existante
+// créée avant ce changement (VARCHAR(20) à l'origine, insuffisant pour un hash).
 $migrations['locataire_acces'] = "
     CREATE TABLE IF NOT EXISTS `locataire_acces` (
         `id`           INT AUTO_INCREMENT PRIMARY KEY,
         `locataire_id` INT NOT NULL UNIQUE,
-        `code_acces`   VARCHAR(20) NOT NULL,
+        `code_acces`   VARCHAR(255) NOT NULL,
         `actif`        TINYINT(1) DEFAULT 1,
         `created_at`   DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (`locataire_id`) REFERENCES `locataires`(`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+$migrations['locataire_acces_code_hash'] = "
+    ALTER TABLE `locataire_acces` MODIFY `code_acces` VARCHAR(255) NOT NULL;
+";
+
+// ── Table : anti brute-force persistant (login staff, mot de passe oublié, locataire) ──
+// Remplace les compteurs $_SESSION (contournables en repartant d'une session neuve à
+// chaque tentative) par un stockage en base, clé par contexte+IP.
+$migrations['rate_limits'] = "
+    CREATE TABLE IF NOT EXISTS `rate_limits` (
+        `id`                 INT AUTO_INCREMENT PRIMARY KEY,
+        `cle`                VARCHAR(191) NOT NULL,
+        `tentatives`         INT NOT NULL DEFAULT 1,
+        `derniere_tentative` DATETIME NOT NULL,
+        `updated_at`         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY `cle` (`cle`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ";
 

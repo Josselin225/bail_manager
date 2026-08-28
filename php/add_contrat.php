@@ -2,6 +2,11 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../pages/login.php');
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
     $maison_id      = $_POST['maison_id'] ?? '';
@@ -23,12 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 1. On récupère la condition de la maison pour le calcul
         // Note: Utilisation des backticks `condition` car c'est un mot réservé MySQL
-        $stmtMaison = $pdo->prepare("SELECT `condition` FROM maisons WHERE id = ?");
+        $stmtMaison = $pdo->prepare("SELECT `condition`, bailleur_id FROM maisons WHERE id = ?");
         $stmtMaison->execute([$maison_id]);
         $maison = $stmtMaison->fetch();
 
         if (!$maison) {
             throw new Exception("Maison #$maison_id introuvable.");
+        }
+        if (!bailleurAMandatActif($pdo, (int)$maison['bailleur_id'])) {
+            throw new Exception("Le bailleur de cette maison n'a pas de mandat de gestion actif. Enregistrez d'abord un mandat pour ce bailleur.");
         }
         $conditionTotal = (int)$maison['condition'];
 
@@ -81,10 +89,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: ../pages/recu_contrat.php?id=" . $lastId);
         exit();
 
-    } catch (Exception $e) {
+    } catch (PDOException $e) {
         $pdo->rollBack();
         error_log($e->getMessage());
         flash('error', "Erreur lors de la création du contrat.");
+        header('Location: ../pages/contrats.php');
+        exit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        flash('error', $e->getMessage());
         header('Location: ../pages/contrats.php');
         exit();
     }

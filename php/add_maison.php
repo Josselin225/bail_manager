@@ -13,6 +13,12 @@ if (true) {
     $type_maison = $_POST['type_maison'];
     $bailleur_id = $_POST['bailleur_id'];
     $adresse     = $_POST['adresse'];
+
+    if (!bailleurAMandatActif($pdo, (int)$bailleur_id)) {
+        flash('error', "Ce bailleur n'a pas de mandat de gestion actif. Enregistrez d'abord un mandat avant d'ajouter un bien.");
+        header("Location: ../pages/bailleurs.php");
+        exit();
+    }
     $loyer       = $_POST['loyer'];
     $condition   = (int)($_POST['condition'] ?? 1);
     $statut      = $_POST['statut'] ?? 'disponible';

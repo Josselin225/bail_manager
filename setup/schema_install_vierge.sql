@@ -169,7 +169,7 @@ DROP TABLE IF EXISTS `locataire_acces`;
 CREATE TABLE `locataire_acces` (
   `id` int NOT NULL AUTO_INCREMENT,
   `locataire_id` int NOT NULL,
-  `code_acces` varchar(20) NOT NULL,
+  `code_acces` varchar(255) NOT NULL,
   `actif` tinyint(1) DEFAULT '1',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -308,6 +308,30 @@ CREATE TABLE `maisons` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `mandats_gestion`
+--
+
+DROP TABLE IF EXISTS `mandats_gestion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `mandats_gestion` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `bailleur_id` int NOT NULL,
+  `date_signature` date NOT NULL,
+  `date_debut` date NOT NULL,
+  `date_fin` date DEFAULT NULL,
+  `taux_commission` decimal(5,2) NOT NULL DEFAULT '10.00',
+  `statut` enum('actif','resilie','expire') NOT NULL DEFAULT 'actif',
+  `document_signe` varchar(255) DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `bailleur_id` (`bailleur_id`),
+  CONSTRAINT `mandats_gestion_ibfk_1` FOREIGN KEY (`bailleur_id`) REFERENCES `bailleurs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `messages`
 --
 
@@ -388,6 +412,24 @@ CREATE TABLE `paiements` (
   PRIMARY KEY (`id`),
   KEY `contrat_id` (`contrat_id`),
   CONSTRAINT `paiements_ibfk_1` FOREIGN KEY (`contrat_id`) REFERENCES `contrats` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rate_limits`
+--
+
+DROP TABLE IF EXISTS `rate_limits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rate_limits` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `cle` varchar(191) NOT NULL,
+  `tentatives` int NOT NULL DEFAULT '1',
+  `derniere_tentative` datetime NOT NULL,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `cle` (`cle`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

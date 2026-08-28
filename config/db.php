@@ -57,6 +57,22 @@ function recalculerSoldeBailleur(PDO $pdo, int $bailleur_id): void {
     $pdo->prepare("UPDATE bailleurs SET solde_du_bailleur = ? WHERE id = ?")->execute([$solde, $bailleur_id]);
 }
 
+// ─── Mandat de gestion (bailleur ↔ agence) ────────────────────────────────────
+// Un bailleur ne peut se voir enregistrer un bien (maisons) ni un contrat de bail
+// tant qu'aucun mandat de gestion actif n'est en cours pour lui. Un mandat est actif
+// s'il a le statut 'actif' et que la date du jour est dans sa période de validité
+// (date_fin NULL = durée indéterminée).
+function bailleurAMandatActif(PDO $pdo, int $bailleur_id): bool {
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*) FROM mandats_gestion
+         WHERE bailleur_id = ? AND statut = 'actif'
+           AND date_debut <= CURDATE()
+           AND (date_fin IS NULL OR date_fin >= CURDATE())"
+    );
+    $stmt->execute([$bailleur_id]);
+    return (bool)$stmt->fetchColumn();
+}
+
 // ─── Upload d'images sécurisé ─────────────────────────────────────────────────
 // Retourne l'extension correspondant au type MIME réel du fichier (détecté via
 // mime_content_type, pas via le nom fourni par le client), ou null si le type

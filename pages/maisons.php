@@ -78,7 +78,14 @@ $loyerMoyen     = (float)$pdo->query("SELECT AVG(loyer) FROM maisons")->fetchCol
 $revenuMensuel  = (float)$pdo->query("SELECT COALESCE(SUM(loyer),0) FROM maisons WHERE statut='occupe'")->fetchColumn();
 $tauxOccupation = $totalMaisons > 0 ? round(($nbOccupes / $totalMaisons) * 100) : 0;
 
-$bailleurs = $pdo->query("SELECT id, nom FROM bailleurs ORDER BY nom ASC")->fetchAll();
+$bailleurs = $pdo->query(
+    "SELECT b.id, b.nom,
+        EXISTS(
+            SELECT 1 FROM mandats_gestion mg WHERE mg.bailleur_id = b.id
+            AND mg.statut = 'actif' AND mg.date_debut <= CURDATE() AND (mg.date_fin IS NULL OR mg.date_fin >= CURDATE())
+        ) AS mandat_actif
+     FROM bailleurs b ORDER BY b.nom ASC"
+)->fetchAll();
 
 function buildUrlM(array $extra = []): string {
     global $search, $page, $filtreType, $filtreStatut, $filtreDateEnr, $filtreMoisEnr, $filtreAnneeEnr;
@@ -172,8 +179,13 @@ function buildUrlM(array $extra = []): string {
                             <div class="input-group"><span class="input-group-text bg-light border-end-0"><i class="fa fa-user-tie text-muted"></i></span>
                             <select name="bailleur_id" class="form-select border-start-0" style="border-radius:0 .375rem .375rem 0" required>
                                 <option value="">Choisir…</option>
-                                <?php foreach($bailleurs as $b): ?><option value="<?= $b['id'] ?>"><?= htmlspecialchars($b['nom']) ?></option><?php endforeach; ?>
+                                <?php foreach($bailleurs as $b): ?>
+                                <option value="<?= $b['id'] ?>" <?= $b['mandat_actif'] ? '' : 'disabled' ?>>
+                                    <?= htmlspecialchars($b['nom']) ?><?= $b['mandat_actif'] ? '' : ' (aucun mandat de gestion)' ?>
+                                </option>
+                                <?php endforeach; ?>
                             </select></div>
+                            <small class="text-muted">Un bailleur sans mandat de gestion actif n'apparaît pas sélectionnable — <a href="bailleurs.php">enregistrer un mandat</a>.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Adresse <span class="text-danger">*</span></label>

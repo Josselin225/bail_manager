@@ -34,7 +34,14 @@ $totalPages = max(1, (int)ceil($totalRows / $perPage));
 $page       = min($page, $totalPages);
 $offset     = ($page - 1) * $perPage;
 
-$stmtList = $pdo->prepare("SELECT * FROM bailleurs $where ORDER BY nom ASC LIMIT :lim OFFSET :off");
+$stmtList = $pdo->prepare("SELECT bailleurs.*,
+        (SELECT mg.id FROM mandats_gestion mg WHERE mg.bailleur_id = bailleurs.id
+            AND mg.statut = 'actif' AND mg.date_debut <= CURDATE() AND (mg.date_fin IS NULL OR mg.date_fin >= CURDATE())
+         ORDER BY mg.date_debut DESC LIMIT 1) AS mandat_actif_id,
+        (SELECT mg.date_fin FROM mandats_gestion mg WHERE mg.bailleur_id = bailleurs.id
+            AND mg.statut = 'actif' AND mg.date_debut <= CURDATE() AND (mg.date_fin IS NULL OR mg.date_fin >= CURDATE())
+         ORDER BY mg.date_debut DESC LIMIT 1) AS mandat_date_fin
+    FROM bailleurs $where ORDER BY nom ASC LIMIT :lim OFFSET :off");
 foreach ($bindSearch as $k => $v) $stmtList->bindValue($k, $v);
 $stmtList->bindValue(':lim', $perPage, PDO::PARAM_INT);
 $stmtList->bindValue(':off', $offset,  PDO::PARAM_INT);
@@ -377,6 +384,71 @@ $avatarColors = [
     </div>
 </div>
 
+<!-- ══ MODAL MANDAT DE GESTION ══ -->
+<div class="modal fade" id="modalMandat" tabindex="-1" aria-labelledby="titreModalMandat" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form class="modal-content border-0 shadow-lg" action="../php/add_mandat.php" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="token" value="<?= htmlspecialchars($csrfToken) ?>">
+            <input type="hidden" name="bailleur_id" id="mandatBailleurId">
+            <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#002147,#004080);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-white bg-opacity-10 d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
+                        <i class="fa fa-file-signature text-white"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="titreModalMandat">Mandat de Gestion</h5>
+                        <small class="opacity-75" id="mandatBailleurNom">—</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="mandatAlertNouveau" class="alert alert-warning m-4 mb-0 small d-none">
+                    <i class="fa fa-triangle-exclamation me-1"></i>Aucun mandat actif n'est enregistré pour ce bailleur. Tant qu'aucun mandat n'est enregistré, il est impossible de lui ajouter un bien ou un contrat de bail.
+                </div>
+                <div id="mandatAlertExistant" class="alert alert-info m-4 mb-0 small d-none d-flex align-items-center justify-content-between gap-2">
+                    <span><i class="fa fa-circle-info me-1"></i>Un mandat actif existe déjà (jusqu'au <span id="mandatFinActuelle"></span>). L'enregistrement d'un nouveau mandat ci-dessous le remplacera (renouvellement).</span>
+                    <a id="mandatLienImprimer" href="#" class="btn btn-sm btn-outline-dark flex-shrink-0" style="border-radius:6px;"><i class="fa fa-print me-1"></i>Imprimer</a>
+                </div>
+                <div class="px-4 pt-3 pb-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date de signature <span class="text-danger">*</span></label>
+                            <input type="date" name="date_signature" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date de début <span class="text-danger">*</span></label>
+                            <input type="date" name="date_debut" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date de fin</label>
+                            <input type="date" name="date_fin" class="form-control">
+                            <small class="text-muted">Laisser vide = durée indéterminée</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Taux de commission (%) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0" max="100" name="taux_commission" class="form-control" value="10.00" required>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Document signé (optionnel)</label>
+                            <input type="file" name="document_signe" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                            <small class="text-muted">Scan du mandat signé — JPG, PNG, WEBP ou PDF, 8 Mo max.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-light px-4">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    <i class="fa fa-times me-1"></i>Annuler
+                </button>
+                <button type="submit" class="btn btn-danger px-5 fw-semibold">
+                    <i class="fa fa-check me-2"></i>Enregistrer le mandat
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="main-content">
 <div class="top-fixed">
 
@@ -498,7 +570,14 @@ $avatarColors = [
                                 </div>
                                 <div>
                                     <div class="fw-semibold" style="color:#2d3a55;"><?= htmlspecialchars($b['nom']) ?></div>
-                                    <div class="text-muted" style="font-size:10px;font-weight:600;letter-spacing:.04em;"><?= htmlspecialchars($b['code_bailleur'] ?? '') ?></div>
+                                    <div class="d-flex align-items-center gap-1 text-muted" style="font-size:10px;font-weight:600;letter-spacing:.04em;">
+                                        <span><?= htmlspecialchars($b['code_bailleur'] ?? '') ?></span>
+                                        <?php if (!empty($b['mandat_actif_id'])): ?>
+                                        <i class="fa fa-circle-check" style="color:var(--green);" title="Mandat de gestion actif<?= !empty($b['mandat_date_fin']) ? ' jusqu\'au ' . date('d/m/Y', strtotime($b['mandat_date_fin'])) : '' ?>"></i>
+                                        <?php else: ?>
+                                        <i class="fa fa-circle-exclamation" style="color:var(--red);" title="Aucun mandat de gestion actif"></i>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -531,6 +610,13 @@ $avatarColors = [
                                     data-photo="<?= !empty($b['photo']) ? htmlspecialchars('../uploads/bailleurs/' . $b['photo']) : '' ?>"
                                     data-initiale="<?= htmlspecialchars($initiale) ?>"
                             ><i class="fa fa-edit"></i></button>
+                            <button type="button" class="btn btn-sm <?= !empty($b['mandat_actif_id']) ? 'btn-outline-warning' : 'btn-warning' ?> btn-mandat-bailleur" style="border-radius:6px;" title="Mandat de gestion"
+                                    data-bs-toggle="modal" data-bs-target="#modalMandat"
+                                    data-id="<?= (int)$b['id'] ?>"
+                                    data-nom="<?= htmlspecialchars($b['nom']) ?>"
+                                    data-mandat-actif="<?= !empty($b['mandat_actif_id']) ? '1' : '0' ?>"
+                                    data-mandat-fin="<?= htmlspecialchars($b['mandat_date_fin'] ?? '') ?>"
+                            ><i class="fa fa-file-signature"></i></button>
                             <a href="compte_bailleur.php?bailleur_id=<?= (int)$b['id'] ?>" class="btn btn-sm btn-outline-success" style="border-radius:6px;" title="Compte courant"><i class="fa fa-wallet"></i></a>
                             <a href="documents.php?type=bailleur&id=<?= (int)$b['id'] ?>" class="btn btn-sm btn-outline-dark" style="border-radius:6px;" title="Documents"><i class="fa fa-paperclip"></i></a>
                         </td>
@@ -563,9 +649,16 @@ $avatarColors = [
                         </div>
                         <div class="min-w-0">
                             <div class="grid-tile-name"><?= htmlspecialchars($b['nom']) ?></div>
-                            <?php if (!empty($b['code_bailleur'])): ?>
-                            <div class="grid-tile-code"><?= htmlspecialchars($b['code_bailleur']) ?></div>
-                            <?php endif; ?>
+                            <div class="d-flex align-items-center gap-1">
+                                <?php if (!empty($b['code_bailleur'])): ?>
+                                <div class="grid-tile-code"><?= htmlspecialchars($b['code_bailleur']) ?></div>
+                                <?php endif; ?>
+                                <?php if (!empty($b['mandat_actif_id'])): ?>
+                                <i class="fa fa-circle-check" style="color:var(--green);font-size:10px;" title="Mandat de gestion actif"></i>
+                                <?php else: ?>
+                                <i class="fa fa-circle-exclamation" style="color:var(--red);font-size:10px;" title="Aucun mandat de gestion actif"></i>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
 
@@ -609,6 +702,13 @@ $avatarColors = [
                                 data-photo="<?= !empty($b['photo']) ? htmlspecialchars('../uploads/bailleurs/' . $b['photo']) : '' ?>"
                                 data-initiale="<?= htmlspecialchars($initiale) ?>"
                         ><i class="fa fa-edit"></i></button>
+                        <button type="button" class="btn-mandat-bailleur" style="color:#92400e;border-color:#fde68a;background:#fffbeb;" title="Mandat de gestion"
+                                data-bs-toggle="modal" data-bs-target="#modalMandat"
+                                data-id="<?= (int)$b['id'] ?>"
+                                data-nom="<?= htmlspecialchars($b['nom']) ?>"
+                                data-mandat-actif="<?= !empty($b['mandat_actif_id']) ? '1' : '0' ?>"
+                                data-mandat-fin="<?= htmlspecialchars($b['mandat_date_fin'] ?? '') ?>"
+                        ><i class="fa fa-file-signature"></i></button>
                         <a href="compte_bailleur.php?bailleur_id=<?= (int)$b['id'] ?>" style="color:#065f46;border-color:#a7f3d0;background:#ecfdf5;" title="Compte courant"><i class="fa fa-wallet"></i></a>
                         <a href="documents.php?type=bailleur&id=<?= (int)$b['id'] ?>" style="color:#374151;border-color:#e5e7eb;background:#f9fafb;" title="Documents"><i class="fa fa-paperclip"></i></a>
                     </div>
@@ -710,6 +810,28 @@ document.getElementById('modalEditBailleur').addEventListener('show.bs.modal', f
         preview.innerHTML = '<i class="fa fa-camera text-muted fs-5"></i>';
     }
     document.getElementById('photoInputEdit').value = '';
+});
+
+document.getElementById('modalMandat').addEventListener('show.bs.modal', function(event) {
+    var btn = event.relatedTarget;
+    var d = btn.dataset;
+
+    document.getElementById('mandatBailleurId').value = d.id;
+    document.getElementById('mandatBailleurNom').textContent = d.nom;
+
+    var alerteNouveau  = document.getElementById('mandatAlertNouveau');
+    var alerteExistant = document.getElementById('mandatAlertExistant');
+    if (d.mandatActif === '1') {
+        alerteNouveau.classList.add('d-none');
+        alerteExistant.classList.remove('d-none');
+        document.getElementById('mandatFinActuelle').textContent = d.mandatFin
+            ? new Date(d.mandatFin).toLocaleDateString('fr-FR')
+            : 'durée indéterminée';
+        document.getElementById('mandatLienImprimer').href = 'recu_mandat.php?bailleur_id=' + d.id;
+    } else {
+        alerteExistant.classList.add('d-none');
+        alerteNouveau.classList.remove('d-none');
+    }
 });
 
 document.getElementById('photoInputEdit').addEventListener('change', function() {
