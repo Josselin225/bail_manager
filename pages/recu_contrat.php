@@ -50,27 +50,7 @@ $clauses = $pdo->query("SELECT * FROM clauses_contrat WHERE actif = 1 ORDER BY o
 // 4. Pied de page complet (siège, CC, banque...), injecté comme contenu CSS @page pour se
 // répéter fiablement sur CHAQUE page imprimée — Chrome ne pagine pas correctement les éléments
 // en position:fixed sur les documents multi-pages, contrairement aux marges @page.
-$footerLines = [];
-if (!empty($entreprise['adresse_siege']) || !empty($entreprise['contact_telephone'])) {
-    $footerLines[] = trim(
-        (!empty($entreprise['adresse_siege']) ? 'Siège social : ' . $entreprise['adresse_siege'] : '') .
-        (!empty($entreprise['contact_telephone']) ? ' - Tel : ' . $entreprise['contact_telephone'] : '')
-    );
-}
-$ligneCC = array_filter([
-    !empty($entreprise['cc_numero']) ? 'CC N° : ' . $entreprise['cc_numero'] : '',
-    !empty($entreprise['regime_imposition']) ? 'Régime d\'Imposition : ' . $entreprise['regime_imposition'] : '',
-    !empty($entreprise['rccm_numero']) ? 'N° RCCM : ' . $entreprise['rccm_numero'] : '',
-    !empty($entreprise['contact_email']) ? 'E-mail : ' . $entreprise['contact_email'] : '',
-]);
-if ($ligneCC) $footerLines[] = implode(' - ', $ligneCC);
-$ligneBanque = array_filter([
-    !empty($entreprise['compte_bancaire']) ? 'Compte bancaire : ' . $entreprise['compte_bancaire'] : '',
-    !empty($entreprise['iban']) ? 'IBAN ' . $entreprise['iban'] : '',
-    !empty($entreprise['swift']) ? 'SWIFT: ' . $entreprise['swift'] : '',
-]);
-if ($ligneBanque) $footerLines[] = implode(' - ', $ligneBanque);
-if (!empty($entreprise['site_web'])) $footerLines[] = $entreprise['site_web'];
+$footerLines = buildFooterLines($entreprise);
 
 $footerCssParts = [];
 foreach ($footerLines as $i => $line) {

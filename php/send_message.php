@@ -4,10 +4,10 @@ require_once('../config/db.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
-    $nom = htmlspecialchars($_POST['nom']);
-    $email = htmlspecialchars($_POST['email']);
-    $sujet = htmlspecialchars($_POST['sujet']);
-    $message = htmlspecialchars($_POST['message']);
+    $nom = trim($_POST['nom']);
+    $email = trim($_POST['email']);
+    $sujet = trim($_POST['sujet']);
+    $message = trim($_POST['message']);
 
     try {
         $sql = "INSERT INTO messages (nom_visiteur, email_visiteur, sujet, contenu) VALUES (?, ?, ?, ?)";

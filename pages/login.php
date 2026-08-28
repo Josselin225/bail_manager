@@ -67,10 +67,18 @@ require_once('../config/db.php');
 </div>
 
 <script src="../js/toast.js"></script>
-<?php if (isset($_GET['error']) && $_GET['error'] === 'timeout'): ?>
-<script>showToast("Votre session a expiré après 10 minutes d'inactivité. Veuillez vous reconnecter.", 'warning');</script>
+<?php if (isset($_GET['error']) && $_GET['error'] === 'timeout'):
+    $timeoutMinutes = max(1, (int)round((int)($_GET['duration'] ?? 600) / 60));
+?>
+<script>showToast("Votre session a expiré après <?= $timeoutMinutes ?> minute<?= $timeoutMinutes > 1 ? 's' : '' ?> d'inactivité. Veuillez vous reconnecter.", 'warning');</script>
+<?php elseif (isset($_GET['error']) && $_GET['error'] === 'locked'):
+    $waitMinutes = max(1, (int)ceil((int)($_GET['wait'] ?? 60) / 60));
+?>
+<script>showToast("Trop de tentatives. Réessayez dans <?= $waitMinutes ?> minute<?= $waitMinutes > 1 ? 's' : '' ?>.", 'error');</script>
 <?php elseif (isset($_GET['error'])): ?>
 <script>showToast("Email ou mot de passe incorrect.", 'error');</script>
+<?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'password_changed'): ?>
+<script>showToast("Mot de passe modifié avec succès. Reconnectez-vous.", 'success');</script>
 <?php endif; ?>
 </body>
 </html>

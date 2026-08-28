@@ -2,6 +2,11 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../pages/login.php');
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
     $nom = trim($_POST['nom']);
@@ -11,6 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Gestion de la photo (nom par défaut si vide)
     $photo_name = "default.png";
     if (isset($_FILES['photo']) && $_FILES['photo']['error'] === 0) {
+        if (uploadDepasseLimite($_FILES['photo'])) {
+            flash('error', "Le fichier dépasse la taille maximale autorisée (8 Mo).");
+            header("Location: ../pages/bailleurs.php");
+            exit();
+        }
         $mime = mime_content_type($_FILES['photo']['tmp_name']);
         $ext  = mimeToImageExt($mime);
         if ($ext === null) {

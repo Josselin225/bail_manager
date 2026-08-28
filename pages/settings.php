@@ -43,6 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mkdir($upload_dir, 0777, true);
         }
 
+        if (uploadDepasseLimite($_FILES['logo'])) {
+            flash('error', "Le logo dépasse la taille maximale autorisée (8 Mo).");
+            header('Location: settings.php');
+            exit();
+        }
+
         $mime = mime_content_type($_FILES['logo']['tmp_name']);
         $ext  = mimeToImageExt($mime);
 

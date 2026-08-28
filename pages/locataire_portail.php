@@ -78,6 +78,8 @@ $nomEntreprise = htmlspecialchars($settings['nom_entreprise'] ?? 'BailManager');
 <script>showToast("Numéro ou code incorrect.", 'error');</script>
 <?php elseif (isset($_GET['error']) && $_GET['error'] === 'timeout'): ?>
 <script>showToast("Session expirée, veuillez vous reconnecter.", 'warning');</script>
+<?php elseif (isset($_GET['error']) && $_GET['error'] === 'locked'): ?>
+<script>showToast("Trop de tentatives. Réessayez dans quelques minutes.", 'error');</script>
 <?php elseif (isset($_GET['error'])): ?>
 <script>showToast("Veuillez remplir tous les champs.", 'error');</script>
 <?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'deconnecte'): ?>

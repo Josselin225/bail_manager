@@ -11,19 +11,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 csrf_validate();
 
 // ─── Protection brute force : max 5 tentatives par IP sur 10 minutes ─────────
+// Persisté en base (table rate_limits), pas en session : un compteur en session
+// se réinitialise dès qu'un script n'envoie pas de cookie, ce qui le rend inopérant.
 $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
-if (!isset($_SESSION['login_attempts']))   $_SESSION['login_attempts'] = 0;
-if (!isset($_SESSION['login_last_time']))  $_SESSION['login_last_time'] = time();
-
-// Réinitialiser le compteur si la fenêtre de 10 min est écoulée
-if (time() - $_SESSION['login_last_time'] > 600) {
-    $_SESSION['login_attempts'] = 0;
-    $_SESSION['login_last_time'] = time();
-}
-
-if ($_SESSION['login_attempts'] >= 5) {
-    $wait = 600 - (time() - $_SESSION['login_last_time']);
+$wait = rateLimitEstBloque($pdo, 'login', $ip);
+if ($wait > 0) {
     header('Location: ../pages/login.php?error=locked&wait=' . $wait);
     exit();
 }
@@ -39,7 +32,7 @@ $user = $stmt->fetch();
 if ($user && password_verify($password_saisi, $user['mot_de_passe'])) {
 
     // Succès : réinitialiser le compteur
-    $_SESSION['login_attempts'] = 0;
+    rateLimitReinitialiser($pdo, 'login', $ip);
 
     // Régénérer session (anti-fixation)
     session_regenerate_id(true);
@@ -59,8 +52,7 @@ if ($user && password_verify($password_saisi, $user['mot_de_passe'])) {
 } else {
 
     // Échec : incrémenter le compteur
-    $_SESSION['login_attempts']++;
-    $_SESSION['login_last_time'] = time();
+    rateLimitEnregistrerEchec($pdo, 'login', $ip);
 
     header('Location: ../pages/login.php?error=invalid');
     exit();

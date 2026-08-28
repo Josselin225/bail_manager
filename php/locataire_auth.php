@@ -16,6 +16,13 @@ if (empty($telephone) || empty($code_acces)) {
     exit();
 }
 
+// ─── Anti brute-force : max 5 tentatives par IP sur 10 minutes ───────────────
+$ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+if (rateLimitEstBloque($pdo, 'locataire', $ip) > 0) {
+    header('Location: ../pages/locataire_portail.php?error=locked');
+    exit();
+}
+
 // Recherche du locataire par téléphone
 $stmt = $pdo->prepare(
     "SELECT l.id, l.nom, la.code_acces, la.actif
@@ -26,7 +33,8 @@ $stmt = $pdo->prepare(
 $stmt->execute([$telephone, $telephone]);
 $locataire = $stmt->fetch();
 
-if ($locataire && hash_equals($locataire['code_acces'], $code_acces)) {
+if ($locataire && password_verify($code_acces, $locataire['code_acces'])) {
+    rateLimitReinitialiser($pdo, 'locataire', $ip);
     session_regenerate_id(true);
 
     $_SESSION['locataire_id']   = $locataire['id'];
@@ -36,6 +44,7 @@ if ($locataire && hash_equals($locataire['code_acces'], $code_acces)) {
 
     header('Location: ../pages/locataire_espace.php');
 } else {
+    rateLimitEnregistrerEchec($pdo, 'locataire', $ip);
     header('Location: ../pages/locataire_portail.php?error=invalid');
 }
 exit();

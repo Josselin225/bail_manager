@@ -2,6 +2,11 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../pages/login.php');
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
     $id = (int)$_POST['id'];
@@ -21,6 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 2. Gestion du téléchargement de la nouvelle photo de profil (si présente)
         if (isset($_FILES['photo_locataire']) && $_FILES['photo_locataire']['error'] === 0) {
+            if (uploadDepasseLimite($_FILES['photo_locataire'])) {
+                flash('error', "Le fichier dépasse la taille maximale autorisée (8 Mo).");
+                header('Location: ../pages/locataires.php');
+                exit();
+            }
             $extension = mimeToImageExt(mime_content_type($_FILES['photo_locataire']['tmp_name']));
             if ($extension === null) {
                 flash('error', "Format de fichier non autorisé.");

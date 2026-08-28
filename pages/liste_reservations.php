@@ -152,7 +152,7 @@ function buildUrlR(array $extra = []): string {
     <tr>
         <td>
             <div class="visitor-cell">
-                <div class="visitor-avatar"><?= $initials ?></div>
+                <div class="visitor-avatar"><?= htmlspecialchars($initials) ?></div>
                 <div>
                     <div style="font-size:13px;font-weight:600;color:#2d3a55;"><?= htmlspecialchars($res['nom_visiteur']) ?></div>
                     <?php if (!empty($res['email_visiteur'])): ?><div style="font-size:11px;color:#8896b0;"><?= htmlspecialchars($res['email_visiteur']) ?></div><?php endif; ?>

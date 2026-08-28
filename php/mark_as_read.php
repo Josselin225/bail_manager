@@ -2,8 +2,9 @@
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once('../config/db.php');
 
-if (isset($_GET['id']) && isset($_SESSION['user_id'])) {
-    $id = (int)$_GET['id'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['id']) && isset($_SESSION['user_id'])) {
+    csrf_validate();
+    $id = (int)$_POST['id'];
     try {
         // IMPORTANT : Utilisez 'lu' entre guillemets pour le ENUM
         $stmt = $pdo->prepare("UPDATE messages SET statut = 'lu' WHERE id = :id");

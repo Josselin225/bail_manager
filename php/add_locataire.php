@@ -2,6 +2,11 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../pages/login.php');
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
     $nom = $_POST['nom'];
@@ -17,6 +22,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     foreach ($files as $key => $value) {
         if (!empty($_FILES[$key]['name']) && $_FILES[$key]['error'] === 0) {
+            if (uploadDepasseLimite($_FILES[$key])) {
+                header('Location: ../pages/locataires.php?error=filesize');
+                exit();
+            }
             $mime = mime_content_type($_FILES[$key]['tmp_name']);
             $ext  = mimeToImageExt($mime);
             if ($ext === null) {

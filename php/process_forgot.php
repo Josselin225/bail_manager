@@ -6,20 +6,14 @@ require_once('../config/mailer.php');
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
     csrf_validate();
 
-    // Anti-spam / anti-enumération : limite le nombre de demandes par session
-    // sur une fenêtre de 10 minutes, comme pour la protection anti-brute-force du login.
-    if (!isset($_SESSION['forgot_attempts']))  $_SESSION['forgot_attempts'] = 0;
-    if (!isset($_SESSION['forgot_last_time'])) $_SESSION['forgot_last_time'] = time();
-    if (time() - $_SESSION['forgot_last_time'] > 600) {
-        $_SESSION['forgot_attempts'] = 0;
-        $_SESSION['forgot_last_time'] = time();
-    }
-    if ($_SESSION['forgot_attempts'] >= 5) {
+    // Anti-spam / anti-enumération : limite le nombre de demandes par IP sur une
+    // fenêtre de 10 minutes, persisté en base (pas en session — voir auth_process.php).
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    if (rateLimitEstBloque($pdo, 'forgot', $ip) > 0) {
         header("Location: ../pages/forgot_password.php?error=too_many");
         exit();
     }
-    $_SESSION['forgot_attempts']++;
-    $_SESSION['forgot_last_time'] = time();
+    rateLimitEnregistrerEchec($pdo, 'forgot', $ip);
 
     $email = trim($_POST['email']);
 

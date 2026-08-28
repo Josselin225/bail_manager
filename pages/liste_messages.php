@@ -356,7 +356,7 @@ $unreadCount   = count(array_filter($messages, fn($m) => $m['statut'] === 'non_l
                 ?>
                 <div class="msg-item <?= $cls ?>" id="msg-item-<?= $msg['id'] ?>"
                      onclick="viewMessage(<?= htmlspecialchars(json_encode($msg)) ?>, this)">
-                    <div class="msg-avatar"><?= $initials ?></div>
+                    <div class="msg-avatar"><?= htmlspecialchars($initials) ?></div>
                     <div class="msg-meta">
                         <div class="msg-name"><?= htmlspecialchars($msg['nom_visiteur']) ?></div>
                         <div class="msg-subj"><?= htmlspecialchars($msg['sujet']) ?></div>
@@ -454,7 +454,10 @@ function viewMessage(msg, element) {
         document.getElementById('replyBtn').href           = 'mailto:' + msg.email_visiteur + '?subject=RE: ' + encodeURIComponent(msg.sujet);
 
         if (wasUnread) {
-            fetch('../php/mark_as_read.php?id=' + msg.id).then(() => {
+            const markReadFd = new FormData();
+            markReadFd.append('id', msg.id);
+            markReadFd.append('token', <?= json_encode(csrf_generate()) ?>);
+            fetch('../php/mark_as_read.php', { method: 'POST', body: markReadFd }).then(() => {
                 element.classList.remove('unread');
                 element.classList.add('read');
                 element.querySelector('.unread-dot').style.display = 'none';

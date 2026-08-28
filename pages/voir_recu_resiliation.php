@@ -2,6 +2,11 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
 $id = $_GET['id'] ?? 0;
 
 // 1. Récupération des paramètres de l'entreprise (Settings)

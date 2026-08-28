@@ -4,12 +4,25 @@ require_once('../config/db.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['user_id'])) {
     csrf_validate();
+    $pass_actuel = $_POST['current_password'] ?? '';
     $pass1 = $_POST['new_password'];
     $pass2 = $_POST['confirm_password'];
     $user_id = $_SESSION['user_id'];
 
     if ($pass1 !== $pass2) {
-        header('Location: ' . $_SERVER['HTTP_REFERER'] . '?error=mismatch');
+        flash('error', "Les deux mots de passe ne correspondent pas.");
+        header('Location: ../pages/profil.php');
+        exit();
+    }
+
+    // Un attaquant qui obtiendrait une session (XSS, poste partagé non verrouillé...)
+    // ne doit pas pouvoir changer le mot de passe sans reconfirmer l'actuel.
+    $stmtCur = $pdo->prepare("SELECT mot_de_passe FROM users WHERE id = ?");
+    $stmtCur->execute([$user_id]);
+    $current = $stmtCur->fetch();
+    if (!$current || !password_verify($pass_actuel, $current['mot_de_passe'])) {
+        flash('error', "Mot de passe actuel incorrect.");
+        header('Location: ../pages/profil.php');
         exit();
     }
 

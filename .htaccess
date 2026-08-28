@@ -15,8 +15,6 @@ Options -Indexes
 
 # Durcissement des cookies de session (portée à ce projet uniquement, sans
 # toucher au php.ini partagé par les autres sites Laragon).
-# cookie_secure n'est PAS activé ici : ce site tourne en HTTP local. À activer
-# en plus (dans un vhost ou .htaccess dédié) dès que le déploiement est en HTTPS.
 <IfModule php_module>
     php_flag session.cookie_httponly On
     php_value session.cookie_samesite Lax
@@ -27,3 +25,15 @@ Options -Indexes
     php_value session.cookie_samesite Lax
     php_flag session.use_strict_mode On
 </IfModule>
+
+# cookie_secure : activé automatiquement seulement si la requête est en HTTPS,
+# pour ne jamais casser le déploiement local en HTTP actuel tout en se
+# protégeant dès que le site passe en HTTPS (aucune modification à refaire).
+<If "%{HTTPS} == 'on'">
+    <IfModule php_module>
+        php_flag session.cookie_secure On
+    </IfModule>
+    <IfModule mod_php.c>
+        php_flag session.cookie_secure On
+    </IfModule>
+</If>

@@ -35,6 +35,11 @@ if (true) {
 
     foreach ($input_names as $input => $col) {
         if (isset($_FILES[$input]) && $_FILES[$input]['error'] == 0) {
+            if (uploadDepasseLimite($_FILES[$input])) {
+                flash('error', "Une image dépasse la taille maximale autorisée (8 Mo).");
+                header("Location: ../pages/maisons.php");
+                exit();
+            }
             $mime = mime_content_type($_FILES[$input]['tmp_name']);
             $extension = mimeToImageExt($mime);
             if ($extension === null) {

@@ -15,6 +15,11 @@ if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== 0) {
     header('Location: ../pages/profil.php');
     exit();
 }
+if (uploadDepasseLimite($_FILES['photo'])) {
+    flash('error', "Le fichier dépasse la taille maximale autorisée (8 Mo).");
+    header('Location: ../pages/profil.php');
+    exit();
+}
 
 $mime = mime_content_type($_FILES['photo']['tmp_name']);
 $ext  = mimeToImageExt($mime);

@@ -2,6 +2,10 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../pages/login.php');
+    exit();
+}
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../pages/maisons.php');
     exit();
@@ -23,6 +27,11 @@ $sql_images = "";
 $params_images = [];
 foreach (['img1' => 'image1', 'img2' => 'image2', 'img3' => 'image3'] as $input => $col) {
     if (isset($_FILES[$input]) && $_FILES[$input]['error'] == 0) {
+        if (uploadDepasseLimite($_FILES[$input])) {
+            flash('error', "Une image dépasse la taille maximale autorisée (8 Mo).");
+            header("Location: ../pages/maisons.php");
+            exit();
+        }
         $ext = mimeToImageExt(mime_content_type($_FILES[$input]['tmp_name']));
         if ($ext === null) {
             flash('error', "Format de fichier non autorisé.");

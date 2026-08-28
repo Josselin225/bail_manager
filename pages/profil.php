@@ -105,6 +105,10 @@ if (!$user) { header('Location: login.php'); exit(); }
                 <form action="../php/update_password.php" method="POST">
                     <input type="hidden" name="token" value="<?= csrf_generate() ?>">
                     <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-semibold small text-muted text-uppercase">Mot de passe actuel</label>
+                            <input type="password" name="current_password" class="form-control" placeholder="••••••••" required>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold small text-muted text-uppercase">Nouveau mot de passe</label>
                             <input type="password" name="new_password" class="form-control" placeholder="••••••••" required minlength="6">

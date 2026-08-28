@@ -89,6 +89,49 @@ function mimeToImageExt(string $mime): ?string {
     return $map[$mime] ?? null;
 }
 
+// Limite de taille commune à tous les handlers d'upload (défense en profondeur contre
+// la saturation disque — un $_FILES sans cap s'appuie sinon uniquement sur upload_max_filesize
+// de php.ini, qui peut être configuré très haut). Retourne true si le fichier est trop gros.
+function uploadDepasseLimite(array $file, int $maxOctets = 8 * 1024 * 1024): bool {
+    return isset($file['size']) && $file['size'] > $maxOctets;
+}
+
+// ─── Anti brute-force persistant (login staff, mot de passe oublié, locataire) ───────
+// Remplace les compteurs $_SESSION utilisés auparavant : ceux-ci se réinitialisent
+// dès qu'un attaquant repart d'une session neuve (aucun cookie envoyé), ce qui rend
+// la limite inopérante face à un script. Ici, le compteur est clé par contexte+IP et
+// persisté en base — indépendant de la session de l'appelant.
+function rateLimitEstBloque(PDO $pdo, string $contexte, string $ip, int $max = 5, int $fenetreSecondes = 600): int {
+    $stmt = $pdo->prepare("SELECT tentatives, derniere_tentative FROM rate_limits WHERE cle = ?");
+    $stmt->execute([$contexte . ':' . $ip]);
+    $row = $stmt->fetch();
+    if (!$row) return 0;
+    $ecoule = time() - strtotime($row['derniere_tentative']);
+    if ($ecoule > $fenetreSecondes || (int)$row['tentatives'] < $max) return 0;
+    return $fenetreSecondes - $ecoule;
+}
+
+function rateLimitEnregistrerEchec(PDO $pdo, string $contexte, string $ip, int $fenetreSecondes = 600): void {
+    $cle = $contexte . ':' . $ip;
+    $stmt = $pdo->prepare("SELECT tentatives, derniere_tentative FROM rate_limits WHERE cle = ?");
+    $stmt->execute([$cle]);
+    $row = $stmt->fetch();
+    $expire = $row && (time() - strtotime($row['derniere_tentative'])) > $fenetreSecondes;
+    if (!$row || $expire) {
+        $pdo->prepare(
+            "INSERT INTO rate_limits (cle, tentatives, derniere_tentative) VALUES (?, 1, NOW())
+             ON DUPLICATE KEY UPDATE tentatives = 1, derniere_tentative = NOW()"
+        )->execute([$cle]);
+    } else {
+        $pdo->prepare("UPDATE rate_limits SET tentatives = tentatives + 1, derniere_tentative = NOW() WHERE cle = ?")
+            ->execute([$cle]);
+    }
+}
+
+function rateLimitReinitialiser(PDO $pdo, string $contexte, string $ip): void {
+    $pdo->prepare("DELETE FROM rate_limits WHERE cle = ?")->execute([$contexte . ':' . $ip]);
+}
+
 // ─── Pied de page légal des documents imprimés/exportés ──────────────────────
 // Construit les lignes (siège+tel, CC/RCCM/email, banque/IBAN/SWIFT, site web)
 // à partir d'une ligne `settings`. Utilisé par les pages d'export PDF (jsPDF)
@@ -115,6 +158,15 @@ function buildFooterLines(array $entreprise): array {
     ]);
     if ($ligneBanque) $lines[] = implode(' - ', $ligneBanque);
     if (!empty($entreprise['site_web'])) $lines[] = $entreprise['site_web'];
+
+    // Ces lignes sont injectées telles quelles dans un bloc CSS <style> (contenu de
+    // @page { @bottom-center { content: "..." } }) sur les documents imprimés. Le HTML
+    // termine un <style> dès qu'il rencontre la séquence "</style" en texte brut, quel
+    // que soit le contexte CSS — un champ Paramètres contenant "</style><script>..."
+    // permettrait donc une injection XSS stockée. Ces champs (adresse, téléphone, IBAN...)
+    // n'ont aucune raison légitime de contenir des chevrons ; on les neutralise ici, à la
+    // source, pour protéger tous les documents qui consomment cette fonction.
+    $lines = array_map(fn($l) => str_replace(['<', '>'], '', $l), $lines);
     return $lines;
 }
 

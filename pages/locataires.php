@@ -188,6 +188,18 @@ $avatarColors = [
 <body>
 <?php include('../includes/sidebar.php'); ?>
 
+<?php if (isset($_SESSION['code_locataire_genere'])):
+    $codeGenereAffiche = $_SESSION['code_locataire_genere'];
+    unset($_SESSION['code_locataire_genere'], $_SESSION['code_locataire_loc_id']);
+?>
+<div class="alert alert-warning alert-dismissible fade show mx-4 mt-3" role="alert">
+    <i class="fa fa-triangle-exclamation me-2"></i>
+    Code d'accès généré : <strong style="letter-spacing:1px;"><?= htmlspecialchars($codeGenereAffiche) ?></strong>
+    — communiquez-le au locataire maintenant, il ne sera plus jamais réaffiché.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+<?php endif; ?>
+
 <!-- ══ MODAL AJOUT ══ -->
 <div class="modal fade" id="modalLocataire" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">

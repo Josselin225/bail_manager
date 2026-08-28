@@ -2,6 +2,11 @@
 session_start();
 require_once('../config/db.php');
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
 // Sécurité : Vérifier si l'ID est présent dans l'URL
 if (!isset($_GET['id'])) {
     header("Location: bailleurs.php");
