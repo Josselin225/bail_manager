@@ -236,7 +236,7 @@ $footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
 
     <div class="section">
         <h3>2. DÉSIGNATION DU BIEN</h3>
-        <p>Le bailleur donne en location au preneur qui accepte le bien immobilier suivant :</p>
+        <p>Le bailleur, représenté par le mandataire susvisé, donne en location au preneur qui accepte le bien immobilier suivant :</p>
         <p style="padding-left: 20px;"><strong>Désignation :</strong> <?= htmlspecialchars($contrat['maison_nom']) ?><br>
         <strong>Localisation :</strong> <?= htmlspecialchars($contrat['maison_adr']) ?></p>
     </div>

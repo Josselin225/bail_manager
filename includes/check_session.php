@@ -19,7 +19,7 @@ if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) >= $timeout_duration) {
         session_unset();
         session_destroy();
-        _redirect('../pages/login.php?error=timeout');
+        _redirect('../pages/login.php?error=timeout&duration=' . $timeout_duration);
     }
     $_SESSION['last_activity'] = time();
 } else {
