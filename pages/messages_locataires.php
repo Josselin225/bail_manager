@@ -53,7 +53,7 @@ $totalNonLus = (int)$pdo->query("SELECT COUNT(*) FROM messages_locataires WHERE 
     <link rel="stylesheet" href="../css/style.css">
     <style>
         :root { --marine:#002147; }
-        .main-content { background:#f4f7fe; padding:24px; height:100vh; box-sizing:border-box; display:flex; flex-direction:column; }
+        .main-content { background:#f4f7fe; padding:24px; height:calc(100vh - var(--tb-h, 60px)); box-sizing:border-box; display:flex; flex-direction:column; }
         .ml-wrap { display:flex; flex:1; min-height:0; border-radius:14px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.08); background:#fff; }
         .ml-list { width:300px; flex-shrink:0; border-right:1px solid #e8ecf4; overflow-y:auto; }
         .ml-thread-item { display:block; padding:13px 16px; border-bottom:1px solid #f0f3fa; text-decoration:none; color:inherit; }

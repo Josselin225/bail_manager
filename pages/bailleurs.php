@@ -108,7 +108,7 @@ $avatarColors = [
     <link rel="stylesheet" href="../css/style.css">
     <style>
         :root { --marine:#002147; --green:#059669; --amber:#d97706; --red:#e53e3e; }
-        .main-content { background:#f4f7fe; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+        .main-content { background:#f4f7fe; height:calc(100vh - var(--tb-h, 60px)); display:flex; flex-direction:column; overflow:hidden; }
         .top-fixed    { padding:18px 28px 0; flex-shrink:0; }
         .bottom-scroll { flex:1; overflow-y:auto; overflow-x:hidden; }
 

@@ -39,7 +39,7 @@ $typesCharges = ['Eau','Électricité','Ordures','Entretien','Réparation','Copr
     <link rel="stylesheet" href="../css/style.css">
     <style>
         :root { --marine:#002147; --green:#059669; --amber:#d97706; --red:#e53e3e; }
-        .main-content  { background:#f4f7fe; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+        .main-content  { background:#f4f7fe; height:calc(100vh - var(--tb-h, 60px)); display:flex; flex-direction:column; overflow:hidden; }
         .top-fixed     { padding:18px 28px 0; flex-shrink:0; }
         .bottom-scroll { flex:1; overflow-y:auto; overflow-x:hidden; }
         .kpi-card { background:#fff; border-radius:12px; padding:12px 16px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 10px rgba(0,0,0,.06); border:1px solid #e8ecf4; height:100%; }
