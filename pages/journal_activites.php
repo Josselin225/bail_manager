@@ -83,15 +83,7 @@ function buildUrlJ(array $extra = []): string {
 <div class="main-content">
 <div class="top-fixed">
 
-    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-        <div>
-            <p class="text-muted small mb-0 mt-1">Audit trail — actions enregistrées par le système</p>
-        </div>
-        <form action="../php/vider_logs.php" method="POST" onsubmit="return confirm('Supprimer définitivement tous les logs ?')">
-            <input type="hidden" name="token" value="<?= csrf_generate() ?>">
-            <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius:8px;"><i class="fa fa-trash-alt me-1"></i>Vider le journal</button>
-        </form>
-    </div>
+    <p class="text-muted small mb-3 mt-1">Audit trail — actions enregistrées par le système</p>
 
     <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
@@ -109,7 +101,7 @@ function buildUrlJ(array $extra = []): string {
     </div>
 
     <div class="filter-bar mb-0">
-        <form method="GET" class="d-flex align-items-center gap-2 flex-wrap w-100">
+        <form method="GET" class="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
             <i class="fa fa-search text-muted" style="font-size:13px;"></i>
             <input type="text" id="searchInput" name="search" value="<?= htmlspecialchars($search) ?>"
                    class="form-control form-control-sm" style="max-width:200px;border-radius:8px;"
@@ -127,6 +119,10 @@ function buildUrlJ(array $extra = []): string {
             <a href="journal_activites.php" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;"><i class="fa fa-times"></i></a>
             <?php endif; ?>
             <div class="ms-auto text-muted small"><?= $totalRows ?> entrée<?= $totalRows>1?'s':'' ?></div>
+        </form>
+        <form action="../php/vider_logs.php" method="POST" onsubmit="return confirm('Supprimer définitivement tous les logs ?')" class="flex-shrink-0">
+            <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+            <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius:8px;white-space:nowrap;"><i class="fa fa-trash-alt me-1"></i>Vider le journal</button>
         </form>
     </div>
 
