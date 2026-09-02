@@ -64,7 +64,9 @@ $clausesMandat = [
     ['Obligations du mandataire', "Le mandataire s'engage à agir avec diligence et loyauté, à rendre compte de sa gestion, et à reverser au mandant les sommes lui revenant, déduction faite de sa commission et des frais justifiés, selon la périodicité convenue entre les parties."],
     ['Rémunération', "En contrepartie de ses diligences, le mandataire perçoit une commission de " . number_format((float)$mandat['taux_commission'], 2, ',', ' ') . " % sur les loyers encaissés pour le compte du mandant."],
     ['Obligations du mandant', "Le mandant s'engage à mettre les biens confiés à disposition en bon état d'usage, à fournir au mandataire les documents nécessaires à l'exercice de sa mission, et à s'acquitter de la commission convenue."],
-    ['Durée et renouvellement', "Le présent mandat est conclu pour la durée indiquée ci-dessus" . (!empty($mandat['date_fin']) ? '' : ", à durée indéterminée,") . " et se renouvelle par tacite reconduction sauf dénonciation par l'une des parties dans les conditions prévues ci-après."],
+    ['Durée et renouvellement', !empty($mandat['date_fin'])
+        ? "Le présent mandat est conclu pour la durée indiquée ci-dessus. Il prend fin de plein droit à son échéance ; son renouvellement suppose l'établissement d'un nouveau mandat entre les parties avant cette date, sans préjudice de la possibilité pour l'une ou l'autre des parties d'y mettre fin par anticipation dans les conditions prévues ci-après."
+        : "Le présent mandat est conclu pour une durée indéterminée et demeure en vigueur jusqu'à sa résiliation par l'une des parties dans les conditions prévues ci-après."],
     ['Résiliation', "Le présent mandat peut être résilié à tout moment par l'une ou l'autre des parties moyennant un préavis écrit de trois (03) mois, sans préjudice des engagements en cours (baux non échus, sommes dues)."],
     ['Droit applicable', "Le présent mandat est régi par les dispositions du Code civil relatives au contrat de mandat, sous réserve des dispositions impératives applicables aux baux à usage d'habitation en vigueur en Côte d'Ivoire."],
 ];
