@@ -342,6 +342,48 @@ $avatarColors = [
     </div>
 </div>
 
+<!-- ══ MODAL ENVOYER UN EMAIL ══ -->
+<div class="modal fade" id="modalEmailLocataire" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form class="modal-content border-0 shadow-lg" action="../php/envoyer_email_locataire.php" method="POST">
+            <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+            <input type="hidden" name="locataire_id" id="emailLocataireId">
+            <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#002147,#004080);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-white bg-opacity-10 d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="fa fa-envelope text-white"></i></div>
+                    <div><h5 class="modal-title fw-bold mb-0">Envoyer un email</h5><small class="opacity-75" id="emailLocataireNom">—</small></div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="emailLocataireAlertNoEmail" class="alert alert-warning m-4 mb-0 small d-none">
+                    <i class="fa fa-triangle-exclamation me-1"></i>Ce locataire n'a pas d'adresse email enregistrée. Ajoutez-en une via « Modifier » pour pouvoir lui écrire.
+                </div>
+                <div class="px-4 pt-4 pb-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Destinataire</label>
+                            <input type="text" id="emailLocataireDest" class="form-control bg-light" readonly tabindex="-1">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Sujet <span class="text-danger">*</span></label>
+                            <input type="text" name="sujet" id="emailLocataireSujet" class="form-control" maxlength="200" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Message <span class="text-danger">*</span></label>
+                            <textarea name="contenu" id="emailLocataireContenu" class="form-control" rows="6" maxlength="5000" required></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-light px-4">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i>Annuler</button>
+                <button type="submit" id="emailLocataireBtnEnvoyer" class="btn btn-danger px-5 fw-semibold"><i class="fa fa-paper-plane me-2"></i>Envoyer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="main-content">
 <div class="top-fixed">
 
@@ -506,6 +548,10 @@ $avatarColors = [
             <a href="https://wa.me/<?= $waNum ?>" target="_blank" class="btn btn-sm btn-outline-success" style="border-radius:6px;" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
             <?php endif; ?>
             <a href="documents.php?type=locataire&id=<?= $l['id'] ?>" class="btn btn-sm btn-outline-dark" style="border-radius:6px;" title="Documents"><i class="fa fa-paperclip"></i></a>
+            <button type="button" class="btn btn-sm btn-outline-info btn-email-locataire" style="border-radius:6px;" title="Envoyer un email"
+                    data-bs-toggle="modal" data-bs-target="#modalEmailLocataire"
+                    data-id="<?= $l['id'] ?>" data-nom="<?= htmlspecialchars($l['nom']) ?>" data-email="<?= htmlspecialchars($l['email'] ?? '') ?>"
+            ><i class="fa fa-envelope"></i></button>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
             <form action="../php/delete_locataire.php" method="POST" style="display:inline" onsubmit="return confirm('Supprimer définitivement ?')">
                 <input type="hidden" name="token" value="<?= csrf_generate() ?>">
@@ -577,6 +623,10 @@ $avatarColors = [
             <a href="https://wa.me/<?= $waNum ?>" target="_blank" style="color:#16a34a;border-color:#bbf7d0;background:#f0fdf4;" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
             <?php endif; ?>
             <a href="documents.php?type=locataire&id=<?= $l['id'] ?>" style="color:#374151;border-color:#e5e7eb;background:#f9fafb;" title="Documents"><i class="fa fa-paperclip"></i></a>
+            <button type="button" class="btn-email-locataire" style="color:#0e7490;border-color:#a5f3fc;background:#ecfeff;" title="Envoyer un email"
+                    data-bs-toggle="modal" data-bs-target="#modalEmailLocataire"
+                    data-id="<?= $l['id'] ?>" data-nom="<?= htmlspecialchars($l['nom']) ?>" data-email="<?= htmlspecialchars($l['email'] ?? '') ?>"
+            ><i class="fa fa-envelope"></i></button>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
             <form action="../php/delete_locataire.php" method="POST" style="display:contents" onsubmit="return confirm('Supprimer définitivement ?')">
                 <input type="hidden" name="token" value="<?= csrf_generate() ?>">
@@ -644,6 +694,28 @@ document.querySelectorAll('.btn-edit').forEach(function(btn) {
         document.getElementById('edit_email').value = this.dataset.email || '';
         document.getElementById('edit_piece').value = this.dataset.piece;
     });
+});
+
+document.getElementById('modalEmailLocataire').addEventListener('show.bs.modal', function(event) {
+    var btn = event.relatedTarget;
+    var d = btn.dataset;
+
+    document.getElementById('emailLocataireId').value  = d.id;
+    document.getElementById('emailLocataireNom').textContent = d.nom;
+    document.getElementById('emailLocataireSujet').value   = '';
+    document.getElementById('emailLocataireContenu').value = '';
+
+    var alerte  = document.getElementById('emailLocataireAlertNoEmail');
+    var btnSend = document.getElementById('emailLocataireBtnEnvoyer');
+    if (d.email) {
+        document.getElementById('emailLocataireDest').value = d.nom + ' <' + d.email + '>';
+        alerte.classList.add('d-none');
+        btnSend.disabled = false;
+    } else {
+        document.getElementById('emailLocataireDest').value = '';
+        alerte.classList.remove('d-none');
+        btnSend.disabled = true;
+    }
 });
 
 document.getElementById('photoLocInput').addEventListener('change', function() {
