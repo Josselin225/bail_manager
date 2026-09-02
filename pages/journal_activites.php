@@ -83,8 +83,6 @@ function buildUrlJ(array $extra = []): string {
 <div class="main-content">
 <div class="top-fixed">
 
-    <p class="text-muted small mb-3 mt-1">Audit trail — actions enregistrées par le système</p>
-
     <div class="row g-2 mb-3">
         <div class="col-6 col-md-3">
             <div class="kpi-card"><div class="kpi-icon" style="background:#eef2fb;"><i class="fa fa-scroll" style="color:var(--marine);"></i></div><div><div class="kpi-val" style="color:var(--marine);"><?= $totalLogs ?></div><div class="kpi-lbl">Total logs</div><div class="kpi-sub">tous temps</div></div></div>
