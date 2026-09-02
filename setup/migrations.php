@@ -89,6 +89,59 @@ $migrations['rate_limits'] = "
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ";
 
+// ── Table : documents joints (bailleur/locataire/contrat/maison) ─────────────
+$migrations['documents'] = "
+    CREATE TABLE IF NOT EXISTS `documents` (
+        `id`            INT AUTO_INCREMENT PRIMARY KEY,
+        `entity_type`   ENUM('bailleur','locataire','contrat','maison') NOT NULL,
+        `entity_id`     INT NOT NULL,
+        `nom_original`  VARCHAR(255) NOT NULL,
+        `nom_fichier`   VARCHAR(255) NOT NULL,
+        `type_mime`     VARCHAR(100) DEFAULT NULL,
+        `taille`        INT DEFAULT NULL,
+        `uploaded_by`   INT DEFAULT NULL,
+        `created_at`    TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY `idx_entity` (`entity_type`, `entity_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+
+// ── Table : messagerie agence ↔ locataire ─────────────────────────────────────
+$migrations['messages_locataires'] = "
+    CREATE TABLE IF NOT EXISTS `messages_locataires` (
+        `id`           INT AUTO_INCREMENT PRIMARY KEY,
+        `locataire_id` INT NOT NULL,
+        `expediteur`   ENUM('locataire','agence') NOT NULL,
+        `contenu`      TEXT NOT NULL,
+        `lu`           TINYINT(1) NOT NULL DEFAULT 0,
+        `created_at`   TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY `locataire_id` (`locataire_id`),
+        FOREIGN KEY (`locataire_id`) REFERENCES `locataires`(`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+
+// ── Colonnes légales de l'agence (en-tête/pied de page des documents PDF) ─────
+// Pas de IF NOT EXISTS : non supporté par MySQL pour ADD COLUMN (spécifique à MariaDB).
+// Si les colonnes existent déjà, l'erreur "Duplicate column" est normale et sans risque
+// (visible en rouge dans la liste ci-dessous, comme pour toute migration déjà appliquée).
+$migrations['settings_colonnes_legales'] = "
+    ALTER TABLE `settings`
+        ADD COLUMN `activites`         TEXT         DEFAULT NULL AFTER `contact_telephone`,
+        ADD COLUMN `cc_numero`          VARCHAR(50)  DEFAULT NULL AFTER `activites`,
+        ADD COLUMN `regime_imposition`  VARCHAR(100) DEFAULT NULL AFTER `cc_numero`,
+        ADD COLUMN `rccm_numero`        VARCHAR(100) DEFAULT NULL AFTER `regime_imposition`,
+        ADD COLUMN `compte_bancaire`    VARCHAR(150) DEFAULT NULL AFTER `rccm_numero`,
+        ADD COLUMN `iban`               VARCHAR(100) DEFAULT NULL AFTER `compte_bancaire`,
+        ADD COLUMN `swift`              VARCHAR(30)  DEFAULT NULL AFTER `iban`,
+        ADD COLUMN `site_web`           VARCHAR(150) DEFAULT NULL AFTER `swift`,
+        MODIFY `contact_telephone` VARCHAR(150) DEFAULT NULL;
+";
+
+// ── Mode de paiement Chèque pour les encaissements ─────────────────────────────
+$migrations['encaissements_mode_cheque'] = "
+    ALTER TABLE `encaissements`
+        MODIFY `mode_paiement` ENUM('especes','virement','mobile_money','cheque') DEFAULT 'especes';
+";
+
 // ── Exécution ─────────────────────────────────────────────────────────────────
 $results = [];
 foreach ($migrations as $name => $sql) {
