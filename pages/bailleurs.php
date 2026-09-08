@@ -897,6 +897,21 @@ document.getElementById('modalMandat').addEventListener('show.bs.modal', functio
     }
 });
 
+<?php if (!empty($_GET['open_mandat']) && (int)$_GET['open_mandat'] > 0):
+    $stmtNouveauB = $pdo->prepare("SELECT nom FROM bailleurs WHERE id = ?");
+    $stmtNouveauB->execute([(int)$_GET['open_mandat']]);
+    $nouveauBailleurNom = $stmtNouveauB->fetchColumn();
+    if ($nouveauBailleurNom):
+?>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('mandatBailleurId').value = <?= (int)$_GET['open_mandat'] ?>;
+    document.getElementById('mandatBailleurNom').textContent = <?= json_encode($nouveauBailleurNom, JSON_UNESCAPED_UNICODE) ?>;
+    document.getElementById('mandatAlertExistant').classList.add('d-none');
+    document.getElementById('mandatAlertNouveau').classList.remove('d-none');
+    new bootstrap.Modal(document.getElementById('modalMandat')).show();
+});
+<?php endif; endif; ?>
+
 document.getElementById('modalEmailBailleur').addEventListener('show.bs.modal', function(event) {
     var btn = event.relatedTarget;
     var d = btn.dataset;

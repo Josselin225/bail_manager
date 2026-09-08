@@ -69,10 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $photo_name
         ]);
 
+        $nouveauBailleurId = (int)$pdo->lastInsertId();
+
         $pdo->commit();
         insertLog($pdo, "Création Bailleur", "Bailleur créé : $nom ($code_genere)");
-        flash('success', "Bailleur enregistré avec succès.");
-        header("Location: ../pages/bailleurs.php");
+        flash('success', "Bailleur enregistré avec succès. Enregistrez maintenant son mandat de gestion pour pouvoir lui ajouter des biens.");
+        header("Location: ../pages/bailleurs.php?open_mandat=" . $nouveauBailleurId);
         exit();
 
     } catch (Exception $e) {
