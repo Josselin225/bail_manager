@@ -314,12 +314,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="row">
                         <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold">Logo de l'agence</label>
-                            <input type="file" name="logo" class="form-control mb-2">
-                            <?php if(!empty($current['logo_url'])): ?>
-                                <div class="p-2 border d-inline-block bg-light rounded">
-                                    <img src="../uploads/<?= htmlspecialchars($current['logo_url']) ?>" width="100" class="img-fluid rounded shadow-sm">
-                                </div>
-                            <?php endif; ?>
+                            <div class="d-flex align-items-center gap-3">
+                                <input type="file" name="logo" class="form-control" style="max-width:420px;">
+                                <?php if(!empty($current['logo_url'])): ?>
+                                    <div class="p-1 border bg-light rounded flex-shrink-0 d-flex align-items-center justify-content-center" style="width:48px;height:48px;">
+                                        <img src="../uploads/<?= htmlspecialchars($current['logo_url']) ?>" style="max-width:100%;max-height:100%;object-fit:contain;">
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -353,9 +355,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                         </div>
 
-                        <div class="col-md-12 mb-4">
+                        <div class="col-md-12 mb-3">
                             <label class="form-label fw-bold">Adresse du Siège Social</label>
-                            <textarea name="adresse_siege" class="form-control" rows="3"><?= htmlspecialchars($current['adresse_siege'] ?? '') ?></textarea>
+                            <textarea name="adresse_siege" class="form-control" rows="2"><?= htmlspecialchars($current['adresse_siege'] ?? '') ?></textarea>
                         </div>
 
                         <div class="col-12"><hr class="mt-0"><h6 class="fw-bold text-muted text-uppercase small mb-3"><i class="fa fa-scale-balanced me-2"></i>Informations légales et bancaires (en-tête / pied de page des documents)</h6></div>
