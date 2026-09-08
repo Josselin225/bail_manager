@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         :root { --marine: #000080; }
 
         .main-content { background:#f4f7fe; height:calc(100vh - var(--tb-h, 60px)); display:flex; flex-direction:column; overflow:hidden; }
-        .settings-top { padding:24px 28px 16px; flex-shrink:0; }
+        .settings-top { padding:0 28px 16px; flex-shrink:0; }
         .settings-scroll { flex:1; overflow-y:auto; padding:0 28px 28px; }
 
         /* ── Barre d'onglets ─────────────────────────────────────────── */
@@ -287,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <div class="main-content">
-<div class="settings-top">
+<div class="settings-top top-fixed">
     <div class="settings-tabs" role="tablist">
         <button class="settings-tab active" data-bs-toggle="tab" data-bs-target="#tabAgence" type="button" role="tab" aria-selected="true">
             <i class="fa fa-building"></i>Agence
