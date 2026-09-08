@@ -99,6 +99,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="../css/fontawesome/all.min.css">
     <style>
         :root { --marine: #000080; }
+
+        .main-content { background:#f4f7fe; height:calc(100vh - var(--tb-h, 60px)); display:flex; flex-direction:column; overflow:hidden; }
+        .settings-top { padding:24px 28px 16px; flex-shrink:0; }
+        .settings-scroll { flex:1; overflow-y:auto; padding:0 28px 28px; }
+
+        /* ── Barre d'onglets ─────────────────────────────────────────── */
+        .settings-tabs { display:flex; flex-wrap:wrap; gap:4px; background:#fff; border:1px solid #e8ecf4; border-radius:13px; padding:5px; box-shadow:0 2px 10px rgba(0,0,0,.05); width:fit-content; max-width:100%; }
+        .settings-tab { display:flex; align-items:center; gap:9px; border:none; background:transparent; padding:10px 18px; border-radius:9px; font-size:13px; font-weight:600; color:#6b7a99; white-space:nowrap; transition:.15s; }
+        .settings-tab:hover:not(.active) { background:#f4f7fe; color:var(--marine); }
+        .settings-tab.active { background:var(--marine); color:#fff; box-shadow:0 3px 10px rgba(0,0,128,.25); }
+        .settings-tab i { font-size:13px; width:15px; text-align:center; flex:none; }
+        .settings-tab-badge { background:rgba(0,0,0,.06); color:inherit; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:10px; }
+        .settings-tab.active .settings-tab-badge { background:rgba(255,255,255,.22); }
+
+        html[data-theme="dark"] .main-content { background:#161a22 !important; }
+        html[data-theme="dark"] .settings-tabs { background:#1e222b !important; border-color:#2e333d !important; }
+        html[data-theme="dark"] .settings-tab { color:#9aa4b6 !important; }
+        html[data-theme="dark"] .settings-tab:hover:not(.active) { background:#262b35 !important; color:#e4e6eb !important; }
+        html[data-theme="dark"] .card { background:#1e222b !important; border-color:#2e333d !important; }
+        html[data-theme="dark"] h5, html[data-theme="dark"] h6 { color:#e4e6eb !important; }
+        html[data-theme="dark"] .form-control, html[data-theme="dark"] .form-select { background:#20242e !important; border-color:#2e333d !important; color:#e4e6eb !important; }
+        html[data-theme="dark"] .table { color:#c3cad9 !important; }
+        html[data-theme="dark"] .table thead { color:#9aa4b6 !important; }
+        html[data-theme="dark"] .table > :not(caption) > * > * { background:transparent !important; border-color:#2e333d !important; }
     </style>
 </head>
 <body>
@@ -263,7 +287,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <div class="main-content">
+<div class="settings-top">
+    <div class="settings-tabs" role="tablist">
+        <button class="settings-tab active" data-bs-toggle="tab" data-bs-target="#tabAgence" type="button" role="tab" aria-selected="true">
+            <i class="fa fa-building"></i>Agence
+        </button>
+        <button class="settings-tab" data-bs-toggle="tab" data-bs-target="#tabClausesBail" type="button" role="tab" aria-selected="false">
+            <i class="fa fa-file-contract"></i>Clauses du bail <span class="settings-tab-badge"><?= count($clauses) ?></span>
+        </button>
+        <button class="settings-tab" data-bs-toggle="tab" data-bs-target="#tabClausesMandat" type="button" role="tab" aria-selected="false">
+            <i class="fa fa-file-signature"></i>Clauses du mandat <span class="settings-tab-badge"><?= count($clausesMandat) ?></span>
+        </button>
+        <button class="settings-tab" data-bs-toggle="tab" data-bs-target="#tabBiblioLegale" type="button" role="tab" aria-selected="false">
+            <i class="fa fa-scale-balanced"></i>Bibliothèque légale
+        </button>
+    </div>
+</div>
 
+<div class="settings-scroll">
+<div class="tab-content">
+
+    <div class="tab-pane fade show active" id="tabAgence" role="tabpanel">
             <div class="card shadow-sm border-0 p-4">
                 <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="token" value="<?= csrf_generate() ?>">
@@ -364,8 +408,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </form>
             </div>
+    </div>
 
-            <div class="card shadow-sm border-0 p-4 mt-4">
+    <div class="tab-pane fade" id="tabClausesBail" role="tabpanel">
+            <div class="card shadow-sm border-0 p-4">
                 <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                     <h5 class="fw-bold mb-0"><i class="fa fa-file-contract me-2" style="color:var(--marine);"></i>Clauses du contrat de bail</h5>
                     <button type="button" class="btn btn-sm btn-primary" style="background-color: var(--marine); border:none;" data-bs-toggle="modal" data-bs-target="#modalAddClause">
@@ -421,8 +467,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <?php endif; ?>
             </div>
+    </div>
 
-            <div class="card shadow-sm border-0 p-4 mt-4">
+    <div class="tab-pane fade" id="tabClausesMandat" role="tabpanel">
+            <div class="card shadow-sm border-0 p-4">
                 <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                     <h5 class="fw-bold mb-0"><i class="fa fa-file-signature me-2" style="color:var(--marine);"></i>Clauses du mandat de gestion</h5>
                     <button type="button" class="btn btn-sm btn-primary" style="background-color: var(--marine); border:none;" data-bs-toggle="modal" data-bs-target="#modalAddClauseMandat">
@@ -478,8 +526,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <?php endif; ?>
             </div>
+    </div>
 
-            <div class="card shadow-sm border-0 p-4 mt-4">
+    <div class="tab-pane fade" id="tabBiblioLegale" role="tabpanel">
+            <div class="card shadow-sm border-0 p-4">
                 <h5 class="fw-bold mb-1"><i class="fa fa-scale-balanced me-2" style="color:var(--marine);"></i>Bibliothèque légale — Bail d'habitation (Côte d'Ivoire)</h5>
                 <p class="text-muted small mb-3">
                     Extraits de la loi n° 2019-576 du 26 juin 2019 instituant le Code de la Construction et de l'Habitat (Sous-titre 2 « Bail à usage d'habitation », articles 408 à 456), reformulés en clauses prêtes à insérer. Cliquez sur « Insérer » pour l'ajouter telle quelle à la liste des clauses ci-dessus — vous pourrez ensuite la modifier ou l'ordonner comme les autres.
@@ -524,6 +574,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <p class="text-muted mt-3 mb-0" style="font-size:11px;"><i class="fa fa-circle-info me-1"></i>Ces reformulations sont fournies à titre pratique ; en cas de litige, seul le texte légal officiel fait foi. La loi n° 2019-576 a abrogé la précédente loi n° 2018-575 du 13 juin 2018 sur le même objet.</p>
             </div>
+    </div>
+
+</div>
+</div>
 </div>
 <script src="../js/bootstrap.bundle.min.js"></script>
 <script>
