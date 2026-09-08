@@ -9,6 +9,7 @@ $stmt = $pdo->query("SELECT * FROM settings WHERE id = 1");
 $current = $stmt->fetch();
 
 $clauses = $pdo->query("SELECT * FROM clauses_contrat ORDER BY ordre_affichage ASC, id ASC")->fetchAll();
+$clausesMandat = $pdo->query("SELECT * FROM clauses_mandat ORDER BY ordre_affichage ASC, id ASC")->fetchAll();
 $articlesBailCI = require('../config/articles_bail_ci.php');
 $titresClausesExistantes = array_flip(array_map(fn($cl) => $cl['titre'], $clauses));
 
@@ -182,6 +183,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </div>
 
+<!-- MODAL AJOUT CLAUSE MANDAT -->
+<div class="modal fade" id="modalAddClauseMandat" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form class="modal-content border-0 shadow-lg" action="../php/add_clause_mandat.php" method="POST">
+            <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+            <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#000080,#0000b3);">
+                <h5 class="modal-title fw-bold mb-0">Ajouter une clause de mandat</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-4">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Titre <span class="text-danger">*</span></label>
+                        <input type="text" name="titre" class="form-control" placeholder="Ex: Confidentialité" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Ordre d'affichage</label>
+                        <input type="number" name="ordre_affichage" class="form-control" value="<?= count($clausesMandat) + 1 ?>" min="0">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Contenu de la clause <span class="text-danger">*</span></label>
+                        <textarea name="contenu" class="form-control" rows="4" required placeholder="Texte de la clause tel qu'il apparaîtra sur le mandat…"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="actif" value="1" id="addClauseMandatActif" checked>
+                            <label class="form-check-label" for="addClauseMandatActif">Clause active (affichée sur le mandat)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-light px-4">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Annuler</button>
+                <button type="submit" class="btn btn-primary px-5 fw-semibold" style="background-color:var(--marine); border:none;">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL MODIFIER CLAUSE MANDAT -->
+<div class="modal fade" id="modalEditClauseMandat" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form class="modal-content border-0 shadow-lg" action="../php/update_clause_mandat.php" method="POST">
+            <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+            <input type="hidden" name="id" id="editClauseMandatId">
+            <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#000080,#0000b3);">
+                <h5 class="modal-title fw-bold mb-0">Modifier la clause de mandat</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-4">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Titre <span class="text-danger">*</span></label>
+                        <input type="text" name="titre" id="editClauseMandatTitre" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Ordre d'affichage</label>
+                        <input type="number" name="ordre_affichage" id="editClauseMandatOrdre" class="form-control" min="0">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold small text-muted text-uppercase">Contenu de la clause <span class="text-danger">*</span></label>
+                        <textarea name="contenu" id="editClauseMandatContenu" class="form-control" rows="4" required></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="actif" value="1" id="editClauseMandatActif">
+                            <label class="form-check-label" for="editClauseMandatActif">Clause active (affichée sur le mandat)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-light px-4">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Annuler</button>
+                <button type="submit" class="btn btn-primary px-5 fw-semibold" style="background-color:var(--marine); border:none;">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="main-content">
 
             <div class="card shadow-sm border-0 p-4">
@@ -343,6 +423,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="card shadow-sm border-0 p-4 mt-4">
+                <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                    <h5 class="fw-bold mb-0"><i class="fa fa-file-signature me-2" style="color:var(--marine);"></i>Clauses du mandat de gestion</h5>
+                    <button type="button" class="btn btn-sm btn-primary" style="background-color: var(--marine); border:none;" data-bs-toggle="modal" data-bs-target="#modalAddClauseMandat">
+                        <i class="fa fa-plus me-1"></i> Ajouter une clause
+                    </button>
+                </div>
+                <p class="text-muted small">Ces clauses apparaissent, dans l'ordre ci-dessous, sur le mandat de gestion imprimé (section « Principales clauses »). Seules les clauses actives sont affichées. Les clauses « Rémunération » et « Durée et renouvellement » sont générées automatiquement à partir des données de chaque mandat (taux de commission, dates) et ne figurent pas ici.</p>
+
+                <?php if (empty($clausesMandat)): ?>
+                <div class="text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block" style="opacity:.2;"></i>Aucune clause enregistrée.</div>
+                <?php else: ?>
+                <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:6%;">Ordre</th>
+                            <th style="width:22%;">Titre</th>
+                            <th>Contenu</th>
+                            <th style="width:8%;" class="text-center">Statut</th>
+                            <th style="width:10%;" class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($clausesMandat as $cl): ?>
+                    <tr>
+                        <td class="text-muted"><?= (int)$cl['ordre_affichage'] ?></td>
+                        <td class="fw-semibold"><?= htmlspecialchars($cl['titre']) ?></td>
+                        <td class="text-muted small"><?= htmlspecialchars(mb_strimwidth($cl['contenu'], 0, 120, '…')) ?></td>
+                        <td class="text-center">
+                            <?php if ($cl['actif']): ?><span class="badge bg-success-subtle text-success border">Active</span>
+                            <?php else: ?><span class="badge bg-secondary-subtle text-secondary border">Inactive</span><?php endif; ?>
+                        </td>
+                        <td class="text-center text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-edit-clause-mandat" title="Modifier"
+                                    data-bs-toggle="modal" data-bs-target="#modalEditClauseMandat"
+                                    data-id="<?= (int)$cl['id'] ?>"
+                                    data-titre="<?= htmlspecialchars($cl['titre']) ?>"
+                                    data-contenu="<?= htmlspecialchars($cl['contenu']) ?>"
+                                    data-ordre="<?= (int)$cl['ordre_affichage'] ?>"
+                                    data-actif="<?= (int)$cl['actif'] ?>">
+                                <i class="fa fa-edit"></i>
+                            </button>
+                            <form action="../php/delete_clause_mandat.php" method="POST" style="display:inline" onsubmit="return confirm('Supprimer cette clause ?')">
+                                <input type="hidden" name="token" value="<?= csrf_generate() ?>">
+                                <input type="hidden" name="id" value="<?= $cl['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="fa fa-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <div class="card shadow-sm border-0 p-4 mt-4">
                 <h5 class="fw-bold mb-1"><i class="fa fa-scale-balanced me-2" style="color:var(--marine);"></i>Bibliothèque légale — Bail d'habitation (Côte d'Ivoire)</h5>
                 <p class="text-muted small mb-3">
                     Extraits de la loi n° 2019-576 du 26 juin 2019 instituant le Code de la Construction et de l'Habitat (Sous-titre 2 « Bail à usage d'habitation », articles 408 à 456), reformulés en clauses prêtes à insérer. Cliquez sur « Insérer » pour l'ajouter telle quelle à la liste des clauses ci-dessus — vous pourrez ensuite la modifier ou l'ordonner comme les autres.
@@ -397,6 +534,15 @@ document.getElementById('modalEditClause').addEventListener('show.bs.modal', fun
     document.getElementById('editClauseContenu').value = d.contenu;
     document.getElementById('editClauseOrdre').value   = d.ordre;
     document.getElementById('editClauseActif').checked = d.actif === '1';
+});
+
+document.getElementById('modalEditClauseMandat').addEventListener('show.bs.modal', function(event) {
+    var d = event.relatedTarget.dataset;
+    document.getElementById('editClauseMandatId').value      = d.id;
+    document.getElementById('editClauseMandatTitre').value   = d.titre;
+    document.getElementById('editClauseMandatContenu').value = d.contenu;
+    document.getElementById('editClauseMandatOrdre').value   = d.ordre;
+    document.getElementById('editClauseMandatActif').checked = d.actif === '1';
 });
 </script>
 </body>

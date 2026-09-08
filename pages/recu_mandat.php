@@ -56,20 +56,27 @@ foreach ($footerLines as $i => $line) {
 }
 $footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
 
-// 5. Clauses standard du mandat de gestion
-$clausesMandat = [
-    ['Objet', "Le mandant confie au mandataire, qui l'accepte, la gestion locative des biens immobiliers qu'il possède ou viendrait à posséder, aux fins de location, d'encaissement des loyers et de représentation auprès des locataires."],
-    ['Pouvoirs du mandataire', "Le mandataire est habilité, au nom et pour le compte du mandant, à rechercher des locataires, signer les contrats de bail, encaisser les loyers, charges et dépôts de garantie, délivrer quittance, et assurer le suivi de l'entretien courant des biens confiés."],
-    ['Représentation exclusive', "Pendant toute la durée du présent mandat, le mandant s'interdit de traiter directement avec les locataires des biens confiés pour tout ce qui relève de la gestion locative ; toute correspondance, notification ou autorisation relative à ces biens transite par le mandataire."],
-    ['Obligations du mandataire', "Le mandataire s'engage à agir avec diligence et loyauté, à rendre compte de sa gestion, et à reverser au mandant les sommes lui revenant, déduction faite de sa commission et des frais justifiés, selon la périodicité convenue entre les parties."],
-    ['Rémunération', "En contrepartie de ses diligences, le mandataire perçoit une commission de " . number_format((float)$mandat['taux_commission'], 2, ',', ' ') . " % sur les loyers encaissés pour le compte du mandant."],
-    ['Obligations du mandant', "Le mandant s'engage à mettre les biens confiés à disposition en bon état d'usage, à fournir au mandataire les documents nécessaires à l'exercice de sa mission, et à s'acquitter de la commission convenue."],
-    ['Durée et renouvellement', !empty($mandat['date_fin'])
-        ? "Le présent mandat est conclu pour la durée indiquée ci-dessus. Il prend fin de plein droit à son échéance ; son renouvellement suppose l'établissement d'un nouveau mandat entre les parties avant cette date, sans préjudice de la possibilité pour l'une ou l'autre des parties d'y mettre fin par anticipation dans les conditions prévues ci-après."
-        : "Le présent mandat est conclu pour une durée indéterminée et demeure en vigueur jusqu'à sa résiliation par l'une des parties dans les conditions prévues ci-après."],
-    ['Résiliation', "Le présent mandat peut être résilié à tout moment par l'une ou l'autre des parties moyennant un préavis écrit de trois (03) mois, sans préjudice des engagements en cours (baux non échus, sommes dues)."],
-    ['Droit applicable', "Le présent mandat est régi par les dispositions du Code civil relatives au contrat de mandat, sous réserve des dispositions impératives applicables aux baux à usage d'habitation en vigueur en Côte d'Ivoire."],
+// 5. Clauses du mandat de gestion : la bibliothèque éditable (Paramètres) fournit les clauses
+// générales, auxquelles s'ajoutent deux clauses calculées à partir des données du mandat lui-même
+// (taux de commission et durée) — celles-ci ne peuvent pas être des clauses de texte fixe puisqu'elles
+// doivent toujours refléter le mandat réellement enregistré.
+$clausesMandat = $pdo->query(
+    "SELECT titre, contenu, ordre_affichage FROM clauses_mandat WHERE actif = 1 ORDER BY ordre_affichage ASC, id ASC"
+)->fetchAll();
+
+$clausesMandat[] = [
+    'titre' => 'Rémunération',
+    'contenu' => "En contrepartie de ses diligences, le mandataire perçoit une commission de " . number_format((float)$mandat['taux_commission'], 2, ',', ' ') . " % sur les loyers encaissés pour le compte du mandant.",
+    'ordre_affichage' => 50,
 ];
+$clausesMandat[] = [
+    'titre' => 'Durée et renouvellement',
+    'contenu' => !empty($mandat['date_fin'])
+        ? "Le présent mandat est conclu pour la durée indiquée ci-dessus. Il prend fin de plein droit à son échéance ; son renouvellement suppose l'établissement d'un nouveau mandat entre les parties avant cette date, sans préjudice de la possibilité pour l'une ou l'autre des parties d'y mettre fin par anticipation dans les conditions prévues ci-après."
+        : "Le présent mandat est conclu pour une durée indéterminée et demeure en vigueur jusqu'à sa résiliation par l'une des parties dans les conditions prévues ci-après.",
+    'ordre_affichage' => 70,
+];
+usort($clausesMandat, fn($a, $b) => $a['ordre_affichage'] <=> $b['ordre_affichage']);
 ?>
 
 <!DOCTYPE html>
@@ -240,8 +247,8 @@ $clausesMandat = [
 
     <div class="section">
         <h3>3. Principales Clauses</h3>
-        <?php foreach ($clausesMandat as [$titre, $contenu]): ?>
-        <p class="clause-item">- <strong><?= htmlspecialchars($titre) ?> :</strong> <?= nl2br(htmlspecialchars($contenu)) ?></p>
+        <?php foreach ($clausesMandat as $cl): ?>
+        <p class="clause-item">- <strong><?= htmlspecialchars($cl['titre']) ?> :</strong> <?= nl2br(htmlspecialchars($cl['contenu'])) ?></p>
         <?php endforeach; ?>
     </div>
 

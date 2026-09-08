@@ -142,6 +142,32 @@ $migrations['encaissements_mode_cheque'] = "
         MODIFY `mode_paiement` ENUM('especes','virement','mobile_money','cheque') DEFAULT 'especes';
 ";
 
+// ── Table : clauses du mandat de gestion (éditables depuis Paramètres) ────────
+$migrations['clauses_mandat'] = "
+    CREATE TABLE IF NOT EXISTS `clauses_mandat` (
+        `id`              INT AUTO_INCREMENT PRIMARY KEY,
+        `titre`           VARCHAR(150) NOT NULL,
+        `contenu`         TEXT NOT NULL,
+        `ordre_affichage` INT NOT NULL DEFAULT 0,
+        `actif`           TINYINT(1) NOT NULL DEFAULT 1,
+        `created_at`      TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        `updated_at`      TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY `uniq_titre` (`titre`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+";
+// Clauses standard par défaut — INSERT IGNORE : sans effet si déjà présentes (titre unique),
+// donc sans risque de doublon si cette migration est relancée.
+$migrations['clauses_mandat_seed'] = "
+    INSERT IGNORE INTO `clauses_mandat` (`titre`, `contenu`, `ordre_affichage`, `actif`) VALUES
+    ('Objet', 'Le mandant confie au mandataire, qui l\'accepte, la gestion locative des biens immobiliers qu\'il possède ou viendrait à posséder, aux fins de location, d\'encaissement des loyers et de représentation auprès des locataires.', 10, 1),
+    ('Pouvoirs du mandataire', 'Le mandataire est habilité, au nom et pour le compte du mandant, à rechercher des locataires, signer les contrats de bail, encaisser les loyers, charges et dépôts de garantie, délivrer quittance, et assurer le suivi de l\'entretien courant des biens confiés.', 20, 1),
+    ('Représentation exclusive', 'Pendant toute la durée du présent mandat, le mandant s\'interdit de traiter directement avec les locataires des biens confiés pour tout ce qui relève de la gestion locative ; toute correspondance, notification ou autorisation relative à ces biens transite par le mandataire.', 30, 1),
+    ('Obligations du mandataire', 'Le mandataire s\'engage à agir avec diligence et loyauté, à rendre compte de sa gestion, et à reverser au mandant les sommes lui revenant, déduction faite de sa commission et des frais justifiés, selon la périodicité convenue entre les parties.', 40, 1),
+    ('Obligations du mandant', 'Le mandant s\'engage à mettre les biens confiés à disposition en bon état d\'usage, à fournir au mandataire les documents nécessaires à l\'exercice de sa mission, et à s\'acquitter de la commission convenue.', 60, 1),
+    ('Résiliation', 'Le présent mandat peut être résilié à tout moment par l\'une ou l\'autre des parties moyennant un préavis écrit de trois (03) mois, sans préjudice des engagements en cours (baux non échus, sommes dues).', 80, 1),
+    ('Droit applicable', 'Le présent mandat est régi par les dispositions du Code civil relatives au contrat de mandat, sous réserve des dispositions impératives applicables aux baux à usage d\'habitation en vigueur en Côte d\'Ivoire.', 90, 1);
+";
+
 // ── Exécution ─────────────────────────────────────────────────────────────────
 $results = [];
 foreach ($migrations as $name => $sql) {

@@ -7,6 +7,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$isAdmin = ($_SESSION['role'] ?? '') === 'admin';
+
 $search      = trim($_GET['search']    ?? '');
 $filtreDateEnr  = trim($_GET['date_enr']  ?? '');
 $filtreMoisEnr  = trim($_GET['mois_enr']  ?? '');
@@ -17,12 +19,12 @@ $page    = max(1, (int)($_GET['page'] ?? 1));
 $conds      = [];
 $bindSearch = [];
 if ($search) {
-    $conds[] = "(nom LIKE :s OR code_bailleur LIKE :s2 OR telephone1 LIKE :s3)";
+    $conds[] = "(bailleurs.nom LIKE :s OR bailleurs.code_bailleur LIKE :s2 OR bailleurs.telephone1 LIKE :s3)";
     $bindSearch[':s'] = $bindSearch[':s2'] = $bindSearch[':s3'] = "%$search%";
 }
-if ($filtreDateEnr)       { $conds[] = "DATE(created_at) = :date_enr";              $bindSearch[':date_enr']  = $filtreDateEnr; }
-elseif ($filtreMoisEnr)  { $conds[] = "DATE_FORMAT(created_at,'%Y-%m') = :mois_enr"; $bindSearch[':mois_enr']  = $filtreMoisEnr; }
-elseif ($filtreAnneeEnr) { $conds[] = "YEAR(created_at) = :annee_enr";               $bindSearch[':annee_enr'] = $filtreAnneeEnr; }
+if ($filtreDateEnr)       { $conds[] = "DATE(bailleurs.created_at) = :date_enr";              $bindSearch[':date_enr']  = $filtreDateEnr; }
+elseif ($filtreMoisEnr)  { $conds[] = "DATE_FORMAT(bailleurs.created_at,'%Y-%m') = :mois_enr"; $bindSearch[':mois_enr']  = $filtreMoisEnr; }
+elseif ($filtreAnneeEnr) { $conds[] = "YEAR(bailleurs.created_at) = :annee_enr";               $bindSearch[':annee_enr'] = $filtreAnneeEnr; }
 $where = $conds ? 'WHERE ' . implode(' AND ', $conds) : '';
 
 $totalBailleurs = (int)$pdo->query("SELECT COUNT(*) FROM bailleurs")->fetchColumn();
@@ -35,13 +37,19 @@ $page       = min($page, $totalPages);
 $offset     = ($page - 1) * $perPage;
 
 $stmtList = $pdo->prepare("SELECT bailleurs.*,
-        (SELECT mg.id FROM mandats_gestion mg WHERE mg.bailleur_id = bailleurs.id
-            AND mg.statut = 'actif' AND mg.date_debut <= CURDATE() AND (mg.date_fin IS NULL OR mg.date_fin >= CURDATE())
-         ORDER BY mg.date_debut DESC LIMIT 1) AS mandat_actif_id,
-        (SELECT mg.date_fin FROM mandats_gestion mg WHERE mg.bailleur_id = bailleurs.id
-            AND mg.statut = 'actif' AND mg.date_debut <= CURDATE() AND (mg.date_fin IS NULL OR mg.date_fin >= CURDATE())
-         ORDER BY mg.date_debut DESC LIMIT 1) AS mandat_date_fin
-    FROM bailleurs $where ORDER BY nom ASC LIMIT :lim OFFSET :off");
+        mg.id AS mandat_actif_id,
+        mg.date_signature AS mandat_date_signature,
+        mg.date_debut AS mandat_date_debut,
+        mg.date_fin AS mandat_date_fin,
+        mg.taux_commission AS mandat_taux_commission,
+        mg.document_signe AS mandat_document_signe
+    FROM bailleurs
+    LEFT JOIN mandats_gestion mg ON mg.id = (
+        SELECT mg2.id FROM mandats_gestion mg2 WHERE mg2.bailleur_id = bailleurs.id
+            AND mg2.statut = 'actif' AND mg2.date_debut <= CURDATE() AND (mg2.date_fin IS NULL OR mg2.date_fin >= CURDATE())
+        ORDER BY mg2.date_debut DESC LIMIT 1
+    )
+    $where ORDER BY nom ASC LIMIT :lim OFFSET :off");
 foreach ($bindSearch as $k => $v) $stmtList->bindValue($k, $v);
 $stmtList->bindValue(':lim', $perPage, PDO::PARAM_INT);
 $stmtList->bindValue(':off', $offset,  PDO::PARAM_INT);
@@ -459,7 +467,12 @@ $avatarColors = [
                 </div>
                 <div id="mandatAlertExistant" class="alert alert-info m-4 mb-0 small d-none d-flex align-items-center justify-content-between gap-2">
                     <span><i class="fa fa-circle-info me-1"></i>Un mandat actif existe déjà (jusqu'au <span id="mandatFinActuelle"></span>). L'enregistrement d'un nouveau mandat ci-dessous le remplacera (renouvellement).</span>
-                    <a id="mandatLienImprimer" href="#" class="btn btn-sm btn-outline-dark flex-shrink-0" style="border-radius:6px;"><i class="fa fa-print me-1"></i>Imprimer</a>
+                    <span class="d-flex gap-2 flex-shrink-0">
+                        <?php if ($isAdmin): ?>
+                        <button type="button" id="mandatBtnModifier" class="btn btn-sm btn-outline-primary" style="border-radius:6px;"><i class="fa fa-pen me-1"></i>Modifier</button>
+                        <?php endif; ?>
+                        <a id="mandatLienImprimer" href="#" class="btn btn-sm btn-outline-dark" style="border-radius:6px;"><i class="fa fa-print me-1"></i>Imprimer</a>
+                    </span>
                 </div>
                 <div class="px-4 pt-3 pb-4">
                     <div class="row g-3">
@@ -499,6 +512,69 @@ $avatarColors = [
         </form>
     </div>
 </div>
+
+<?php if ($isAdmin): ?>
+<!-- ══ MODAL MODIFIER LE MANDAT ACTIF (sans le renouveler) ══ -->
+<div class="modal fade" id="modalEditMandat" tabindex="-1" aria-labelledby="titreModalEditMandat" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form class="modal-content border-0 shadow-lg" action="../php/update_mandat.php" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="token" value="<?= htmlspecialchars($csrfToken) ?>">
+            <input type="hidden" name="mandat_id" id="editMandatId">
+            <div class="modal-header text-white border-0" style="background:linear-gradient(135deg,#002147,#004080);">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-white bg-opacity-10 d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
+                        <i class="fa fa-pen text-white"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="titreModalEditMandat">Modifier le mandat</h5>
+                        <small class="opacity-75" id="editMandatBailleurNom">—</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="alert alert-secondary m-4 mb-0 small">
+                    <i class="fa fa-circle-info me-1"></i>Corrige les informations de ce mandat sans le renouveler ni créer de nouvelle ligne — utile pour corriger une erreur de saisie.
+                </div>
+                <div class="px-4 pt-3 pb-4">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date de signature <span class="text-danger">*</span></label>
+                            <input type="date" name="date_signature" id="editMandatSignature" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date de début <span class="text-danger">*</span></label>
+                            <input type="date" name="date_debut" id="editMandatDebut" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Date de fin</label>
+                            <input type="date" name="date_fin" id="editMandatFin" class="form-control">
+                            <small class="text-muted">Laisser vide = durée indéterminée</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Taux de commission (%) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0" max="100" name="taux_commission" id="editMandatCommission" class="form-control" required>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;">Remplacer le document signé (optionnel)</label>
+                            <input type="file" name="document_signe" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                            <small class="text-muted">Laisser vide pour conserver le document actuellement enregistré.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-light px-4">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    <i class="fa fa-times me-1"></i>Annuler
+                </button>
+                <button type="submit" class="btn btn-primary px-5 fw-semibold" style="background-color:#002147;border:none;">
+                    <i class="fa fa-check me-2"></i>Enregistrer les modifications
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="main-content">
 <div class="top-fixed">
@@ -666,7 +742,11 @@ $avatarColors = [
                                     data-id="<?= (int)$b['id'] ?>"
                                     data-nom="<?= htmlspecialchars($b['nom']) ?>"
                                     data-mandat-actif="<?= !empty($b['mandat_actif_id']) ? '1' : '0' ?>"
+                                    data-mandat-id="<?= (int)($b['mandat_actif_id'] ?? 0) ?>"
+                                    data-mandat-signature="<?= htmlspecialchars($b['mandat_date_signature'] ?? '') ?>"
+                                    data-mandat-debut="<?= htmlspecialchars($b['mandat_date_debut'] ?? '') ?>"
                                     data-mandat-fin="<?= htmlspecialchars($b['mandat_date_fin'] ?? '') ?>"
+                                    data-mandat-commission="<?= htmlspecialchars($b['mandat_taux_commission'] ?? '') ?>"
                             ><i class="fa fa-file-signature"></i></button>
                             <a href="compte_bailleur.php?bailleur_id=<?= (int)$b['id'] ?>" class="btn btn-sm btn-outline-success" style="border-radius:6px;" title="Compte courant"><i class="fa fa-wallet"></i></a>
                             <a href="documents.php?type=bailleur&id=<?= (int)$b['id'] ?>" class="btn btn-sm btn-outline-dark" style="border-radius:6px;" title="Documents"><i class="fa fa-paperclip"></i></a>
@@ -764,7 +844,11 @@ $avatarColors = [
                                 data-id="<?= (int)$b['id'] ?>"
                                 data-nom="<?= htmlspecialchars($b['nom']) ?>"
                                 data-mandat-actif="<?= !empty($b['mandat_actif_id']) ? '1' : '0' ?>"
+                                data-mandat-id="<?= (int)($b['mandat_actif_id'] ?? 0) ?>"
+                                data-mandat-signature="<?= htmlspecialchars($b['mandat_date_signature'] ?? '') ?>"
+                                data-mandat-debut="<?= htmlspecialchars($b['mandat_date_debut'] ?? '') ?>"
                                 data-mandat-fin="<?= htmlspecialchars($b['mandat_date_fin'] ?? '') ?>"
+                                data-mandat-commission="<?= htmlspecialchars($b['mandat_taux_commission'] ?? '') ?>"
                         ><i class="fa fa-file-signature"></i></button>
                         <a href="compte_bailleur.php?bailleur_id=<?= (int)$b['id'] ?>" style="color:#065f46;border-color:#a7f3d0;background:#ecfdf5;" title="Compte courant"><i class="fa fa-wallet"></i></a>
                         <a href="documents.php?type=bailleur&id=<?= (int)$b['id'] ?>" style="color:#374151;border-color:#e5e7eb;background:#f9fafb;" title="Documents"><i class="fa fa-paperclip"></i></a>
@@ -891,11 +975,33 @@ document.getElementById('modalMandat').addEventListener('show.bs.modal', functio
             ? new Date(d.mandatFin).toLocaleDateString('fr-FR')
             : 'durée indéterminée';
         document.getElementById('mandatLienImprimer').href = 'recu_mandat.php?bailleur_id=' + d.id;
+
+        var editId = document.getElementById('editMandatId');
+        if (editId) {
+            editId.value = d.mandatId;
+            document.getElementById('editMandatBailleurNom').textContent = d.nom;
+            document.getElementById('editMandatSignature').value  = d.mandatSignature || '';
+            document.getElementById('editMandatDebut').value      = d.mandatDebut || '';
+            document.getElementById('editMandatFin').value        = d.mandatFin || '';
+            document.getElementById('editMandatCommission').value = d.mandatCommission || '';
+        }
     } else {
         alerteExistant.classList.add('d-none');
         alerteNouveau.classList.remove('d-none');
     }
 });
+
+var mandatBtnModifier = document.getElementById('mandatBtnModifier');
+if (mandatBtnModifier) {
+    mandatBtnModifier.addEventListener('click', function() {
+        var modalMandatEl = document.getElementById('modalMandat');
+        modalMandatEl.addEventListener('hidden.bs.modal', function onHidden() {
+            modalMandatEl.removeEventListener('hidden.bs.modal', onHidden);
+            new bootstrap.Modal(document.getElementById('modalEditMandat')).show();
+        });
+        bootstrap.Modal.getInstance(modalMandatEl).hide();
+    });
+}
 
 <?php if (!empty($_GET['open_mandat']) && (int)$_GET['open_mandat'] > 0):
     $stmtNouveauB = $pdo->prepare("SELECT nom FROM bailleurs WHERE id = ?");
