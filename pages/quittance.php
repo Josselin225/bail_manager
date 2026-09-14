@@ -151,7 +151,7 @@ $footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
         .text-success { color: #2e7d32; font-weight: bold; }
         .qr-section { text-align: center; margin-top: 10px; padding: 10px; border: 1px solid #f0f0f0; background-color: #fafafa; width: fit-content; margin-left: auto; }
         .qr-section img { width: 85px; height: 85px; }
-        .footer { margin-top: 30px; display: flex; justify-content: space-between; }
+        .footer { margin-top: 30px; display: flex; justify-content: flex-end; }
         .signature-box { width: 250px; text-align: center; }
         .stamp-area { border: 1px solid #eee; height: 80px; margin-top: 10px; display: flex; align-items: center; justify-content: center; color: #ccc; font-style: italic; }
         .highlight { background-color: #fffde7; font-weight: bold; }
@@ -246,9 +246,7 @@ $footerCssContent = $footerCssParts ? implode(' ', $footerCssParts) : '""';
         </div>
 
         <div class="footer">
-            <div class="signature-box"><strong>Le Locataire</strong><br><small>(Bon pour acquit)</small></div>
-            <div class="signature-box">
-                <strong>L'Agence</strong><br><small>(Cachet et Signature)</small>
+            <div class="signature-box"><strong>L'agence</strong><br><small>(Cachet et Signature)</small>
                 <div class="stamp-area">Cachet Officiel</div>
             </div>
         </div>
