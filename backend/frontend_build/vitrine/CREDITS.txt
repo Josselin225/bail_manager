@@ -1,0 +1,12 @@
+Photos du diaporama de la page d'accueil — Unsplash (https://unsplash.com/license)
+Licence Unsplash : utilisation gratuite, y compris commerciale, sans attribution obligatoire.
+Elles illustrent le site et ne représentent pas des biens gérés par l'agence.
+
+maison-1.jpg  images.unsplash.com/photo-1580587771525-78b9dba3b914
+maison-2.jpg  images.unsplash.com/photo-1748063578185-3d68121b11ff
+maison-3.jpg  images.unsplash.com/photo-1600585154340-be6161a56a0c
+maison-4.jpg  images.unsplash.com/photo-1706808849780-7a04fbac83ef
+maison-5.jpg  images.unsplash.com/photo-1600607687939-ce8a6c25118c
+
+Pour utiliser vos propres photos : remplacez ces fichiers en gardant les mêmes noms
+(format paysage, 1600 px de large environ), puis relancez « npm run build ».

@@ -1,0 +1,129 @@
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncMonth
+from django.shortcuts import get_object_or_404
+from django_filters import rest_framework as filters
+from rest_framework import mixins, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from apps.patrimoine.models import Bailleur
+
+from . import services
+from .models import CompteCourantBailleur, MouvementCaisse
+from .serializers import MouvementCaisseSerializer, OperationBailleurSerializer
+
+
+def _par_mois(qs, champ_date="date_operation"):
+    lignes = (
+        qs.annotate(m=TruncMonth(champ_date)).values("m")
+        .annotate(credits=Sum("montant", filter=Q(montant__gt=0)), debits=Sum("montant", filter=Q(montant__lt=0)))
+        .order_by("m")
+    )
+    return [
+        {"mois": l["m"].strftime("%Y-%m"), "entrees": l["credits"] or 0, "sorties": -(l["debits"] or 0)}
+        for l in lignes if l["m"]
+    ]
+
+
+class OperationFiltre(filters.FilterSet):
+    du = filters.DateFilter(field_name="date_operation", lookup_expr="date__gte")
+    au = filters.DateFilter(field_name="date_operation", lookup_expr="date__lte")
+
+    class Meta:
+        model = CompteCourantBailleur
+        fields = ["bailleur", "type_operation"]
+
+
+class CompteBailleurViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = OperationBailleurSerializer
+    filterset_class = OperationFiltre
+    search_fields = ["commentaire", "bailleur__nom"]
+
+    def get_queryset(self):
+        return CompteCourantBailleur.objects.select_related("bailleur", "encaissement")
+
+    @action(detail=False)
+    def synthese(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        agg = qs.aggregate(
+            credits=Sum("montant", filter=Q(montant__gt=0)), retraits=Sum("montant", filter=Q(montant__lt=0)),
+            solde=Sum("montant"), nb=Count("id"),
+        )
+        base = self.get_queryset()
+        if request.query_params.get("bailleur"):
+            base = base.filter(bailleur=request.query_params["bailleur"])
+        return Response({
+            "credits": agg["credits"] or 0, "retraits": -(agg["retraits"] or 0), "solde_periode": agg["solde"] or 0,
+            "nb_operations": agg["nb"], "solde_global": base.aggregate(t=Sum("montant"))["t"] or 0,
+            "par_mois": _par_mois(base)[-12:],
+        })
+
+    @action(detail=False, pagination_class=None)
+    def soldes(self, request):
+        lignes = (
+            Bailleur.objects.annotate(solde=Sum("operations__montant"))
+            .values("id", "nom", "code_bailleur", "solde").order_by("nom")
+        )
+        return Response([{**l, "solde": l["solde"] or 0} for l in lignes])
+
+    @action(detail=False, methods=["post"])
+    def verser(self, request):
+        b = get_object_or_404(Bailleur, pk=request.data.get("bailleur"))
+        op = services.verser_au_bailleur(
+            b, request.data.get("montant"), request.data.get("mode", "especes"), request.data.get("commentaire", ""), request
+        )
+        return Response(OperationBailleurSerializer(op).data, status=201)
+
+
+class CaisseFiltre(filters.FilterSet):
+    du = filters.DateFilter(field_name="date_operation", lookup_expr="date__gte")
+    au = filters.DateFilter(field_name="date_operation", lookup_expr="date__lte")
+    sens = filters.CharFilter(method="filtrer_sens")
+
+    class Meta:
+        model = MouvementCaisse
+        fields = ["type_mouvement", "effectue_par", "bailleur"]
+
+    def filtrer_sens(self, qs, name, value):
+        return qs.filter(montant__gt=0) if value == "entree" else qs.filter(montant__lt=0) if value == "sortie" else qs
+
+
+class CaisseViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = MouvementCaisseSerializer
+    filterset_class = CaisseFiltre
+    search_fields = ["commentaire", "type_mouvement", "reference_paiement"]
+
+    def get_queryset(self):
+        return MouvementCaisse.objects.select_related("bailleur")
+
+    @action(detail=False)
+    def synthese(self, request):
+        qs = self.filter_queryset(self.get_queryset())
+        agg = qs.aggregate(e=Sum("montant", filter=Q(montant__gt=0)), s=Sum("montant", filter=Q(montant__lt=0)))
+        par_type = qs.values("type_mouvement").annotate(total=Sum("montant"), nb=Count("id")).order_by("-total")
+        return Response({
+            "entrees": agg["e"] or 0, "sorties": -(agg["s"] or 0), "solde": services.solde_caisse(),
+            "par_type": list(par_type), "par_mois": _par_mois(self.get_queryset())[-12:],
+            "auteurs": list(MouvementCaisse.objects.exclude(effectue_par="").values_list("effectue_par", flat=True).distinct()),
+        })
+
+    @action(detail=False, methods=["post"])
+    def retrait(self, request):
+        motif = (request.data.get("motif") or "").strip()
+        if not motif:
+            from apps.core.exceptions import RegleMetier
+
+            raise RegleMetier("Le motif est obligatoire.")
+        note = (request.data.get("commentaire") or "").strip()
+        mvt = services.mouvement_caisse(
+            "Retrait/Dépense", request.data.get("montant"), motif + (f" — {note}" if note else ""), request, sortie=True
+        )
+        return Response(MouvementCaisseSerializer(mvt).data, status=201)
+
+    @action(detail=False, methods=["post"])
+    def entree(self, request):
+        mvt = services.mouvement_caisse(
+            request.data.get("type_mouvement") or "Autre entrée", request.data.get("montant"),
+            request.data.get("commentaire", ""), request,
+        )
+        return Response(MouvementCaisseSerializer(mvt).data, status=201)

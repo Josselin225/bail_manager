@@ -1,3 +1,0 @@
-# Interdire tout accès direct aux fichiers d'inclusion
-Order allow,deny
-Deny from all

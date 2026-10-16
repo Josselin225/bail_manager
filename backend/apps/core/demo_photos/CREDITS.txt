@@ -1,0 +1,24 @@
+Photos de démonstration — Unsplash (https://unsplash.com/license) : usage gratuit, y compris commercial.
+Utilisées par « python manage.py photos_demo » pour illustrer les maisons fictives.
+
+exterieur-1.jpg  images.unsplash.com/photo-1787672358119-25cb4c768d14
+exterieur-2.jpg  images.unsplash.com/photo-1661332618293-6b6204cd87fc
+exterieur-3.jpg  images.unsplash.com/photo-1658872180512-7ee222963246
+exterieur-4.jpg  images.unsplash.com/photo-1628012209120-d9db7abf7eab
+exterieur-5.jpg  images.unsplash.com/photo-1721815693498-cc28507c0ba2
+exterieur-6.jpg  images.unsplash.com/photo-1600596542815-ffad4c1539a9
+exterieur-7.jpg  images.unsplash.com/photo-1757524492552-d47a66a2b63e
+salon-1.jpg  images.unsplash.com/photo-1502672260266-1c1ef2d93688
+salon-2.jpg  images.unsplash.com/photo-1522708323590-d24dbb6b0267
+salon-3.jpg  images.unsplash.com/photo-1560448204-e02f11c3d0e2
+salon-4.jpg  images.unsplash.com/photo-1583847268964-b28dc8f51f92
+salon-5.jpg  images.unsplash.com/photo-1585128792020-803d29415281
+salon-6.jpg  images.unsplash.com/photo-1586023492125-27b2c045efd7
+salon-7.jpg  images.unsplash.com/photo-1564078516393-cf04bd966897
+chambre-1.jpg  images.unsplash.com/photo-1505693416388-ac5ce068fe85
+chambre-2.jpg  images.unsplash.com/photo-1512918728675-ed5a9ecdebfd
+chambre-3.jpg  images.unsplash.com/photo-1595526114035-0d45ed16cfbf
+chambre-4.jpg  images.unsplash.com/photo-1615874959474-d609969a20ed
+cuisine-1.jpg  images.unsplash.com/photo-1484154218962-a197022b5858
+cuisine-2.jpg  images.unsplash.com/photo-1612320648993-61c1cd604b71
+cuisine-3.jpg  images.unsplash.com/photo-1675279200694-8529c73b1fd0

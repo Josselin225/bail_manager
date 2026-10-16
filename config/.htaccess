@@ -1,3 +1,0 @@
-# Interdire tout accès direct aux fichiers de configuration
-Order allow,deny
-Deny from all
