@@ -16,7 +16,7 @@ export default function ReleveCaution() {
         <div className="doc">
           <EnteteDoc e={e} reference={`Contrat ${c.reference}`} date={`Édité le ${dateFr(new Date())}`} />
           <h1>Relevé du dépôt de garantie</h1>
-          <div className="cadre" style={{ margin: "12px 0" }}><b>{c.locataire_nom}</b> — {c.maison_nom} — bail du {dateFr(c.date_debut)}</div>
+          <div className="cadre" style={{ margin: "12px 0" }}><b>Locataire</b><br /><strong>{c.locataire_nom}</strong> — {c.maison_nom} — bail du {dateFr(c.date_debut)}</div>
           <table>
             <thead><tr><th>Date</th><th>Opération</th><th className="droite">Montant</th><th className="droite">Solde</th></tr></thead>
             <tbody>

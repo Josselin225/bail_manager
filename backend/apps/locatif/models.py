@@ -142,3 +142,27 @@ class MouvementCaution(models.Model):
     class Meta:
         db_table = "mouvements_caution"
         ordering = ["-date_operation", "-id"]
+
+
+class EtatDesLieux(models.Model):
+    """État des lieux contradictoire, annexé au bail : à l'entrée du locataire et à sa sortie."""
+
+    class Type(models.TextChoices):
+        ENTREE = "entree", "État des lieux d'entrée"
+        SORTIE = "sortie", "État des lieux de sortie"
+
+    contrat = models.ForeignKey(Contrat, on_delete=models.CASCADE, related_name="etats_des_lieux")
+    type_etat = models.CharField(max_length=10, choices=Type.choices, default=Type.ENTREE)
+    date_etat = models.DateField()
+    index_eau = models.CharField("Index compteur d'eau", max_length=30, blank=True, default="")
+    index_electricite = models.CharField("Index compteur d'électricité", max_length=30, blank=True, default="")
+    nombre_cles = models.PositiveSmallIntegerField(default=0)
+    pieces = models.JSONField(default=list)
+    observations = models.TextField(blank=True, default="")
+    etabli_par = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "etats_des_lieux"
+        constraints = [models.UniqueConstraint(fields=["contrat", "type_etat"], name="un_etat_des_lieux_par_type")]

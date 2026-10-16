@@ -24,14 +24,14 @@ export default function ReleveBailleur() {
           <EnteteDoc e={e} reference={`Relevé de compte — ${r.bailleur.code}`} date={`Du ${dateFr(r.du)} au ${dateFr(r.au)}`} />
           <h1>Relevé de compte bailleur</h1>
           <div className="cadre" style={{ margin: "12px 0" }}>
-            <b>{r.bailleur.nom}</b>{r.bailleur.telephone && ` — ${r.bailleur.telephone}`}{r.bailleur.taux != null && ` — commission ${r.bailleur.taux} %`}
+            <b>Bailleur</b><br /><strong>{r.bailleur.nom}</strong>{r.bailleur.telephone && ` — ${r.bailleur.telephone}`}{r.bailleur.taux != null && ` — commission ${r.bailleur.taux} %`}
           </div>
           <table>
-            <thead><tr><th>Date</th><th>Libellé</th><th className="droite">Crédit</th><th className="droite">Débit</th><th className="droite">Solde</th></tr></thead>
+            <thead><tr><th className="nowrap">Date</th><th style={{ width: "46%" }}>Libellé</th><th className="droite">Crédit</th><th className="droite">Débit</th><th className="droite">Solde</th></tr></thead>
             <tbody>
               <tr><td colSpan={4}><i>Solde au {dateFr(r.du)}</i></td><td className="droite">{fcfa(r.solde_initial)}</td></tr>
               {r.lignes.map((l, i) => (
-                <tr key={i}><td>{dateFr(l.date)}</td><td>{l.libelle}</td><td className="droite">{l.credit ? fcfa(l.credit) : ""}</td><td className="droite">{l.debit ? fcfa(l.debit) : ""}</td><td className="droite">{fcfa(l.solde)}</td></tr>
+                <tr key={i}><td className="nowrap">{dateFr(l.date)}</td><td>{l.libelle}</td><td className="droite">{l.credit ? fcfa(l.credit) : ""}</td><td className="droite">{l.debit ? fcfa(l.debit) : ""}</td><td className="droite">{fcfa(l.solde)}</td></tr>
               ))}
               <tr><th colSpan={2}>Totaux de la période</th><th className="droite">{fcfa(r.credits)}</th><th className="droite">{fcfa(r.debits)}</th><th className="droite">{fcfa(r.solde_final)}</th></tr>
             </tbody>

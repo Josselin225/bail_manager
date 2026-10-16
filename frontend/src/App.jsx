@@ -54,6 +54,8 @@ const DocMandat = p(() => import("./pages/impression/DocMandat"));
 const ReleveBailleur = p(() => import("./pages/impression/ReleveBailleur"));
 const ReleveCaution = p(() => import("./pages/impression/ReleveCaution"));
 const ImpressionRapport = p(() => import("./pages/impression/ImpressionRapport"));
+const DocEtatDesLieux = p(() => import("./pages/impression/DocEtatDesLieux"));
+const EtatDesLieux = p(() => import("./pages/gestion/EtatDesLieux"));
 
 function Protege({ admin, children }) {
   const { pret, utilisateur, estAdmin, expire } = useSession();
@@ -89,6 +91,7 @@ export default function App() {
           <Route path="releve-bailleur/:id" element={<ReleveBailleur />} />
           <Route path="releve-caution/:id" element={<ReleveCaution />} />
           <Route path="rapport/:type" element={<ImpressionRapport />} />
+          <Route path="etat-des-lieux/:id/:type" element={<DocEtatDesLieux />} />
         </Route>
 
         <Route element={<Protege><Coquille /></Protege>}>
@@ -102,6 +105,7 @@ export default function App() {
           <Route path="/contrats" element={<Contrats />} />
           <Route path="/contrats/nouveau" element={<NouveauContrat />} />
           <Route path="/contrats/:id" element={<FicheContrat />} />
+          <Route path="/contrats/:id/etat-des-lieux/:type" element={<EtatDesLieux />} />
           <Route path="/encaissements" element={<Encaissements />} />
           <Route path="/calendrier" element={<Calendrier />} />
           <Route path="/charges" element={<Charges />} />

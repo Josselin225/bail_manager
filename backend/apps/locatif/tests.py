@@ -121,6 +121,26 @@ class ReglesMetierTests(TestCase):
         self.assertEqual(c.date_prochain_loyer, date(2026, 6, 5))
         self.assertEqual(self.payer(cid, 120000, 6).status_code, 201)
 
+    def test_etat_des_lieux_entree(self):
+        self.mandat()
+        cid = self.contrat().data["id"]
+        url = f"/api/contrats/{cid}/etat-des-lieux/entree/"
+        d = self.api.get(url).data
+        self.assertFalse(d["etabli"])
+        self.assertTrue(d["pieces"])                                            # pièces proposées selon le type
+        pieces = d["pieces"]
+        pieces[0]["elements"][0].update(etat="bon", observation="Carrelage propre")
+        r = self.api.post(url, {"date_etat": "2026-03-05", "index_eau": "00412", "nombre_cles": 3, "pieces": pieces}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertTrue(r.data["etabli"])
+        self.assertEqual(str(self.api.get(f"/api/contrats/{cid}/").data["etats_des_lieux"]["entree"]), "2026-03-05")
+        # État inconnu refusé ; une seule fiche d'entrée par bail (mise à jour, pas de doublon)
+        pieces[0]["elements"][0]["etat"] = "excellent"
+        self.assertEqual(self.api.post(url, {"date_etat": "2026-03-05", "pieces": pieces}, format="json").status_code, 400)
+        pieces[0]["elements"][0]["etat"] = "usage"
+        self.api.post(url, {"date_etat": "2026-03-06", "pieces": pieces}, format="json")
+        self.assertEqual(Contrat.objects.get(pk=cid).etats_des_lieux.count(), 1)
+
     def test_anciennete_du_bail(self):
         from apps.core.utils import duree_entre, libelle_duree
 

@@ -20,6 +20,7 @@ class ContratSerializer(serializers.ModelSerializer):
     mandat_reference = serializers.CharField(source="mandat.reference", read_only=True, default="")
     mandat_echu = serializers.SerializerMethodField()
     anciennete = serializers.SerializerMethodField()
+    etats_des_lieux = serializers.SerializerMethodField()
     statut_paiement = serializers.SerializerMethodField()
     jours_retard = serializers.SerializerMethodField()
     caution_disponible = serializers.SerializerMethodField()
@@ -27,12 +28,17 @@ class ContratSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrat
         fields = [
-            "id", "reference", "mandat", "mandat_reference", "mandat_echu", "anciennete", "maison", "maison_nom", "maison_adresse", "maison_type", "locataire", "locataire_nom",
+            "id", "reference", "mandat", "mandat_reference", "mandat_echu", "anciennete", "etats_des_lieux", "maison", "maison_nom", "maison_adresse", "maison_type", "locataire", "locataire_nom",
             "locataire_telephone", "bailleur_id", "bailleur_nom", "loyer_mensuel", "date_contrat", "date_debut",
             "date_fin", "statut_contrat", "statut_libelle", "depot_garantie", "mois_avance", "avance_loyer",
             "droit_agence", "date_prochain_loyer", "date_resiliation", "motif_resiliation", "statut_paiement",
             "jours_retard", "caution_disponible", "created_at",
         ]
+
+    def get_etats_des_lieux(self, obj):
+        """Date de l'état des lieux d'entrée / de sortie, ou None s'il n'est pas encore établi."""
+        dates = {e.type_etat: e.date_etat for e in obj.etats_des_lieux.all()}
+        return {"entree": dates.get("entree"), "sortie": dates.get("sortie")}
 
     def get_anciennete(self, obj):
         """Durée du bail depuis sa conclusion (signature) : jusqu'à aujourd'hui, ou jusqu'à la résiliation s'il est terminé."""

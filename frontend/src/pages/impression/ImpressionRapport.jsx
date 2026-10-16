@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, exporterExcel } from "../../lib/api";
@@ -87,13 +86,13 @@ function TableauDoc({ titre, colonnes, lignes, total }) {
     <>
       {titre && <h2>{titre}</h2>}
       <table style={{ fontSize: 11 }}>
-        <thead><tr>{colonnes.map((c) => <th key={c.cle} className={c.type === "montant" ? "droite" : ""}>{c.libelle}</th>)}</tr></thead>
+        <thead><tr>{colonnes.map((c) => <th key={c.cle} className={classeCol(c)}>{c.libelle}</th>)}</tr></thead>
         <tbody>
           {lignes.map((l, i) => (
-            <tr key={i}>{colonnes.map((c) => <td key={c.cle} className={c.type === "montant" ? "droite" : ""}>{c.rendu ? c.rendu(l) : c.type === "montant" ? fcfa(l[c.cle]) : l[c.cle]}</td>)}</tr>
+            <tr key={i}>{colonnes.map((c) => <td key={c.cle} className={classeCol(c)}>{c.rendu ? c.rendu(l) : c.type === "montant" ? fcfa(l[c.cle]) : l[c.cle]}</td>)}</tr>
           ))}
           {total && (
-            <tr>{colonnes.map((c, i) => <th key={c.cle} className={c.type === "montant" ? "droite" : ""}>{i === 0 ? "Total" : c.type === "montant" && total.includes(c.cle) ? fcfa(lignes.reduce((s, l) => s + Number(l[c.cle] || 0), 0)) : ""}</th>)}</tr>
+            <tr className="ligne-total">{colonnes.map((c, i) => <th key={c.cle} className={classeCol(c)}>{i === 0 ? "Total" : c.type === "montant" && total.includes(c.cle) ? fcfa(lignes.reduce((s, l) => s + Number(l[c.cle] || 0), 0)) : ""}</th>)}</tr>
           )}
         </tbody>
       </table>
@@ -101,17 +100,18 @@ function TableauDoc({ titre, colonnes, lignes, total }) {
   );
 }
 
+/** Chiffres clés en tuiles, comme le tableau de bord du logiciel (une valeur longue occupe deux tuiles). */
 function Synthese({ items }) {
   return (
-    <table className="synthese">
-      <tbody>
-        {items.reduce((rangs, it, i) => (i % 2 ? rangs[rangs.length - 1].push(it) : rangs.push([it]), rangs), []).map((r, i) => (
-          <tr key={i}>{r.map(([k, v]) => <Fragment key={k}><th>{k}</th><td className="droite">{v}</td></Fragment>)}</tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="tuiles">
+      {items.map(([k, v]) => <div key={k} className={`tuile ${String(v).length > 22 ? "large" : ""}`}><span>{k}</span><b>{v}</b></div>)}
+    </div>
   );
 }
+
+// Colonnes qui ne doivent jamais se couper (références, dates, montants)
+const SANS_COUPURE = ["reference", "date", "echeance", "telephone", "jours_retard"];
+const classeCol = (c) => [c.type === "montant" ? "droite" : "", SANS_COUPURE.includes(c.cle) ? "nowrap" : ""].filter(Boolean).join(" ") || undefined;
 
 export default function ImpressionRapport() {
   const { type } = useParams();

@@ -16,7 +16,8 @@ from apps.core.utils import aujourdhui, journaliser, libelle_periode
 from apps.patrimoine.models import Locataire, Maison
 
 from . import services
-from .models import ChargeLocative, Contrat, Encaissement, MouvementCaution, RevisionLoyer
+from .etats_des_lieux import ETATS, nettoyer_pieces, pieces_par_defaut
+from .models import ChargeLocative, Contrat, Encaissement, EtatDesLieux, MouvementCaution, RevisionLoyer
 from .serializers import (
     ChargeSerializer, ContratCreationSerializer, ContratSerializer, EncaissementCreationSerializer,
     EncaissementSerializer, MouvementCautionSerializer, RevisionSerializer,
@@ -101,6 +102,59 @@ class ContratViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             origine=request.data.get("origine") or RevisionLoyer.Origine.BAILLEUR,
         )
         return Response(RevisionSerializer(rev).data, status=201)
+
+    @action(detail=True, methods=["get", "post"], url_path=r"etat-des-lieux/(?P<type_etat>entree|sortie)")
+    def etat_des_lieux(self, request, pk=None, type_etat="entree"):
+        """État des lieux du bail : lecture (ou modèle de pièces s'il n'est pas encore établi) et enregistrement."""
+        c = self.get_object()
+        edl = c.etats_des_lieux.filter(type_etat=type_etat).first()
+        if request.method == "POST":
+            d = request.data
+            date_etat = d.get("date_etat") or None
+            if not date_etat:
+                raise RegleMetier("Indiquez la date de l'état des lieux.")
+            try:
+                cles = int(d.get("nombre_cles") or 0)
+            except (TypeError, ValueError):
+                raise RegleMetier("Le nombre de clés doit être un nombre entier.")
+            valeurs = {
+                "date_etat": datetime.strptime(date_etat, "%Y-%m-%d").date(),
+                "index_eau": str(d.get("index_eau") or "").strip()[:30],
+                "index_electricite": str(d.get("index_electricite") or "").strip()[:30],
+                "nombre_cles": max(0, cles),
+                "pieces": nettoyer_pieces(d.get("pieces")),
+                "observations": str(d.get("observations") or "").strip(),
+            }
+            if edl:
+                for k, v in valeurs.items():
+                    setattr(edl, k, v)
+                edl.save()
+            else:
+                edl = EtatDesLieux.objects.create(contrat=c, type_etat=type_etat, etabli_par=request.user, **valeurs)
+            journaliser(request, "État des lieux", f"{edl.get_type_etat_display()} — contrat {c.reference} — {c.locataire.nom}")
+        m, b, loc = c.maison, c.maison.bailleur, c.locataire
+        base = {
+            "contrat": {"id": c.pk, "reference": c.reference, "date_contrat": c.date_contrat, "date_debut": c.date_debut,
+                        "mandat_reference": c.mandat.reference if c.mandat else ""},
+            "bien": {"designation": m.designation, "type": m.type_maison, "adresse": m.adresse},
+            "locataire": {"nom": loc.nom, "telephone": loc.telephone1, "piece_identite": loc.piece_identite},
+            "bailleur": {"nom": b.nom, "code": b.code_bailleur},
+            "etats": ETATS,
+            "type_etat": type_etat,
+            "libelle": dict(EtatDesLieux.Type.choices)[type_etat],
+        }
+        if edl:
+            base.update({
+                "etabli": True, "date_etat": edl.date_etat, "index_eau": edl.index_eau, "index_electricite": edl.index_electricite,
+                "nombre_cles": edl.nombre_cles, "pieces": edl.pieces, "observations": edl.observations,
+                "etabli_par": edl.etabli_par.nom_complet if edl.etabli_par else "", "modifie_le": edl.updated_at,
+            })
+        else:
+            base.update({
+                "etabli": False, "date_etat": c.date_debut if type_etat == "entree" else aujourdhui(), "index_eau": "",
+                "index_electricite": "", "nombre_cles": 0, "pieces": pieces_par_defaut(m.type_maison), "observations": "",
+            })
+        return Response(base, status=201 if request.method == "POST" else 200)
 
     @action(detail=True, methods=["post"])
     def caution(self, request, pk=None):

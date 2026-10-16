@@ -10,7 +10,12 @@ export default function DocContrat() {
   const { data: c, isLoading, error } = useQuery({ queryKey: ["contrat-impression", id], queryFn: () => api.get(`/contrats/${id}/impression/`) });
   const total = c ? Number(c.depot_garantie) + Number(c.avance_loyer) + Number(c.droit_agence) : 0;
   return (
-    <Imprimable titre={c ? `Contrat de bail ${c.reference}` : "Contrat"} chargement={isLoading || !e} erreur={error}>
+    <Imprimable
+      titre={c ? `Contrat de bail ${c.reference}` : "Contrat"}
+      chargement={isLoading || !e}
+      erreur={error}
+      suite={c && { libelle: "Suivant : état des lieux d'entrée", lien: `/impression/etat-des-lieux/${c.id}/entree` }}
+    >
       {c && e && (
         <div className="doc">
           <EnteteDoc e={e} reference={`Contrat N° ${c.reference}`} date={`Signé le ${dateFr(c.date_contrat)}`} />
@@ -68,6 +73,11 @@ export default function DocContrat() {
               </p>
             </>
           )}
+          <h2>État des lieux</h2>
+          <p>
+            Un état des lieux d'entrée est dressé contradictoirement lors de la remise des clés et annexé au présent bail. Il servira de référence
+            à l'état des lieux de sortie et au décompte du dépôt de garantie.
+          </p>
           <h2>Clauses</h2>
           {c.clauses.map((cl, i) => (
             <div key={i} className="clause"><b>Article {i + 1} — {cl.titre}.</b> {cl.contenu}</div>

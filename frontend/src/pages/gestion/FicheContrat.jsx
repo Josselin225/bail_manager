@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, FileX2, HandCoins, Plus, Printer, ShieldMinus, TrendingUp, Trash2 } from "lucide-react";
+import { CalendarClock, ClipboardCheck, FileX2, HandCoins, Pencil, Plus, Printer, ShieldMinus, TrendingUp, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
 import { MOIS_COURTS, dateFr, fcfa, isoDate } from "../../lib/format";
 import { useAction } from "../../lib/hooks";
@@ -132,6 +132,25 @@ export default function FicheContrat() {
             })}
           </div>
         </Panneau>
+        <div className="pile">
+        <Panneau titre="États des lieux" icone={ClipboardCheck} className="panneau-edl">
+          {[["entree", "Entrée"], ["sortie", "Sortie"]].map(([t, l]) => {
+            const fait = c.etats_des_lieux?.[t];
+            if (t === "sortie" && actif && !fait) return null;
+            return (
+              <div key={t} className="ligne-edl">
+                <div>
+                  <div className="gras">État des lieux d'{t === "entree" ? "entrée" : "sortie"}</div>
+                  <div className="petit-texte">{fait ? <Badge ton="ok">Établi le {dateFr(fait)}</Badge> : <Badge ton="attention">À établir</Badge>}</div>
+                </div>
+                <span className="espace" />
+                <LienBouton taille="petit" icone={Printer} to={`/impression/etat-des-lieux/${c.id}/${t}`} target="_blank">{fait ? "Imprimer" : "Grille vierge"}</LienBouton>
+                <LienBouton taille="petit" variante={fait ? "" : "primaire"} icone={fait ? Pencil : ClipboardCheck} to={`/contrats/${c.id}/etat-des-lieux/${t}`}>{fait ? "Modifier" : "Remplir"}</LienBouton>
+              </div>
+            );
+          })}
+          {!c.etats_des_lieux?.entree && actif && <p className="discret petit-texte" style={{ margin: "10px 0 0" }}>Après impression du bail, remplissez puis imprimez l'état des lieux d'entrée avec le locataire : il est annexé au contrat.</p>}
+        </Panneau>
         <Panneau titre="Conditions">
           <Definitions
             items={[
@@ -158,6 +177,7 @@ export default function FicheContrat() {
             </div>
           )}
         </Panneau>
+        </div>
       </div>
 
       <Panneau>
