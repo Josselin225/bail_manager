@@ -53,8 +53,7 @@ export default function NouveauContrat() {
       const { loyer_mensuel, ...reste } = f; // eslint-disable-line no-unused-vars
       const c = await api.post("/contrats/", { ...reste, date_fin: f.date_fin || null, droit_agence: frais });
       toast.succes(`Contrat ${c.reference} créé.`);
-      window.open(`/impression/recu-contrat/${c.id}`, "_blank");
-      nav(`/contrats/${c.id}`);
+      nav(`/impression/recu-contrat/${c.id}`);
     } catch (err) {
       setErreur(err.message);
       window.scrollTo({ top: 0, behavior: "smooth" });

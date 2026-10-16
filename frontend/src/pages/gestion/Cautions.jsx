@@ -13,7 +13,7 @@ const colonnes = [
   { cle: "depot_garantie", libelle: "Déposée", type: "montant" },
   { cle: "retenues", libelle: "Retenues", type: "montant", rendu: (c) => <Montant v={c.caution_disponible - c.depot_garantie} signe />, exporter: (c) => c.caution_disponible - c.depot_garantie },
   { cle: "caution_disponible", libelle: "Disponible", type: "montant", rendu: (c) => <b><Montant v={c.caution_disponible} /></b> },
-  { libelle: "", export: false, rendu: (c) => <LienBouton taille="petit" variante="fantome" icone={Printer} to={`/impression/releve-caution/${c.id}`} target="_blank" aria-label="Relevé" /> },
+  { libelle: "", export: false, rendu: (c) => <LienBouton taille="petit" variante="fantome" icone={Printer} to={`/impression/releve-caution/${c.id}`} aria-label="Relevé" /> },
 ];
 
 export default function Cautions() {

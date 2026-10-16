@@ -28,7 +28,7 @@ export default function ComptesBailleurs() {
     <>
       <EntetePage titre="Comptes bailleurs" soustitre="Chaque loyer encaissé crédite le bailleur (net de commission) ; chaque versement le débite.">
         <Bouton icone={Download} onClick={async () => exporterExcel("Compte courant bailleurs", colonnes, (await api.get("/compte-bailleurs/", { ...f, taille: 5000 })).results)}>Excel</Bouton>
-        {choisi && <LienBouton icone={Printer} to={`/impression/releve-bailleur/${choisi.id}?du=${f.du}&au=${f.au}`} target="_blank">Relevé</LienBouton>}
+        {choisi && <LienBouton icone={Printer} to={`/impression/releve-bailleur/${choisi.id}?du=${f.du}&au=${f.au}`}>Relevé</LienBouton>}
         <Bouton variante="primaire" icone={Wallet} disabled={!choisi || Number(choisi.solde) <= 0} onClick={() => setVerser(choisi)}>Verser au bailleur</Bouton>
       </EntetePage>
       <div className="barre-filtres">

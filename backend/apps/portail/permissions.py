@@ -6,3 +6,10 @@ class EstLocataire(BasePermission):
 
     def has_permission(self, request, view):
         return bool(request.session.get("locataire_id"))
+
+
+class EstBailleur(BasePermission):
+    message = "Session expirée. Reconnectez-vous à votre espace bailleur."
+
+    def has_permission(self, request, view):
+        return bool(request.session.get("bailleur_id"))

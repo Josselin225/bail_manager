@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { FileText, HandCoins, Paperclip, Trash2, Upload } from "lucide-react";
 import { api } from "../lib/api";
 import { MODES, MOIS, dateFr, fcfa, isoDate } from "../lib/format";
@@ -216,6 +217,7 @@ export function FormLocataire({ ouvert, onFermer, locataire, onEnregistre }) {
 
 /* ─── Encaissement d'un loyer ────────────────────────────────────── */
 export function FormEncaissement({ ouvert, onFermer, contrat, onEnregistre }) {
+  const nav = useNavigate();
   const auj = new Date();
   const [f, maj, setF] = useFormulaire({ mois: auj.getMonth() + 1, annee: auj.getFullYear(), montant: "", mode: "especes", observation: "" }, ouvert);
   const [situation, setSituation] = useState(null);
@@ -255,7 +257,7 @@ export function FormEncaissement({ ouvert, onFermer, contrat, onEnregistre }) {
         const r = await api.post("/encaissements/", { contrat: contrat.id, montant: f.montant, periode_mois: f.mois, periode_annee: f.annee, mode_paiement: f.mode, observation: f.observation });
         onEnregistre?.(r);
         toast.succes(`Reçu ${r.reference_recu} enregistré.`);
-        window.open(`/impression/quittance/${r.id}`, "_blank");
+        nav(`/impression/quittance/${r.id}`);
       }}
     >
       <div className="rappel-fenetre">
@@ -318,7 +320,7 @@ export function Documents({ type, id }) {
         lignes={docs}
         vide={<Vide icone={Paperclip} titre="Aucun document" texte="Ajoutez les pièces scannées pour retrouver le dossier complet ici." />}
         colonnes={[
-          { libelle: "Document", rendu: (d) => <a href={d.fichier} target="_blank" rel="noreferrer" className="ligne-flex" style={{ gap: 8 }}><FileText size={16} />{d.nom_original}</a> },
+          { libelle: "Document", rendu: (d) => <a href={d.fichier} className="ligne-flex" style={{ gap: 8 }}><FileText size={16} />{d.nom_original}</a> },
           { libelle: "Taille", rendu: (d) => `${Math.max(1, Math.round(d.taille / 1024))} Ko` },
           { libelle: "Ajouté le", rendu: (d) => dateFr(d.created_at) },
           { libelle: "Par", cle: "uploaded_by_nom" },

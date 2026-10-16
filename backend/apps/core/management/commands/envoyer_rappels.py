@@ -30,6 +30,7 @@ class Command(BaseCommand):
         mandats_90 = list(a_echeance.filter(date_fin__range=(j, j + timedelta(days=90))).order_by("date_fin"))
         informes = sum(informer_locataires_echeance(m) for m in a_echeance.filter(date_fin__range=(j, j + timedelta(days=30)), locataires_informes_le__isnull=True))
         envoyes = 0
+        sms = self.messages(retards + proches, j, p)
         for c in retards + proches:
             if not c.locataire.email:
                 continue
@@ -56,7 +57,28 @@ class Command(BaseCommand):
             envoyer([p.contact_email], f"Synthèse quotidienne — {j:%d/%m/%Y}", "Synthèse quotidienne", html)
         resume = (
             f"Retards : {len(retards)} — Échéances proches : {len(proches)} — Fins de bail : {len(fins)} — "
-            f"Mandats à échéance (90 j) : {len(mandats_90)} — Locataires informés d'une fin de mandat : {informes} — E-mails envoyés : {envoyes}"
+            f"Mandats à échéance (90 j) : {len(mandats_90)} — Locataires informés d'une fin de mandat : {informes} — E-mails envoyés : {envoyes} — "
+            f"SMS/WhatsApp : {sms}"
         )
         journaliser(None, "Rappels automatiques", resume)
         self.stdout.write(self.style.SUCCESS(resume))
+
+    def messages(self, contrats, j, p):
+        """Rappel par SMS / WhatsApp si l'agence l'a activé ; un seul message par locataire et par jour."""
+        from apps.connecteurs.models import Connecteurs, MessageSortant
+        from apps.connecteurs.services import envoyer_message, numero_international
+
+        if not Connecteurs.charger().envoi_rappels:
+            return 0
+        n = 0
+        for c in contrats:
+            tel = numero_international(c.locataire.telephone1)
+            if not tel or MessageSortant.objects.filter(destinataire=tel, objet="Rappel de loyer", created_at__date=j).exists():
+                continue
+            if c.date_prochain_loyer < j:
+                texte = f"Bonjour {c.locataire.nom}, votre loyer de {fcfa(c.loyer_mensuel)} ({c.maison.designation}) est en retard depuis le {c.date_prochain_loyer:%d/%m/%Y}. Merci de régulariser. {p.nom_entreprise}"
+            else:
+                texte = f"Bonjour {c.locataire.nom}, votre loyer de {fcfa(c.loyer_mensuel)} arrive à échéance le {c.date_prochain_loyer:%d/%m/%Y}. {p.nom_entreprise}"
+            if envoyer_message(c.locataire.telephone1, texte, nom=c.locataire.nom, objet="Rappel de loyer"):
+                n += 1
+        return n

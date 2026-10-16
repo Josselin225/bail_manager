@@ -5,6 +5,8 @@ import { api, telecharger } from "../../lib/api";
 import { appliquerCouleur, useSession } from "../../lib/session";
 import { Badge, Bouton, Case, Encart, EntetePage, Fenetre, FenetreFormulaire, Fichier, Onglets, Panneau, Saisie, Tableau, Zone, useConfirmer, useToast } from "../../components/ui";
 
+import Connecteurs, { SauvegardeEnLigne } from "../../components/Connecteurs";
+
 const COULEURS = ["#0e2a47", "#1f3b73", "#0b4f4a", "#3d2a6b", "#5a1f2a", "#26323f"];
 
 function Entreprise() {
@@ -142,7 +144,7 @@ function Sauvegarde() {
   return (
     <Panneau titre="Sauvegarde des données" icone={DatabaseBackup}>
       <p>Télécharge une archive ZIP contenant toutes les données (bailleurs, contrats, encaissements, comptabilité, journal…) et les fichiers envoyés (photos, scans).</p>
-      <Encart ton="attention">Conservez l'archive hors du serveur (clé USB, disque externe, cloud). Une sauvegarde automatique quotidienne peut aussi être planifiée : voir le guide d'installation.</Encart>
+      <Encart ton="attention">Conservez l'archive hors du serveur (clé USB, disque externe, cloud), ou réglez ci-dessous la copie automatique chiffrée.</Encart>
       <div style={{ marginTop: 14 }}>
         <Bouton variante="primaire" icone={DatabaseBackup} chargement={envoi} onClick={async () => { setEnvoi(true); try { await telecharger("/sauvegarde/", {}, "sauvegarde.zip"); toast.succes("Sauvegarde téléchargée."); } catch (e) { toast.erreur(e.message); } finally { setEnvoi(false); } }}>
           Télécharger une sauvegarde
@@ -152,16 +154,26 @@ function Sauvegarde() {
   );
 }
 
+function Sauvegardes() {
+  return (
+    <div className="pile">
+      <Sauvegarde />
+      <SauvegardeEnLigne />
+    </div>
+  );
+}
+
 export default function Parametres() {
   const [onglet, setOnglet] = useState("entreprise");
   return (
     <>
       <EntetePage titre="Paramètres" soustitre="Identité de l'agence, mentions des documents, clauses types et sauvegardes." />
-      <Onglets actif={onglet} onChange={setOnglet} onglets={[{ cle: "entreprise", libelle: "Entreprise" }, { cle: "bail", libelle: "Clauses du bail" }, { cle: "mandat", libelle: "Clauses du mandat" }, { cle: "sauvegarde", libelle: "Sauvegarde" }]} />
+      <Onglets actif={onglet} onChange={setOnglet} onglets={[{ cle: "entreprise", libelle: "Entreprise" }, { cle: "bail", libelle: "Clauses du bail" }, { cle: "mandat", libelle: "Clauses du mandat" }, { cle: "connecteurs", libelle: "Connecteurs" }, { cle: "sauvegarde", libelle: "Sauvegarde" }]} />
       {onglet === "entreprise" && <Entreprise />}
       {onglet === "bail" && <Clauses url="/clauses-contrat/" titre="Clauses imprimées sur les contrats de bail" bibliotheque />}
       {onglet === "mandat" && <Clauses url="/clauses-mandat/" titre="Clauses imprimées sur les mandats de gestion" />}
-      {onglet === "sauvegarde" && <Sauvegarde />}
+      {onglet === "connecteurs" && <Connecteurs />}
+      {onglet === "sauvegarde" && <Sauvegardes />}
     </>
   );
 }

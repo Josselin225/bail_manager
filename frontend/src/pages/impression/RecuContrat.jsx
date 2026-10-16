@@ -10,7 +10,7 @@ export default function RecuContrat() {
   const { data: c, isLoading, error } = useQuery({ queryKey: ["contrat-impression", id], queryFn: () => api.get(`/contrats/${id}/impression/`) });
   const total = c ? Number(c.depot_garantie) + Number(c.avance_loyer) + Number(c.droit_agence) : 0;
   return (
-    <Imprimable titre={c ? `Reçu de signature ${c.reference}` : "Reçu"} chargement={isLoading || !e} erreur={error}>
+    <Imprimable suite={c && { libelle: "Suivant : contrat de bail", lien: `/impression/contrat/${c.id}` }} titre={c ? `Reçu de signature ${c.reference}` : "Reçu"} chargement={isLoading || !e} erreur={error}>
       {c && e && (
         <div className="doc">
           <EnteteDoc e={e} reference={`Contrat ${c.reference}`} date={`Le ${dateFr(c.date_contrat)}`} />

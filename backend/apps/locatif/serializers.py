@@ -28,7 +28,8 @@ class ContratSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrat
         fields = [
-            "id", "reference", "mandat", "mandat_reference", "mandat_echu", "anciennete", "etats_des_lieux", "maison", "maison_nom", "maison_adresse", "maison_type", "locataire", "locataire_nom",
+            "id", "reference", "mandat", "mandat_reference", "mandat_echu", "anciennete", "etats_des_lieux",
+            "preavis_le", "preavis_par", "preavis_motif", "date_sortie_prevue", "maison", "maison_nom", "maison_adresse", "maison_type", "locataire", "locataire_nom",
             "locataire_telephone", "bailleur_id", "bailleur_nom", "loyer_mensuel", "date_contrat", "date_debut",
             "date_fin", "statut_contrat", "statut_libelle", "depot_garantie", "mois_avance", "avance_loyer",
             "droit_agence", "date_prochain_loyer", "date_resiliation", "motif_resiliation", "statut_paiement",

@@ -60,3 +60,40 @@ def nettoyer_pieces(pieces) -> list[dict]:
             elements.append({"nom": nom_e, "etat": etat, "observation": str(e.get("observation") or "").strip()[:500]})
         propres.append({"nom": nom, "elements": elements})
     return propres
+
+
+RANG = {"neuf": 0, "bon": 1, "usage": 2, "mauvais": 3}
+
+
+def index_etats(pieces) -> dict:
+    """{(pièce, élément) : état} pour retrouver l'état d'entrée d'un élément."""
+    return {(p["nom"].strip().lower(), e["nom"].strip().lower()): e.get("etat", "") for p in pieces or [] for e in p.get("elements", [])}
+
+
+def annoter_etat_entree(pieces_sortie, pieces_entree) -> list[dict]:
+    """Ajoute à chaque élément de sortie l'état constaté à l'entrée (« etat_entree »)."""
+    idx = index_etats(pieces_entree)
+    return [
+        {**p, "elements": [{**e, "etat_entree": idx.get((p["nom"].strip().lower(), e["nom"].strip().lower()), "")} for e in p.get("elements", [])]}
+        for p in pieces_sortie
+    ]
+
+
+def pieces_sortie_depuis_entree(pieces_entree) -> list[dict]:
+    """Grille de sortie : mêmes pièces et éléments qu'à l'entrée, états à constater."""
+    return [{"nom": p["nom"], "elements": [{"nom": e["nom"], "etat": "", "observation": "", "etat_entree": e.get("etat", "")} for e in p.get("elements", [])]} for p in pieces_entree or []]
+
+
+def degradations(pieces_entree, pieces_sortie) -> list[dict]:
+    """Éléments dont l'état s'est dégradé entre l'entrée et la sortie (au-delà de l'usure constatée)."""
+    idx = index_etats(pieces_entree)
+    res = []
+    for p in pieces_sortie or []:
+        for e in p.get("elements", []):
+            sortie = e.get("etat", "")
+            entree = idx.get((p["nom"].strip().lower(), e["nom"].strip().lower()), "")
+            if not sortie:
+                continue
+            if (entree and RANG[sortie] > RANG[entree]) or (not entree and sortie == "mauvais"):
+                res.append({"piece": p["nom"], "element": e["nom"], "etat_entree": entree, "etat_sortie": sortie, "observation": e.get("observation", "")})
+    return res

@@ -39,7 +39,7 @@ function AEncaisser() {
 }
 
 const colonnesHisto = [
-  { cle: "reference_recu", libelle: "Reçu", rendu: (e) => <Link to={`/impression/quittance/${e.id}`} target="_blank">{e.reference_recu}</Link> },
+  { cle: "reference_recu", libelle: "Reçu", rendu: (e) => <Link to={`/impression/quittance/${e.id}`}>{e.reference_recu}</Link> },
   { cle: "date_encaissement", libelle: "Date", rendu: (e) => <span className="nowrap">{dateHeure(e.date_encaissement)}</span>, exporter: (e) => dateHeure(e.date_encaissement) },
   { cle: "locataire_nom", libelle: "Locataire", rendu: (e) => <><div className="principal-cellule">{e.locataire_nom}</div><div className="sous-cellule">{e.maison_nom}</div></> },
   { cle: "periode_concernee", libelle: "Période" },
@@ -47,7 +47,7 @@ const colonnesHisto = [
   { cle: "enregistre_par_nom", libelle: "Par" },
   { cle: "commission", libelle: "Commission", type: "montant" },
   { cle: "montant_recu", libelle: "Montant", type: "montant" },
-  { cle: "imprimer", libelle: "", export: false, rendu: (e) => <Link className="btn petit fantome icone" to={`/impression/quittance/${e.id}`} target="_blank" aria-label="Imprimer"><Printer size={15} /></Link> },
+  { cle: "imprimer", libelle: "", export: false, rendu: (e) => <Link className="btn petit fantome icone" to={`/impression/quittance/${e.id}`} aria-label="Imprimer"><Printer size={15} /></Link> },
 ];
 
 function Historique() {

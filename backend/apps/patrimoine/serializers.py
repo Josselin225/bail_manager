@@ -79,14 +79,19 @@ class BailleurSerializer(serializers.ModelSerializer):
     nb_maisons = serializers.IntegerField(read_only=True, default=0)
     nb_occupees = serializers.IntegerField(read_only=True, default=0)
     mandat = serializers.SerializerMethodField()
+    acces_portail = serializers.SerializerMethodField()
 
     class Meta:
         model = Bailleur
         fields = [
             "id", "code_bailleur", "nom", "sexe", "numero_cni", "telephone1", "telephone2", "email", "adresse",
-            "photo", "created_at", "solde", "commissions", "nb_maisons", "nb_occupees", "mandat",
+            "photo", "created_at", "solde", "commissions", "nb_maisons", "nb_occupees", "mandat", "acces_portail",
         ]
         read_only_fields = ["code_bailleur", "created_at"]
+
+    def get_acces_portail(self, obj):
+        acces = getattr(obj, "acces", None)
+        return bool(acces and acces.actif)
 
     def get_mandat(self, obj):
         m = obj.mandat_actif()

@@ -189,6 +189,18 @@ class LocataireAcces(models.Model):
         db_table = "locataire_acces"
 
 
+class BailleurAcces(models.Model):
+    """Code d'accès à l'espace bailleur (stocké haché, affiché une seule fois)."""
+
+    bailleur = models.OneToOneField(Bailleur, on_delete=models.CASCADE, related_name="acces")
+    code_acces = models.CharField(max_length=255)
+    actif = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "bailleur_acces"
+
+
 class Document(models.Model):
     """Dossiers scannés rattachés à un bailleur, un locataire, un contrat ou une maison."""
 

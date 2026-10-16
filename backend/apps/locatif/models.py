@@ -32,6 +32,11 @@ class Contrat(models.Model):
     date_prochain_loyer = models.DateField(null=True, blank=True)
     date_resiliation = models.DateField(null=True, blank=True)
     motif_resiliation = models.CharField(max_length=255, blank=True, default="")
+    # Préavis de départ (3 mois, clause du bail) : donné par le locataire ou par le bailleur
+    preavis_le = models.DateField("Préavis notifié le", null=True, blank=True)
+    preavis_par = models.CharField(max_length=10, blank=True, default="", choices=[("locataire", "Le locataire"), ("bailleur", "Le bailleur")])
+    preavis_motif = models.CharField(max_length=255, blank=True, default="")
+    date_sortie_prevue = models.DateField(null=True, blank=True)
     cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -166,3 +171,63 @@ class EtatDesLieux(models.Model):
     class Meta:
         db_table = "etats_des_lieux"
         constraints = [models.UniqueConstraint(fields=["contrat", "type_etat"], name="un_etat_des_lieux_par_type")]
+
+
+class PhotoEtatDesLieux(models.Model):
+    """Photo prise lors d'un état des lieux, rattachée à une pièce (preuve en cas de litige)."""
+
+    etat = models.ForeignKey(EtatDesLieux, on_delete=models.CASCADE, related_name="photos")
+    piece = models.CharField(max_length=80)
+    image = models.ImageField(upload_to="etats_des_lieux/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "photos_etats_des_lieux"
+        ordering = ["id"]
+
+
+class Relance(models.Model):
+    """Relance d'impayé graduée : rappel amiable, relance, puis mise en demeure."""
+
+    class Niveau(models.IntegerChoices):
+        RAPPEL = 1, "Rappel amiable"
+        RELANCE = 2, "Relance"
+        MISE_EN_DEMEURE = 3, "Mise en demeure"
+
+    contrat = models.ForeignKey(Contrat, on_delete=models.CASCADE, related_name="relances")
+    niveau = models.PositiveSmallIntegerField(choices=Niveau.choices)
+    date_relance = models.DateField()
+    montant_du = models.DecimalField(max_digits=12, decimal_places=0)
+    periodes = models.TextField(blank=True, default="")
+    delai_jours = models.PositiveSmallIntegerField(default=8)
+    effectuee_par = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "relances"
+        ordering = ["-date_relance", "-id"]
+
+    @property
+    def reference(self):
+        return f"REL-{self.pk:04d}" if self.pk else ""
+
+
+class PlanApurement(models.Model):
+    """Échelonnement d'une dette locative : le suivi compare les échéances aux paiements reçus depuis l'accord."""
+
+    contrat = models.ForeignKey(Contrat, on_delete=models.CASCADE, related_name="plans_apurement")
+    montant_total = models.DecimalField(max_digits=12, decimal_places=0)
+    date_accord = models.DateField()
+    echeances = models.JSONField(default=list)  # [{"date": "AAAA-MM-JJ", "montant": 50000}, ...]
+    actif = models.BooleanField(default=True)
+    commentaire = models.CharField(max_length=255, blank=True, default="")
+    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "plans_apurement"
+        ordering = ["-date_accord", "-id"]
+
+    @property
+    def reference(self):
+        return f"PA-{self.pk:04d}" if self.pk else ""

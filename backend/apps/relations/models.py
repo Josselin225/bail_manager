@@ -52,3 +52,65 @@ class MessageLocataire(models.Model):
     class Meta:
         db_table = "messages_locataires"
         ordering = ["created_at", "id"]
+
+
+class DemandeIntervention(models.Model):
+    """Panne ou travaux signalés par le locataire (ou saisis par l'agence) : suivi jusqu'à la clôture et l'imputation du coût."""
+
+    class Categorie(models.TextChoices):
+        PLOMBERIE = "plomberie", "Plomberie"
+        ELECTRICITE = "electricite", "Électricité"
+        MACONNERIE = "maconnerie", "Maçonnerie"
+        MENUISERIE = "menuiserie", "Menuiserie, serrurerie"
+        PEINTURE = "peinture", "Peinture"
+        CLIMATISATION = "climatisation", "Climatisation"
+        AUTRE = "autre", "Autre"
+
+    class Statut(models.TextChoices):
+        NOUVELLE = "nouvelle", "Nouvelle"
+        EN_COURS = "en_cours", "En cours"
+        TERMINEE = "terminee", "Terminée"
+        ANNULEE = "annulee", "Annulée"
+
+    class Imputation(models.TextChoices):
+        BAILLEUR = "bailleur", "Au bailleur (compte courant)"
+        LOCATAIRE = "locataire", "Au locataire (charge)"
+        AGENCE = "agence", "À l'agence (caisse)"
+        AUCUNE = "aucune", "Sans frais"
+
+    maison = models.ForeignKey(Maison, on_delete=models.PROTECT, related_name="interventions")
+    contrat = models.ForeignKey("locatif.Contrat", null=True, blank=True, on_delete=models.SET_NULL, related_name="interventions")
+    locataire = models.ForeignKey(Locataire, null=True, blank=True, on_delete=models.SET_NULL, related_name="interventions")
+    origine = models.CharField(max_length=10, default="agence", choices=[("locataire", "Locataire"), ("agence", "Agence")])
+    categorie = models.CharField(max_length=15, choices=Categorie.choices, default=Categorie.AUTRE)
+    urgente = models.BooleanField(default=False)
+    titre = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default="")
+    statut = models.CharField(max_length=10, choices=Statut.choices, default=Statut.NOUVELLE)
+    artisan = models.CharField(max_length=150, blank=True, default="")
+    artisan_telephone = models.CharField(max_length=30, blank=True, default="")
+    date_intervention = models.DateField(null=True, blank=True)
+    cout = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    imputation = models.CharField(max_length=10, choices=Imputation.choices, blank=True, default="")
+    commentaire_agence = models.TextField(blank=True, default="")
+    cloturee_le = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "demandes_intervention"
+        ordering = ["-created_at", "-id"]
+
+    @property
+    def reference(self):
+        return f"INT-{self.pk:04d}" if self.pk else ""
+
+
+class PhotoIntervention(models.Model):
+    demande = models.ForeignKey(DemandeIntervention, on_delete=models.CASCADE, related_name="photos")
+    image = models.ImageField(upload_to="interventions/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "photos_interventions"
+        ordering = ["id"]

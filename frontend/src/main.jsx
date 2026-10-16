@@ -11,6 +11,7 @@ import "./styles.css";
 import App from "./App";
 import { FournisseurUI } from "./components/ui";
 import { FournisseurSession, appliquerTheme, themeInitial } from "./lib/session";
+import { enregistrerApplication } from "./lib/pwa";
 
 appliquerTheme(themeInitial());
 
@@ -19,6 +20,8 @@ const client = new QueryClient({
     queries: { retry: (n, e) => n < 1 && (e?.statut ?? 500) >= 500, refetchOnWindowFocus: false, staleTime: 15000 },
   },
 });
+
+enregistrerApplication();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

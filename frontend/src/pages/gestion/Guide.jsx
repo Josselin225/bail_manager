@@ -31,6 +31,14 @@ const SECTIONS = [
   { id: "relations", titre: "Site public et relations", lignes: [
     ["Réservations", "Les demandes de visite du site arrivent ici : confirmez, marquez « visite faite » ou annulez."],
     ["Messages du site", "Messages du formulaire Contact ; répondez par e-mail directement si l'envoi d'e-mails est configuré."],
+    ["Connecteurs (SMS, WhatsApp, Mobile Money)", "Paramètres > Connecteurs (administrateur) : choisissez le fournisseur SMS, WhatsApp et l'agrégateur de paiement, saisissez les identifiants puis « Essayer ». En mode test, rien n'est envoyé ni débité : consultez le « Journal des envois ». Les relances, confirmations de paiement et rappels partent automatiquement selon les cases cochées."],
+    ["Signature électronique", "Fiche du contrat > Conditions > « Faire signer par SMS » : un code à 6 chiffres est envoyé au locataire ; il le saisit dans son espace ou vous le dicte. Le bail imprimé porte alors la mention de signature électronique."],
+    ["Récapitulatif fiscal", "Fiche bailleur > « Récapitulatif annuel » (ou espace propriétaire) : loyers encaissés, commissions et net par bien sur l'année choisie, à imprimer ou exporter vers Excel pour la déclaration des revenus fonciers."],
+    ["Partager une annonce", "Sur le site (fiche d'une maison) ou sur la fiche d'un bien disponible : boutons WhatsApp, Facebook et « Copier le lien ». L'aperçu affiche la photo, le titre et le loyer."],
+    ["Installer l'application", "Dans Chrome ou Edge (ordinateur, Android), le bouton « Installer » en haut de l'écran ajoute BailManager comme une application. Sur iPhone : Partager > « Sur l'écran d'accueil »."],
+    ["Sauvegarde hors du serveur", "Paramètres > Sauvegarde : choisissez un dossier (disque externe, Google Drive / OneDrive synchronisé), WebDAV ou S3, et une phrase de chiffrement. La tâche quotidienne y dépose une copie chiffrée ; « Sauvegarder maintenant » le fait à la demande."],
+    ["Espace bailleur", "Sur la fiche bailleur, « Générer un code » (administrateur) : le propriétaire se connecte sur /espace-bailleur avec son téléphone et ce code pour suivre son solde, ses versements, l'occupation de ses biens, imprimer ses relevés et consulter les quittances de ses locataires."],
+    ["Recouvrement", "Menu Contrats & loyers > Recouvrement : tous les locataires en retard. « Rappel amiable », puis « Relance », puis « Mise en demeure » créent la lettre du niveau suivant, prête à imprimer. « Plan » étale la dette en mensualités et imprime l'accord à faire signer ; le suivi des échéances apparaît sur la fiche du contrat."],
     ["Espace locataire", "Sur la fiche locataire, « Générer un code » (administrateur) : le locataire se connecte sur /espace-locataire avec son téléphone et ce code pour voir ses paiements, télécharger ses quittances, consulter ses charges et écrire à l'agence (menu Messagerie locataires)."],
   ] },
   { id: "pilotage", titre: "Pilotage et sécurité", lignes: [

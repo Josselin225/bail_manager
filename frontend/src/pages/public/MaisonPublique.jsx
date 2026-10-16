@@ -8,6 +8,7 @@ import { Bouton, Chargement, Encart, Saisie, Zone } from "../../components/ui";
 import Site, { BandeauPage } from "./Site";
 import { EtiquetteEtat } from "./Accueil";
 import Visionneuse from "../../components/Visionneuse";
+import Partage from "../../components/Partage";
 
 // Mosaïque (grande photo + 4 vignettes) sur grand écran, défilement au doigt sur mobile ; clic = plein écran
 function Galerie({ photos, titre }) {
@@ -98,6 +99,7 @@ export default function MaisonPublique() {
           <aside className="carte-reservation">
             <div className="prix">{fcfa(m.loyer)} <span>/ mois</span></div>
             <p className="discret">À l'entrée : {m.condition} mois de loyer (avance et caution), soit <b>{fcfa(m.condition * m.loyer)}</b>, plus les frais d'agence.</p>
+            <Partage m={m} />
             {m.occupee ? (
               <div className="encart-occupee">
                 <Encart ton="attention" titre="Maison actuellement occupée">Elle fait l'objet d'un bail en cours : les visites ne sont pas possibles pour le moment.</Encart>

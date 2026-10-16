@@ -16,8 +16,15 @@ export default function DocEtatDesLieux() {
   const e = useEntreprise();
   const { data: d, isLoading, error } = useQuery({ queryKey: ["etat-des-lieux", id, type], queryFn: () => api.get(`/contrats/${id}/etat-des-lieux/${type}/`) });
   const vierge = d && !d.etabli;
+  const sortie = type === "sortie";
+  const photosDe = (piece) => (d?.photos || []).filter((ph) => ph.piece === piece);
   return (
-    <Imprimable titre={d ? `${d.libelle} — ${d.contrat.reference}` : "État des lieux"} chargement={isLoading || !e} erreur={error}>
+    <Imprimable
+      titre={d ? `${d.libelle} — ${d.contrat.reference}` : "État des lieux"}
+      chargement={isLoading || !e}
+      erreur={error}
+      suite={{ libelle: "Terminer : retour au contrat", lien: `/contrats/${id}` }}
+    >
       {d && e && (
         <div className="doc">
           <EnteteDoc e={e} reference={`Annexe au contrat ${d.contrat.reference}`} date={vierge ? "Date : ____ / ____ / ________" : `Établi le ${dateFr(d.date_etat)}`} />
@@ -51,12 +58,14 @@ export default function DocEtatDesLieux() {
           </table>
 
           <h2>État des pièces</h2>
+          {sortie && d.entree && <p className="legende-edl">État des lieux d'entrée du {dateFr(d.entree.date_etat)} : compteur d'eau {d.entree.index_eau || "—"}, électricité {d.entree.index_electricite || "—"}, {d.entree.nombre_cles} clé(s) remise(s).</p>}
           <p className="legende-edl">Cochez l'état constaté pour chaque élément : Neuf · Bon · Usagé (usure normale) · Mauvais (dégradé, cassé ou manquant).</p>
           {d.pieces.map((p, i) => (
             <table key={i} className="table-edl">
               <thead>
                 <tr>
                   <th className="piece">{p.nom}</th>
+                  {sortie && <th className="case-etat entree">Entrée</th>}
                   {ORDRE_ETATS.map((k) => <th key={k} className="case-etat">{COURTS[k]}</th>)}
                   <th>Observations</th>
                 </tr>
@@ -65,13 +74,31 @@ export default function DocEtatDesLieux() {
                 {p.elements.map((el, j) => (
                   <tr key={j}>
                     <td className="element">{el.nom}</td>
+                    {sortie && <td className="case-etat entree">{COURTS[el.etat_entree] || "—"}</td>}
                     {ORDRE_ETATS.map((k) => <td key={k} className="case-etat"><span className={`case ${el.etat === k ? "cochee" : ""}`}>{el.etat === k ? "✓" : ""}</span></td>)}
                     <td className="obs">{el.observation}</td>
                   </tr>
                 ))}
               </tbody>
+              {photosDe(p.nom).length > 0 && (
+                <tfoot>
+                  <tr><td colSpan={sortie ? 7 : 6}><div className="photos-edl">{photosDe(p.nom).map((ph) => <img key={ph.id} src={ph.url} alt="" />)}</div></td></tr>
+                </tfoot>
+              )}
             </table>
           ))}
+
+          {sortie && d.etabli && (
+            <>
+              <h2>Dégradations constatées par rapport à l'entrée</h2>
+              {d.degradations?.length ? (
+                <table>
+                  <thead><tr><th>Pièce</th><th>Élément</th><th>Entrée</th><th>Sortie</th><th>Observation</th></tr></thead>
+                  <tbody>{d.degradations.map((x, k) => <tr key={k}><td>{x.piece}</td><td>{x.element}</td><td>{COURTS[x.etat_entree] || "—"}</td><td><b>{COURTS[x.etat_sortie]}</b></td><td>{x.observation}</td></tr>)}</tbody>
+                </table>
+              ) : <p>Aucune dégradation constatée au-delà de l'usure normale.</p>}
+            </>
+          )}
 
           <h2>Observations générales</h2>
           {d.observations ? <p style={{ whiteSpace: "pre-wrap" }}>{d.observations}</p> : <div className="lignes-vierges"><span /><span /><span /></div>}

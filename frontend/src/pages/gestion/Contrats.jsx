@@ -8,7 +8,7 @@ import { Anciennete, Badge, Bouton, EntetePage, LienBouton, Pagination, Panneau,
 const colonnes = [
   { cle: "reference", libelle: "Contrat", rendu: (c) => <><div className="principal-cellule">{c.reference}</div><div className="sous-cellule">signé le {dateFr(c.date_contrat)}</div></> },
   { cle: "locataire_nom", libelle: "Locataire", rendu: (c) => <><div className="principal-cellule">{c.locataire_nom}</div><div className="sous-cellule">{c.locataire_telephone}</div></> },
-  { cle: "maison_nom", libelle: "Bien", rendu: (c) => <><div>{c.maison_nom}</div><div className="sous-cellule">{c.bailleur_nom}</div>{c.mandat_echu && <Badge ton="attention">Mandat échu</Badge>}</> },
+  { cle: "maison_nom", libelle: "Bien", rendu: (c) => <><div>{c.maison_nom}</div><div className="sous-cellule">{c.bailleur_nom}</div>{c.mandat_echu && <Badge ton="attention">Mandat échu</Badge>}{c.date_sortie_prevue && c.statut_contrat === "actif" && <Badge ton="violet">Préavis — sortie le {dateFr(c.date_sortie_prevue)}</Badge>}</> },
   { cle: "date_debut", libelle: "Début", type: "date", rendu: (c) => dateFr(c.date_debut) },
   { cle: "anciennete", libelle: "Ancienneté", rendu: (c) => <Anciennete a={c.anciennete} />, exporter: (c) => c.anciennete?.libelle },
   { cle: "date_fin", libelle: "Échéance", type: "date", rendu: (c) => (c.date_fin ? dateFr(c.date_fin) : <span className="discret">Indéterminée</span>) },

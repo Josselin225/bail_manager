@@ -4,6 +4,8 @@ Logiciel de gestion locative, financière et comptable immobilière — refonte 
 
 La structure et la logique de la version 1 sont conservées : patrimoine sous mandat de gestion, baux, encaissements avec répartition bailleur / commission, comptes courants bailleurs, caisse agence, cautions, rapports, site vitrine, espace locataire et journal d'audit.
 
+S'y ajoutent : états des lieux d'entrée et de sortie, préavis, recouvrement gradué et plans d'apurement, demandes d'intervention, espace propriétaire, connecteurs SMS / WhatsApp / Mobile Money / signature par code SMS (avec mode test), récapitulatif fiscal annuel, partage des annonces, application installable (PWA) et sauvegarde chiffrée hors du serveur.
+
 ## Démarrage rapide (Windows)
 
 1. Installer **Python 3.11 ou plus** (python.org, cocher « Add python.exe to PATH »).
@@ -24,7 +26,8 @@ backend/                 Django
   apps/finances          compte courant bailleurs, caisse agence
   apps/relations         réservations, messages du site, messagerie locataires
   apps/rapports          tableau de bord, rapports, calendrier, recherche, export Excel
-  apps/portail           site public et espace locataire
+  apps/portail           site public, espace locataire et espace bailleur
+  apps/connecteurs       SMS, WhatsApp, paiement Mobile Money, signature par code SMS (mode test inclus)
   frontend_build/        interface compilée (servie par Django)
 frontend/                sources React (Vite)
 scripts-windows/         installation, démarrage, tâches planifiées
@@ -51,4 +54,5 @@ python manage.py test apps                                       # tests des rè
 | `python manage.py photos_demo` | Photos de démonstration pour les maisons qui n'en ont pas (appelée par `donnees_demo`) |
 | `python manage.py importer_ancienne_base --uploads <dossier>` | Import de la base MySQL de la version PHP |
 | `python manage.py envoyer_rappels` | Rappels de loyer, information des locataires 30 j avant la fin d'un mandat non reconduit, synthèse quotidienne (ex-`cron_rappels.php`) |
-| `python manage.py sauvegarder` | Archive ZIP données + fichiers dans `sauvegardes/` |
+| `python manage.py sauvegarder` | Archive ZIP données + fichiers dans `sauvegardes/`, puis copie chiffrée vers la destination réglée (Paramètres > Sauvegarde) |
+| `python manage.py dechiffrer_sauvegarde <fichier.zip.chiffre>` | Rend lisible une copie chiffrée (la phrase de chiffrement est demandée) |

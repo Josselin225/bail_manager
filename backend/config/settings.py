@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.relations",
     "apps.rapports",
     "apps.portail",
+    "apps.connecteurs",
 ]
 
 MIDDLEWARE = [
@@ -138,6 +139,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATIC_ROOT.mkdir(exist_ok=True)
 WHITENOISE_ROOT = FRONTEND_BUILD_DIR if FRONTEND_BUILD_DIR.exists() else None
 WHITENOISE_INDEX_FILE = False
+WHITENOISE_MIMETYPES = {".webmanifest": "application/manifest+json"}
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / env("MEDIA_DIR", "uploads")

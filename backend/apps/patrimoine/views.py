@@ -18,7 +18,7 @@ from apps.locatif.models import Contrat
 from apps.locatif.services import exiger_mandat_actif
 from apps.patrimoine.mandats import informer_locataires_renouvellement
 
-from .models import Bailleur, Document, Locataire, LocataireAcces, MandatGestion, Maison, PhotoMaison
+from .models import Bailleur, BailleurAcces, Document, Locataire, LocataireAcces, MandatGestion, Maison, PhotoMaison
 from .serializers import (
     BailleurMiniSerializer, BailleurSerializer, DocumentSerializer, LocataireSerializer, MaisonSerializer,
     MandatSerializer,
@@ -50,6 +50,24 @@ class BailleurViewSet(viewsets.ModelViewSet):
     def options(self, request):
         """Liste courte pour les menus déroulants."""
         return Response(BailleurMiniSerializer(Bailleur.objects.prefetch_related("mandats"), many=True).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[EstAdmin], url_path="generer-code")
+    def generer_code(self, request, pk=None):
+        """Code d'accès à l'espace bailleur : affiché une seule fois, stocké haché."""
+        b = self.get_object()
+        if not b.telephone1:
+            raise RegleMetier("Renseignez d'abord le téléphone du bailleur : il sert d'identifiant.")
+        code = secrets.token_hex(4).upper()
+        BailleurAcces.objects.update_or_create(bailleur=b, defaults={"code_acces": make_password(code), "actif": True})
+        journaliser(request, "Code accès bailleur", f"Code généré pour {b.nom}")
+        return Response({"code": code, "telephone": b.telephone1, "nom": b.nom})
+
+    @action(detail=True, methods=["post"], permission_classes=[EstAdmin], url_path="desactiver-acces")
+    def desactiver_acces(self, request, pk=None):
+        b = self.get_object()
+        BailleurAcces.objects.filter(bailleur=b).update(actif=False)
+        journaliser(request, "Code accès bailleur", f"Accès désactivé pour {b.nom}")
+        return Response({"ok": True})
 
     def perform_create(self, ser):
         b = ser.save()

@@ -21,7 +21,7 @@ export default function APropos() {
           <p>Une difficulté, une suggestion ? Contactez directement le développeur.</p>
           <p className="ligne-flex"><Phone size={16} /> <a href="tel:+2250749791287">(+225) 07 49 79 12 87</a> / <a href="tel:+2250100014330">01 00 01 43 30</a></p>
           <p className="ligne-flex"><Mail size={16} /> <a href="mailto:kkjoss01@gmail.com">kkjoss01@gmail.com</a></p>
-          <p className="ligne-flex"><a href="https://www.bailmanager.com" target="_blank" rel="noreferrer">www.bailmanager.com</a></p>
+          <p className="ligne-flex"><a href="https://www.bailmanager.com">www.bailmanager.com</a></p>
         </Panneau>
       </div>
     </>

@@ -4,8 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight, BarChart3, BookOpen, Building2, CalendarCheck, CalendarDays, ChevronDown, ChevronsLeft, ChevronsRight, CircleUserRound,
   ClipboardList, DoorOpen, FileSignature, FileText, Gauge, HandCoins, Handshake, History, Home, Info, KeyRound, Landmark, LayoutDashboard, LifeBuoy, LogOut, Mail,
-  Menu, MessagesSquare, Moon, Receipt, Search, Settings, ShieldCheck, Sun, TrendingUp, UserRound, Users, Wallet, Zap,
+  Menu, MessagesSquare, Moon, Receipt, Search, Settings, ShieldCheck, Sun, TrendingUp, UserRound, Users, Wallet, Wrench, Zap,
+  AlarmClock, MonitorDown,
 } from "lucide-react";
+import { useInstallation } from "../lib/pwa";
 import { api } from "../lib/api";
 import { appliquerTheme, themeInitial, useSession } from "../lib/session";
 import { Avatar, Bouton, Chargement } from "./ui";
@@ -16,12 +18,13 @@ function useCompteurs(actif) {
     enabled: actif,
     refetchInterval: 60000,
     queryFn: async () => {
-      const [r, m, l] = await Promise.all([
+      const [r, m, l, i] = await Promise.all([
         api.get("/reservations/", { statut: "en_attente", taille: 1 }),
         api.get("/messages/", { lu: false, taille: 1 }),
         api.get("/messagerie/compteur/"),
+        api.get("/interventions/compteur/"),
       ]);
-      return { reservations: r.count, messages: m.count, locataires: l.non_lus };
+      return { reservations: r.count, messages: m.count, locataires: l.non_lus, interventions: i.nouvelles };
     },
   });
 }
@@ -43,6 +46,7 @@ const NAV = [
     liens: [
       { lien: "/contrats", libelle: "Contrats de bail", icone: FileSignature },
       { lien: "/encaissements", libelle: "Encaissements", icone: HandCoins },
+      { lien: "/recouvrement", libelle: "Recouvrement", icone: AlarmClock },
       { lien: "/calendrier", libelle: "Calendrier", icone: CalendarDays },
     ],
   },
@@ -52,6 +56,7 @@ const NAV = [
     liens: [
       { lien: "/charges", libelle: "Charges locatives", icone: Zap },
       { lien: "/revisions", libelle: "Révisions de loyer", icone: TrendingUp },
+      { lien: "/interventions", libelle: "Interventions", icone: Wrench, compteur: "interventions" },
     ],
   },
   {
@@ -206,8 +211,8 @@ function MenuUtilisateur() {
           <Link to="/profil"><CircleUserRound size={16} /> Mon profil</Link>
           <Link to="/profil?onglet=securite"><KeyRound size={16} /> Changer le mot de passe</Link>
           <hr className="seulement-mobile" />
-          <a className="seulement-mobile" href="/" target="_blank" rel="noreferrer"><ArrowUpRight size={16} /> Voir le site public</a>
-          <a className="seulement-mobile" href="/espace-locataire" target="_blank" rel="noreferrer"><DoorOpen size={16} /> Espace locataire</a>
+          <a className="seulement-mobile" href="/"><ArrowUpRight size={16} /> Voir le site public</a>
+          <a className="seulement-mobile" href="/espace-locataire"><DoorOpen size={16} /> Espace locataire</a>
           {estAdmin && (
             <>
               <hr />
@@ -227,6 +232,7 @@ function MenuUtilisateur() {
 
 export default function Coquille() {
   const { utilisateur, estAdmin, entreprise } = useSession();
+  const installer = useInstallation();
   const [reduit, setReduit] = useState(() => localStorage.getItem("bm-menu") === "reduit");
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -311,10 +317,11 @@ export default function Coquille() {
             <kbd>Ctrl K</kbd>
           </div>
           <div className="barre-droite">
-            <a className="btn fantome masque-mobile" href="/espace-locataire" target="_blank" rel="noreferrer" title="Ouvrir l'espace locataire">
+            {installer && <Bouton variante="fantome" icone={MonitorDown} onClick={installer} title="Installer BailManager comme une application">Installer</Bouton>}
+            <a className="btn fantome masque-mobile" href="/espace-locataire" title="Ouvrir l'espace locataire">
               <DoorOpen size={17} />
             </a>
-            <a className="btn fantome masque-mobile" href="/" target="_blank" rel="noreferrer" title="Voir le site public">
+            <a className="btn fantome masque-mobile" href="/" title="Voir le site public">
               <ArrowUpRight size={17} />
             </a>
             <Bouton variante="fantome" icone={theme === "dark" ? Sun : Moon} onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} aria-label="Changer de thème" title="Mode clair / sombre" />

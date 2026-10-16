@@ -244,6 +244,10 @@ def enregistrer_encaissement(
             commentaire=f"Commission {taux:g}% sur {periode} — {contrat.maison.designation}",
         )
     recalculer_echeance(contrat)
+    if origine == Encaissement.Origine.LOYER:
+        from apps.connecteurs.services import confirmer_encaissement
+
+        transaction.on_commit(lambda: confirmer_encaissement(enc.pk))
     journaliser(
         request, "Encaissement loyer",
         f"Contrat {contrat.reference} — {periode} — {fcfa(montant)} ({enc.get_mode_paiement_display()}) — Réf. {enc.reference_recu}",
@@ -306,6 +310,42 @@ def creer_contrat(
         request, "Création contrat",
         f"{contrat.reference} — {maison.designation} / {locataire.nom} — loyer {fcfa(loyer)}",
     )
+    return contrat
+
+
+PREAVIS_MOIS = 3
+
+
+@transaction.atomic
+def enregistrer_preavis(contrat: Contrat, par: str, date_notification=None, motif="", request=None) -> Contrat:
+    """Préavis de départ : la sortie est prévue trois mois après la notification (clause du bail)."""
+    contrat = Contrat.objects.select_for_update().get(pk=contrat.pk)
+    if contrat.statut_contrat != Contrat.Statut.ACTIF:
+        raise RegleMetier("Ce bail est déjà terminé.")
+    if par not in ("locataire", "bailleur"):
+        raise RegleMetier("Indiquez qui donne le préavis : le locataire ou le bailleur.")
+    if contrat.preavis_le:
+        raise RegleMetier(f"Un préavis a déjà été notifié le {contrat.preavis_le:%d/%m/%Y} (sortie prévue le {contrat.date_sortie_prevue:%d/%m/%Y}).")
+    date_notification = date_notification or aujourdhui()
+    contrat.preavis_le, contrat.preavis_par, contrat.preavis_motif = date_notification, par, (motif or "")[:255]
+    contrat.date_sortie_prevue = ajouter_mois(date_notification, PREAVIS_MOIS)
+    contrat.save(update_fields=["preavis_le", "preavis_par", "preavis_motif", "date_sortie_prevue"])
+    journaliser(
+        request, "Préavis de départ",
+        f"{contrat.reference} — préavis du {'locataire' if par == 'locataire' else 'bailleur'} notifié le {date_notification:%d/%m/%Y}, "
+        f"sortie prévue le {contrat.date_sortie_prevue:%d/%m/%Y}. {motif}".strip(),
+    )
+    return contrat
+
+
+@transaction.atomic
+def annuler_preavis(contrat: Contrat, request=None) -> Contrat:
+    contrat = Contrat.objects.select_for_update().get(pk=contrat.pk)
+    if not contrat.preavis_le:
+        raise RegleMetier("Aucun préavis en cours sur ce bail.")
+    contrat.preavis_le, contrat.preavis_par, contrat.preavis_motif, contrat.date_sortie_prevue = None, "", "", None
+    contrat.save(update_fields=["preavis_le", "preavis_par", "preavis_motif", "date_sortie_prevue"])
+    journaliser(request, "Préavis de départ", f"{contrat.reference} — préavis annulé")
     return contrat
 
 

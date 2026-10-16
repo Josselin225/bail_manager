@@ -4,12 +4,14 @@ import { api, exporterExcel } from "../../lib/api";
 import { dateFr, fcfa } from "../../lib/format";
 import { EnteteDoc, Imprimable, PiedDoc, useEntreprise } from "../../components/Document";
 
-export default function ReleveBailleur() {
+/** Relevé du compte courant : côté agence (fiche bailleur) ou depuis l'espace bailleur (`portail`). */
+export default function ReleveBailleur({ portail }) {
   const { id } = useParams();
   const [p] = useSearchParams();
-  const e = useEntreprise();
   const params = { du: p.get("du") || "", au: p.get("au") || "" };
-  const { data: r, error } = useQuery({ queryKey: ["releve", id, params], queryFn: () => api.get(`/rapports/releve-bailleur/${id}/`, params) });
+  const url = portail ? "/portail-bailleur/releve/" : `/rapports/releve-bailleur/${id}/`;
+  const { data: r, error } = useQuery({ queryKey: ["releve", portail ? "portail" : id, params], queryFn: () => api.get(url, params) });
+  const e = useEntreprise(r?.entreprise, !portail);
   const colonnes = [
     { cle: "date", libelle: "Date", exporter: (l) => dateFr(l.date) },
     { cle: "libelle", libelle: "Libellé" },

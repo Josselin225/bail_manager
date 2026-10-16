@@ -15,7 +15,11 @@ from apps.locatif import services
 from apps.locatif.models import ChargeLocative, Contrat, Encaissement
 from apps.patrimoine.models import Locataire, Maison
 from apps.patrimoine.serializers import resume_mandat
-from apps.relations.models import MessageLocataire, MessageVisiteur, Reservation
+from apps.relations.interventions import InterventionSerializer, ajouter_photos
+from apps.relations.models import DemandeIntervention, MessageLocataire, MessageVisiteur, Reservation
+
+from apps.connecteurs.models import Connecteurs, PaiementEnLigne
+from apps.connecteurs.services import periode_a_payer, signature_du_contrat
 
 from .permissions import EstLocataire
 
@@ -192,10 +196,12 @@ def espace(request):
             "id": c.pk, "reference": c.reference, "maison": c.maison.designation, "adresse": c.maison.adresse,
             "type": c.maison.type_maison, "loyer": c.loyer_mensuel, "date_debut": c.date_debut, "date_fin": c.date_fin,
             "statut": c.statut_contrat, "date_prochain_loyer": c.date_prochain_loyer,
+            "preavis_le": c.preavis_le, "preavis_par": c.preavis_par, "date_sortie_prevue": c.date_sortie_prevue,
             "statut_paiement": services.statut_paiement(c), "caution": c.depot_garantie,
             "caution_disponible": services.caution_disponible(c),
             "impayes": [x.as_dict() for x in services.periodes_impayees(c)] if c.statut_contrat == "actif" else [],
             "echeancier": [x.as_dict() for x in services.echeancier(c)][-12:],
+            "signature": signature_du_contrat(c),
         })
     paiements = Encaissement.objects.filter(contrat__locataire=loc).select_related("contrat__maison")[:60]
     charges = [
@@ -213,11 +219,23 @@ def espace(request):
             for e in paiements
         ],
         "charges": charges,
+        "paiement_en_ligne": _paiement_en_ligne(loc),
         "messages": [
             {"id": m.pk, "expediteur": m.expediteur, "contenu": m.contenu, "date": m.created_at}
             for m in loc.messages.order_by("created_at")
         ],
     })
+
+
+def _paiement_en_ligne(loc):
+    """Ce que le locataire peut régler en ligne (None si l'agence n'a pas activé le paiement Mobile Money)."""
+    cfg = Connecteurs.charger()
+    c = loc.contrats.filter(statut_contrat="actif").first()
+    if not cfg.paiement_actif or c is None:
+        return None
+    p = periode_a_payer(c)
+    return {"test": cfg.paiement_fournisseur == "test", "periode": p.libelle if p else None, "montant": p.reste if p else 0,
+            "operateurs": [{"valeur": v, "libelle": l} for v, l in PaiementEnLigne.OPERATEURS]}
 
 
 @api_view(["POST"])
@@ -233,12 +251,63 @@ def envoyer_message(request):
     return Response({"id": m.pk, "expediteur": "locataire", "contenu": m.contenu, "date": m.created_at}, status=201)
 
 
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([EstLocataire])
+def donner_preavis(request):
+    """Le locataire notifie son départ depuis son espace ; l'agence en est avertie par la messagerie."""
+    verifier_csrf(request)
+    loc = _locataire(request)
+    c = loc.contrats.filter(statut_contrat="actif").first()
+    if c is None:
+        raise RegleMetier("Aucun bail en cours.")
+    motif = (request.data.get("motif") or "").strip()[:255]
+    c = services.enregistrer_preavis(c, "locataire", motif=motif)
+    MessageLocataire.objects.create(
+        locataire=loc, expediteur="locataire",
+        contenu=f"Préavis de départ notifié depuis mon espace. Sortie prévue le {c.date_sortie_prevue:%d/%m/%Y}." + (f" Motif : {motif}" if motif else ""),
+    )
+    return Response({"date_sortie_prevue": c.date_sortie_prevue, "preavis_le": c.preavis_le}, status=201)
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([])
+@permission_classes([EstLocataire])
+def interventions_locataire(request):
+    """Le locataire consulte ses demandes d'intervention et en signale de nouvelles (avec photos)."""
+    loc = _locataire(request)
+    if request.method == "POST":
+        verifier_csrf(request)
+        c = loc.contrats.filter(statut_contrat="actif").select_related("maison").first()
+        if c is None:
+            raise RegleMetier("Aucun bail en cours.")
+        titre = (request.data.get("titre") or "").strip()[:150]
+        if not titre:
+            raise RegleMetier("Décrivez le problème en quelques mots.")
+        categorie = request.data.get("categorie") or "autre"
+        if categorie not in DemandeIntervention.Categorie.values:
+            categorie = "autre"
+        d = DemandeIntervention.objects.create(
+            maison=c.maison, contrat=c, locataire=loc, origine="locataire", categorie=categorie, titre=titre,
+            description=(request.data.get("description") or "").strip()[:4000],
+            urgente=str(request.data.get("urgente")).lower() in ("1", "true", "on"),
+        )
+        ajouter_photos(d, request.FILES.getlist("photos"))
+        journaliser(None, "Intervention", f"{d.reference} signalée par {loc.nom} — {d.titre} ({c.maison.designation})")
+    demandes = loc.interventions.prefetch_related("photos").select_related("maison__bailleur")
+    return Response(InterventionSerializer(demandes, many=True, context={"request": request}).data, status=201 if request.method == "POST" else 200)
+
+
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([EstLocataire])
 def quittance_locataire(request, pk):
     loc = _locataire(request)
     enc = get_object_or_404(Encaissement.objects.select_related("contrat__maison__bailleur", "contrat__locataire"), pk=pk, contrat__locataire=loc)
+    return Response(donnees_quittance(request, enc))
+
+
+def donnees_quittance(request, enc):
     from apps.locatif.serializers import EncaissementSerializer
 
     c = enc.contrat
@@ -255,4 +324,4 @@ def quittance_locataire(request, pk):
     from apps.core.serializers import ParametresSerializer
 
     data["entreprise"] = ParametresSerializer(Parametres.charger(), context={"request": request}).data
-    return Response(data)
+    return data

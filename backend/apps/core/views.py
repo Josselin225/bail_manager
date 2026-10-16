@@ -1,10 +1,8 @@
 import io
 import mimetypes
-import zipfile
 from pathlib import Path
 
 from django.conf import settings
-from django.core import management
 from django.http import FileResponse, Http404, HttpResponse
 from django.utils import timezone
 from django.utils._os import safe_join
@@ -18,6 +16,7 @@ from .articles_bail import ARTICLES_BAIL_CI
 from .models import ClauseContrat, ClauseMandat, Journal, Parametres
 from .permissions import EstAdmin, LectureOuAdmin
 from .serializers import ClauseContratSerializer, ClauseMandatSerializer, JournalSerializer, ParametresSerializer
+from .sauvegarde import creer_archive
 from .utils import journaliser
 
 
@@ -109,18 +108,7 @@ class JournalViewSet(viewsets.ReadOnlyModelViewSet):
 def sauvegarde(request):
     """Sauvegarde complète téléchargeable : données (JSON) + fichiers envoyés."""
     buf = io.BytesIO()
-    donnees = io.StringIO()
-    management.call_command(
-        "dumpdata", "--natural-foreign", "--exclude=contenttypes", "--exclude=auth.permission",
-        "--exclude=sessions", "--indent=1", stdout=donnees,
-    )
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("donnees.json", donnees.getvalue())
-        racine = Path(settings.MEDIA_ROOT)
-        if racine.exists():
-            for f in racine.rglob("*"):
-                if f.is_file():
-                    z.write(f, f"uploads/{f.relative_to(racine)}")
+    creer_archive(buf)
     journaliser(request, "Sauvegarde", "Sauvegarde manuelle téléchargée")
     nom = f"bailmanager_sauvegarde_{timezone.localtime():%Y%m%d_%H%M}.zip"
     resp = HttpResponse(buf.getvalue(), content_type="application/zip")

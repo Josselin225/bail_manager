@@ -11,6 +11,7 @@ import {
   Panneau, Saisie, SaisieMontant, Statut, Tableau, Vide, useConfirmer,
 } from "../../components/ui";
 import { Documents, FormBailleur, FormMaison, FormMandat } from "../../components/formulaires";
+import AccesBailleur from "../../components/AccesBailleur";
 
 export function FormVersement({ ouvert, onFermer, bailleur, solde }) {
   const [f, setF] = useState({ montant: "", mode: "especes", commentaire: "" });
@@ -57,7 +58,8 @@ export default function FicheBailleur() {
     <div className="pile">
       <EntetePage titre={b.nom} fil={[{ libelle: "Bailleurs", lien: "/bailleurs" }]}>
         <Bouton icone={Pencil} onClick={() => setModal("modifier")}>Modifier</Bouton>
-        <LienBouton to={`/impression/releve-bailleur/${b.id}`} target="_blank" icone={Printer}>Relevé de compte</LienBouton>
+        <LienBouton to={`/impression/releve-bailleur/${b.id}`} icone={Printer}>Relevé de compte</LienBouton>
+        <LienBouton to={`/impression/recap-fiscal/${b.id}?annee=${new Date().getFullYear()}`} icone={Printer}>Récapitulatif annuel</LienBouton>
         <Bouton variante="primaire" icone={Wallet} disabled={Number(b.solde) <= 0} onClick={() => setModal("versement")}>Verser au bailleur</Bouton>
       </EntetePage>
 
@@ -92,12 +94,13 @@ export default function FicheBailleur() {
                 <span className="discret">depuis le {dateFr(b.mandat.date_debut)} — {dureeMandat(b.mandat)}</span>
                 {joursAvantFinMandat(b.mandat) !== null && joursAvantFinMandat(b.mandat) <= 90 && <Badge ton="attention">Fin dans {joursAvantFinMandat(b.mandat)} j</Badge>}
                 <span className="espace" />
-                <LienBouton taille="petit" to={`/impression/mandat/${b.mandat.id}`} target="_blank" icone={Printer}>Imprimer</LienBouton>
+                <LienBouton taille="petit" to={`/impression/mandat/${b.mandat.id}`} icone={Printer}>Imprimer</LienBouton>
               </div>
             ) : (
               <Encart ton="alerte" titre="Aucun mandat en vigueur">Sans mandat, impossible d'ajouter un bien ou de signer un bail pour ce bailleur.</Encart>
             )}
           </Panneau>
+          <AccesBailleur b={b} onChange={refetch} />
         </div>
       </div>
 
@@ -141,12 +144,12 @@ export default function FicheBailleur() {
               { libelle: "Taux", rendu: (m) => `${m.taux_commission} %` },
               { libelle: "Baux signés", rendu: (m) => m.nb_baux },
               { libelle: "Statut", rendu: (m) => <Statut s={m.en_vigueur ? "actif" : m.statut} /> },
-              { libelle: "Scan", rendu: (m) => (m.document_signe ? <a href={m.document_signe} target="_blank" rel="noreferrer">Voir</a> : "—") },
+              { libelle: "Scan", rendu: (m) => (m.document_signe ? <a href={m.document_signe}>Voir</a> : "—") },
               {
                 libelle: "",
                 rendu: (m) => (
                   <div className="actions-cellule">
-                    <LienBouton taille="petit" variante="fantome" icone={Printer} to={`/impression/mandat/${m.id}`} target="_blank" />
+                    <LienBouton taille="petit" variante="fantome" icone={Printer} to={`/impression/mandat/${m.id}`} />
                     {estAdmin && m.statut === "actif" && (
                       <Bouton taille="petit" variante="fantome" onClick={async () => (await confirmer({ message: "Résilier ce mandat ? Aucun nouveau bien ni bail ne pourra être enregistré pour ce bailleur.", danger: true, libelle: "Résilier" })) && resilier.mutate(m, { onSuccess: () => refetch() })}>Résilier</Bouton>
                     )}

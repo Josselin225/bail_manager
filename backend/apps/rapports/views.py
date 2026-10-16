@@ -177,6 +177,10 @@ def tableau_de_bord(request):
                 {"contrat": c.pk, "locataire": c.locataire.nom, "maison": c.maison.designation, "date_fin": c.date_fin, "jours": (c.date_fin - j).days}
                 for c in fins
             ],
+            "sorties_prevues": [
+                {"contrat": c.pk, "locataire": c.locataire.nom, "maison": c.maison.designation, "date": c.date_sortie_prevue, "jours": (c.date_sortie_prevue - j).days}
+                for c in actifs if c.date_sortie_prevue and c.date_sortie_prevue <= j + timedelta(days=45)
+            ],
             "mandats_expirant": [
                 {"bailleur": m.bailleur.nom, "bailleur_id": m.bailleur_id, "date_fin": m.date_fin, "jours": (m.date_fin - j).days}
                 for m in mandats_fin
@@ -395,7 +399,11 @@ def liste_impayes(request):
 
 @api_view(["GET"])
 def releve_bailleur(request, pk):
-    b = get_object_or_404(Bailleur, pk=pk)
+    return Response(donnees_releve(get_object_or_404(Bailleur, pk=pk), request))
+
+
+def donnees_releve(b, request):
+    """Relevé du compte courant d'un bailleur sur une période (par défaut : le mois en cours)."""
     j = aujourdhui()
     du = _date(request.query_params.get("du"), j.replace(day=1))
     au = _date(request.query_params.get("au"), j)
@@ -408,13 +416,74 @@ def releve_bailleur(request, pk):
         lignes.append({"date": o.date_operation, "libelle": o.commentaire or o.get_type_operation_display(),
                        "credit": o.montant if o.montant > 0 else 0, "debit": -o.montant if o.montant < 0 else 0, "solde": solde})
     m = b.mandat_actif()
-    return Response({
+    return {
         "bailleur": {"id": b.pk, "nom": b.nom, "code": b.code_bailleur, "telephone": b.telephone1, "adresse": b.adresse,
                      "taux": m.taux_commission if m else None},
         "du": du, "au": au, "solde_initial": initial, "solde_final": solde, "lignes": lignes,
         "credits": sum((l["credit"] for l in lignes), Decimal(0)), "debits": sum((l["debit"] for l in lignes), Decimal(0)),
         "biens": list(b.maisons.values("designation", "statut", "loyer")),
-    })
+    }
+
+
+@api_view(["GET"])
+def recap_fiscal(request, pk):
+    return Response(donnees_recap_fiscal(get_object_or_404(Bailleur, pk=pk), request))
+
+
+def _mois_loues(contrats, annee):
+    """Nombre de mois de l'année couverts par au moins un bail, jusqu'à aujourd'hui (mois entamé = mois compté)."""
+    mois = set()
+    for c in contrats:
+        debut = max(c.date_debut, date(annee, 1, 1))
+        fin = min(c.date_resiliation or c.date_fin or date(annee, 12, 31), date(annee, 12, 31), aujourdhui())
+        i = debut.year * 12 + debut.month - 1
+        while i <= fin.year * 12 + fin.month - 1:
+            mois.add(i % 12)
+            i += 1
+    return len(mois)
+
+
+def donnees_recap_fiscal(b, request):
+    """Récapitulatif annuel des revenus locatifs d'un bailleur, bien par bien (aide à la déclaration des revenus fonciers)."""
+    try:
+        annee = int(request.query_params.get("annee") or aujourdhui().year)
+    except ValueError:
+        annee = aujourdhui().year
+    encs = Encaissement.objects.filter(contrat__maison__bailleur=b, date_encaissement__year=annee)
+    biens = []
+    for m in b.maisons.order_by("designation"):
+        e = encs.filter(contrat__maison=m)
+        t = e.aggregate(brut=Sum("montant_recu"), commission=Sum("commission"), net=Sum("net_bailleur"), n=Count("id"))
+        contrats = list(m.contrats.filter(date_debut__lte=date(annee, 12, 31)).exclude(date_resiliation__lt=date(annee, 1, 1)))
+        if not t["n"] and not contrats:
+            continue
+        biens.append({
+            "designation": m.designation, "type": m.type_maison, "adresse": m.adresse, "loyer_actuel": m.loyer,
+            "mois_loues": _mois_loues(contrats, annee), "quittances": t["n"],
+            "locataires": ", ".join(sorted({c.locataire.nom for c in contrats})),
+            "brut": t["brut"] or 0, "commission": t["commission"] or 0, "net": t["net"] or 0,
+        })
+    ops = CompteCourantBailleur.objects.filter(bailleur=b, date_operation__year=annee)
+    ajustements = [
+        {"date": o.date_operation, "libelle": o.commentaire or o.get_type_operation_display(), "montant": o.montant}
+        for o in ops.filter(type_operation=CompteCourantBailleur.Type.AJUSTEMENT).order_by("date_operation")
+    ]
+    tot = lambda cle: sum((x[cle] for x in biens), Decimal(0))  # noqa: E731
+    total_ajustements = sum((a["montant"] for a in ajustements), Decimal(0))
+    m = b.mandat_actif()
+    return {
+        "annee": annee,
+        "bailleur": {"nom": b.nom, "code": b.code_bailleur, "telephone": b.telephone1, "adresse": b.adresse, "cni": b.numero_cni,
+                     "taux": m.taux_commission if m else None, "mandat": m.reference if m else None},
+        "biens": biens, "ajustements": ajustements,
+        "totaux": {
+            "brut": tot("brut"), "commission": tot("commission"), "net": tot("net"), "ajustements": total_ajustements,
+            "revenu_net": tot("net") + total_ajustements,
+            "verse": -(ops.filter(type_operation=CompteCourantBailleur.Type.VERSEMENT).aggregate(t=Sum("montant"))["t"] or 0),
+            "mois_loues": sum(x["mois_loues"] for x in biens),
+        },
+        "annees": sorted({d.year for d in Encaissement.objects.filter(contrat__maison__bailleur=b).dates("date_encaissement", "year")} | {aujourdhui().year}, reverse=True),
+    }
 
 
 # ─── Calendrier ───────────────────────────────────────────────────────────────
@@ -437,6 +506,9 @@ def calendrier(request):
     for r in Reservation.objects.filter(date_visite__range=(du, au), statut__in=["en_attente", "confirme"]).select_related("maison"):
         evts.append({"id": f"visite-{r.pk}", "type": "visite", "date": r.date_visite, "statut": r.statut,
                      "titre": f"Visite — {r.nom_visiteur}", "detail": f"{r.maison.designation} — {r.tel_visiteur}", "lien": "/reservations"})
+    for c in Contrat.objects.filter(statut_contrat="actif", date_sortie_prevue__range=(du, au)).select_related("locataire", "maison"):
+        evts.append({"id": f"sortie-{c.pk}", "type": "fin_contrat", "date": c.date_sortie_prevue, "statut": "info",
+                     "titre": f"Sortie prévue — {c.locataire.nom}", "detail": f"{c.maison.designation} (préavis du {c.preavis_le:%d/%m/%Y})", "lien": f"/contrats/{c.pk}"})
     for c in Contrat.objects.filter(statut_contrat="actif", date_fin__range=(du, au)).select_related("locataire", "maison"):
         evts.append({"id": f"fin-{c.pk}", "type": "fin_contrat", "date": c.date_fin, "statut": "info",
                      "titre": f"Fin de bail — {c.locataire.nom}", "detail": c.maison.designation, "lien": f"/contrats/{c.pk}"})

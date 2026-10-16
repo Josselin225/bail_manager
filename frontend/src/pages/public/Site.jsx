@@ -108,6 +108,7 @@ export default function Site({ children, titre, surPhoto = true }) {
             <Link to="/nos-maisons?etat=disponible">Biens disponibles</Link>
             <Link to="/services">Nos services</Link>
             <Link to="/espace-locataire">Espace locataire</Link>
+            <Link to="/espace-bailleur">Espace propriétaire</Link>
             <Link to="/contact">Nous écrire</Link>
           </div>
         </div>

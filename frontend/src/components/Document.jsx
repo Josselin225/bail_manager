@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Download, Printer, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Printer } from "lucide-react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Bouton, Chargement, Encart } from "./ui";
 import { Marque } from "../pages/public/Site";
 
 /** Paramètres de l'entreprise (en-têtes et pieds de page des documents). */
-export function useEntreprise(fournie) {
-  const q = useQuery({ queryKey: ["parametres"], queryFn: () => api.get("/parametres/"), enabled: !fournie, staleTime: 300000 });
+export function useEntreprise(fournie, charger = true) {
+  const q = useQuery({ queryKey: ["parametres"], queryFn: () => api.get("/parametres/"), enabled: !fournie && charger, staleTime: 300000 });
   return fournie || q.data;
 }
 
@@ -48,7 +49,7 @@ export function PiedDoc({ e }) {
 }
 
 /** Conteneur écran + barre d'outils (non imprimée) autour d'une ou plusieurs pages A4. */
-export function Imprimable({ titre, chargement, erreur, children, surExcel, suite }) {
+export function Imprimable({ titre, chargement, erreur, children, surExcel, suite, outils }) {
   useEffect(() => {
     if (titre) document.title = titre;
   }, [titre]);
@@ -57,9 +58,10 @@ export function Imprimable({ titre, chargement, erreur, children, surExcel, suit
       <div className="doc-barre non-imprime">
         <Bouton variante="primaire" icone={Printer} onClick={() => window.print()}>Imprimer / PDF</Bouton>
         {surExcel && <Bouton icone={Download} onClick={surExcel}>Excel</Bouton>}
-        {suite && <a className="btn" href={suite.lien}>{suite.libelle} <ArrowRight size={16} /></a>}
+        {suite && <Link className="btn" to={suite.lien}>{suite.libelle} <ArrowRight size={16} /></Link>}
+        {outils}
         <span className="espace" />
-        <Bouton icone={X} onClick={() => (window.history.length > 1 ? window.history.back() : window.close())}>Fermer</Bouton>
+        <Bouton icone={ArrowLeft} onClick={() => (window.history.length > 1 ? window.history.back() : (window.location.href = "/tableau-de-bord"))}>Retour</Bouton>
       </div>
       {erreur ? (
         <div style={{ maxWidth: "210mm", margin: "0 auto" }}><Encart ton="alerte">{erreur.message}</Encart></div>

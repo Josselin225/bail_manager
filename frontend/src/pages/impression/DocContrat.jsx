@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api";
-import { dateFr, dateLongue, fcfa, montantEnLettres } from "../../lib/format";
+import { dateFr, dateLongue, fcfa, montantEnLettres, dateHeure } from "../../lib/format";
 import { EnteteDoc, Imprimable, PiedDoc, useEntreprise } from "../../components/Document";
 
 export default function DocContrat() {
@@ -84,7 +84,11 @@ export default function DocContrat() {
           ))}
           <p style={{ marginTop: 12 }}>Fait en deux exemplaires originaux, {e.ville_signature ? `à ${e.ville_signature}, ` : ""}le {dateLongue(c.date_contrat)}.</p>
           <div className="signatures">
-            <div>Le preneur<br />{c.locataire_detail.nom}<br /><span style={{ fontSize: 10 }}>(« Lu et approuvé »)</span></div>
+            <div>Le preneur<br />{c.locataire_detail.nom}<br />
+              {c.signature_electronique?.signe_le
+                ? <span className="mention-signature">Signé électroniquement le {dateHeure(c.signature_electronique.signe_le)} par code à usage unique envoyé au {c.signature_electronique.telephone}</span>
+                : <span style={{ fontSize: 10 }}>(« Lu et approuvé »)</span>}
+            </div>
             <div>Pour le bailleur, l'agence mandataire<br />{e.nom_entreprise}{e.representant_nom && <><br />{e.representant_nom}{e.representant_qualite && `, ${e.representant_qualite}`}</>}</div>
           </div>
           <PiedDoc e={e} />

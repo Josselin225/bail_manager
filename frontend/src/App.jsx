@@ -17,6 +17,9 @@ const Reinitialiser = p(() => import("./pages/public/Reinitialiser"));
 // Espace locataire
 const EspaceLocataire = p(() => import("./pages/portail/EspaceLocataire"));
 const QuittanceLocataire = p(() => import("./pages/portail/QuittanceLocataire"));
+const PaiementTest = p(() => import("./pages/portail/PaiementTest"));
+const EspaceBailleur = p(() => import("./pages/portail/EspaceBailleur"));
+const QuittanceBailleur = p(() => import("./pages/portail/QuittanceBailleur"));
 // Gestion
 const TableauDeBord = p(() => import("./pages/gestion/TableauDeBord"));
 const Bailleurs = p(() => import("./pages/gestion/Bailleurs"));
@@ -32,6 +35,7 @@ const Encaissements = p(() => import("./pages/gestion/Encaissements"));
 const Calendrier = p(() => import("./pages/gestion/Calendrier"));
 const Charges = p(() => import("./pages/gestion/Charges"));
 const Revisions = p(() => import("./pages/gestion/Revisions"));
+const Interventions = p(() => import("./pages/gestion/Interventions"));
 const ComptesBailleurs = p(() => import("./pages/gestion/ComptesBailleurs"));
 const Caisse = p(() => import("./pages/gestion/Caisse"));
 const Cautions = p(() => import("./pages/gestion/Cautions"));
@@ -51,10 +55,14 @@ const DocContrat = p(() => import("./pages/impression/DocContrat"));
 const RecuContrat = p(() => import("./pages/impression/RecuContrat"));
 const RecuResiliation = p(() => import("./pages/impression/RecuResiliation"));
 const DocMandat = p(() => import("./pages/impression/DocMandat"));
+const RecapFiscal = p(() => import("./pages/impression/RecapFiscal"));
 const ReleveBailleur = p(() => import("./pages/impression/ReleveBailleur"));
 const ReleveCaution = p(() => import("./pages/impression/ReleveCaution"));
 const ImpressionRapport = p(() => import("./pages/impression/ImpressionRapport"));
 const DocEtatDesLieux = p(() => import("./pages/impression/DocEtatDesLieux"));
+const DocRelance = p(() => import("./pages/impression/DocRelance"));
+const DocPlanApurement = p(() => import("./pages/impression/DocPlanApurement"));
+const Recouvrement = p(() => import("./pages/gestion/Recouvrement"));
 const EtatDesLieux = p(() => import("./pages/gestion/EtatDesLieux"));
 
 function Protege({ admin, children }) {
@@ -81,6 +89,11 @@ export default function App() {
         <Route path="/reinitialiser/:uid/:jeton" element={<Reinitialiser />} />
         <Route path="/espace-locataire" element={<EspaceLocataire />} />
         <Route path="/espace-locataire/quittance/:id" element={<QuittanceLocataire />} />
+        <Route path="/paiement-test/:reference" element={<PaiementTest />} />
+        <Route path="/espace-bailleur" element={<EspaceBailleur />} />
+        <Route path="/espace-bailleur/quittance/:id" element={<QuittanceBailleur />} />
+        <Route path="/espace-bailleur/releve" element={<ReleveBailleur portail />} />
+        <Route path="/espace-bailleur/recap-fiscal" element={<RecapFiscal portail />} />
 
         <Route path="/impression" element={<Protege><Suspense fallback={<Chargement />}><ImpressionOutlet /></Suspense></Protege>}>
           <Route path="quittance/:id" element={<Quittance />} />
@@ -89,9 +102,12 @@ export default function App() {
           <Route path="resiliation/:id" element={<RecuResiliation />} />
           <Route path="mandat/:id" element={<DocMandat />} />
           <Route path="releve-bailleur/:id" element={<ReleveBailleur />} />
+          <Route path="recap-fiscal/:id" element={<RecapFiscal />} />
           <Route path="releve-caution/:id" element={<ReleveCaution />} />
           <Route path="rapport/:type" element={<ImpressionRapport />} />
           <Route path="etat-des-lieux/:id/:type" element={<DocEtatDesLieux />} />
+          <Route path="relance/:contrat/:relance" element={<DocRelance />} />
+          <Route path="plan-apurement/:contrat/:plan" element={<DocPlanApurement />} />
         </Route>
 
         <Route element={<Protege><Coquille /></Protege>}>
@@ -108,8 +124,10 @@ export default function App() {
           <Route path="/contrats/:id/etat-des-lieux/:type" element={<EtatDesLieux />} />
           <Route path="/encaissements" element={<Encaissements />} />
           <Route path="/calendrier" element={<Calendrier />} />
+          <Route path="/recouvrement" element={<Recouvrement />} />
           <Route path="/charges" element={<Charges />} />
           <Route path="/revisions" element={<Revisions />} />
+          <Route path="/interventions" element={<Interventions />} />
           <Route path="/comptes-bailleurs" element={<ComptesBailleurs />} />
           <Route path="/caisse" element={<Caisse />} />
           <Route path="/cautions" element={<Cautions />} />

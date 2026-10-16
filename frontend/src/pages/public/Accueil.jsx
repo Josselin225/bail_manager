@@ -129,6 +129,7 @@ export default function Accueil() {
           <div className="hero-liens">
             <Link to="/nos-maisons?etat=disponible">{data?.nb_disponibles ? `${data.nb_disponibles} bien${data.nb_disponibles > 1 ? "s" : ""} disponible${data.nb_disponibles > 1 ? "s" : ""}` : "Voir les biens"} <ArrowRight size={15} /></Link>
             <Link to="/espace-locataire">Espace locataire <ArrowRight size={15} /></Link>
+            <Link to="/espace-bailleur">Espace propriétaire <ArrowRight size={15} /></Link>
           </div>
         </div>
         <div className="diapo-controles">

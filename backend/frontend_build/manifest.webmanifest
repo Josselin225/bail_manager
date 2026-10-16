@@ -1,0 +1,22 @@
+{
+  "name": "BailManager — gestion locative",
+  "short_name": "BailManager",
+  "description": "Gestion locative : biens, baux, loyers, quittances, espaces locataire et propriétaire.",
+  "lang": "fr",
+  "start_url": "/?source=application",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f2f4f7",
+  "theme_color": "#0e2a47",
+  "icons": [
+    { "src": "/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Espace locataire", "url": "/espace-locataire", "icons": [{ "src": "/icone-192.png", "sizes": "192x192" }] },
+    { "name": "Espace propriétaire", "url": "/espace-bailleur", "icons": [{ "src": "/icone-192.png", "sizes": "192x192" }] },
+    { "name": "Tableau de bord", "url": "/tableau-de-bord", "icons": [{ "src": "/icone-192.png", "sizes": "192x192" }] }
+  ]
+}

@@ -39,7 +39,7 @@ export default function Connexion() {
         <Bouton type="submit" variante="primaire" icone={LogIn} chargement={etat.envoi} className="bloc grand">Se connecter</Bouton>
         <div className="ligne-flex" style={{ justifyContent: "space-between" }}>
           <Link to="/mot-de-passe-oublie">Mot de passe oublié ?</Link>
-          <Link to="/espace-locataire">Je suis locataire</Link>
+          <span className="ligne-flex" style={{ gap: 14 }}><Link to="/espace-locataire">Je suis locataire</Link><Link to="/espace-bailleur">Je suis propriétaire</Link></span>
         </div>
       </form>
     </AuthCadre>

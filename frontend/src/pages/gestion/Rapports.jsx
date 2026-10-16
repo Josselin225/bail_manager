@@ -14,7 +14,7 @@ function Carte({ icone: Icone, titre, texte, lien, children }) {
           <h3>{titre}</h3>
           <p className="discret" style={{ margin: "2px 0 12px" }}>{texte}</p>
           {children && <div className="formulaire" style={{ marginBottom: 12 }}>{children}</div>}
-          <a className="btn primaire petit" href={lien} target="_blank" rel="noreferrer"><Printer size={15} /> Ouvrir le rapport</a>
+          <a className="btn primaire petit" href={lien}><Printer size={15} /> Ouvrir le rapport</a>
         </div>
       </div>
     </Panneau>

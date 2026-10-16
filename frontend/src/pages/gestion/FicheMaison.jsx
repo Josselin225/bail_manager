@@ -9,6 +9,7 @@ import { useSession } from "../../lib/session";
 import { Bouton, Chargement, Definitions, EntetePage, LienBouton, Montant, Onglets, Panneau, Statut, Tableau, Vide, useConfirmer } from "../../components/ui";
 import { Documents, FormMaison } from "../../components/formulaires";
 import PhotosMaison from "../../components/PhotosMaison";
+import Partage from "../../components/Partage";
 
 export default function FicheMaison() {
   const { id } = useParams();
@@ -45,6 +46,7 @@ export default function FicheMaison() {
             ]}
           />
           {m.description && <p style={{ marginTop: 14, whiteSpace: "pre-wrap" }}>{m.description}</p>}
+          {m.visible_site && m.statut === "disponible" && <div style={{ marginTop: 14 }}><Partage m={m} /></div>}
           {estAdmin && m.statut !== "occupe" && (
             <Bouton variante="fantome" taille="petit" icone={Trash2} style={{ color: "var(--signal)", marginTop: 8 }} onClick={async () => (await confirmer({ message: `Supprimer « ${m.designation} » ?`, danger: true, libelle: "Supprimer" })) && supprimer.mutate()}>Supprimer</Bouton>
           )}

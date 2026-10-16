@@ -42,7 +42,7 @@ export default function FicheLocataire() {
             <Definitions items={[["Téléphone", [l.telephone1, l.telephone2].filter(Boolean).join(" / ")], ["E-mail", l.email], ["Pièce d'identité", l.piece_identite], ["Dossier créé le", dateFr(l.created_at)]]} />
             {(l.photo_cni_recto || l.photo_cni_verso) && (
               <div className="galerie" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 14 }}>
-                {[l.photo_cni_recto, l.photo_cni_verso].filter(Boolean).map((src) => <a key={src} href={src} target="_blank" rel="noreferrer"><img src={src} alt="Pièce d'identité" /></a>)}
+                {[l.photo_cni_recto, l.photo_cni_verso].filter(Boolean).map((src) => <a key={src} href={src}><img src={src} alt="Pièce d'identité" /></a>)}
               </div>
             )}
             {estAdmin && !contrats?.count && (
@@ -86,7 +86,7 @@ export default function FicheLocataire() {
                 lignes={paiements?.results || []}
                 vide={<Vide titre="Aucun paiement" />}
                 colonnes={[
-                  { libelle: "Reçu", rendu: (p) => <Link to={`/impression/quittance/${p.id}`} target="_blank">{p.reference_recu}</Link> },
+                  { libelle: "Reçu", rendu: (p) => <Link to={`/impression/quittance/${p.id}`}>{p.reference_recu}</Link> },
                   { libelle: "Période", cle: "periode_concernee" },
                   { libelle: "Date", rendu: (p) => dateFr(p.date_encaissement) },
                   { libelle: "Mode", cle: "mode_libelle" },
@@ -104,7 +104,7 @@ export default function FicheLocataire() {
                   { libelle: "Début", rendu: (c) => dateFr(c.date_debut) },
                   { libelle: "Ancienneté", rendu: (c) => <Anciennete a={c.anciennete} /> },
                   { libelle: "Statut", rendu: (c) => <Statut s={c.statut_contrat} /> },
-                  { libelle: "", rendu: (c) => <LienBouton taille="petit" variante="fantome" icone={Printer} to={`/impression/contrat/${c.id}`} target="_blank" /> },
+                  { libelle: "", rendu: (c) => <LienBouton taille="petit" variante="fantome" icone={Printer} to={`/impression/contrat/${c.id}`} /> },
                 ]}
               />
             )}

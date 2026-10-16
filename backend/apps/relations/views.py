@@ -10,7 +10,8 @@ from apps.core.utils import journaliser
 from apps.locatif.notifications import envoyer
 from apps.patrimoine.models import Locataire
 
-from .models import MessageLocataire, MessageVisiteur, Reservation
+from .interventions import InterventionSerializer, ajouter_photos, cloturer, rattacher_bail
+from .models import DemandeIntervention, MessageLocataire, MessageVisiteur, Reservation
 from .serializers import MessageLocataireSerializer, MessageVisiteurSerializer, ReservationSerializer
 
 
@@ -110,3 +111,46 @@ class MessagerieLocataireViewSet(viewsets.ViewSet):
     @action(detail=False)
     def compteur(self, request):
         return Response({"non_lus": MessageLocataire.objects.filter(expediteur="locataire", lu=False).count()})
+
+
+class InterventionViewSet(viewsets.ModelViewSet):
+    """Demandes d'intervention vues par l'agence : suivi, photos, clôture avec imputation du coût."""
+
+    serializer_class = InterventionSerializer
+    permission_classes = [SuppressionAdmin]
+    filterset_fields = ["statut", "maison", "categorie", "urgente"]
+    search_fields = ["titre", "description", "maison__designation", "locataire__nom", "artisan"]
+
+    def get_queryset(self):
+        return DemandeIntervention.objects.select_related("maison__bailleur", "locataire").prefetch_related("photos")
+
+    def perform_create(self, ser):
+        d = ser.save(origine="agence")
+        rattacher_bail(d)
+        d.save(update_fields=["contrat", "locataire"])
+        journaliser(self.request, "Intervention", f"{d.reference} créée — {d.titre} ({d.maison.designation})")
+
+    def perform_update(self, ser):
+        statut = self.request.data.get("statut")
+        if ser.instance.statut == "terminee" and statut and statut != "terminee":
+            raise RegleMetier("Une intervention terminée ne peut plus changer de statut.")
+        d = ser.save()
+        if statut in ("nouvelle", "en_cours", "annulee") and statut != d.statut:
+            d.statut = statut
+            d.save(update_fields=["statut"])
+        journaliser(self.request, "Intervention", f"{d.reference} mise à jour — {d.get_statut_display()}")
+
+    @action(detail=False)
+    def compteur(self, request):
+        return Response({"nouvelles": DemandeIntervention.objects.filter(statut="nouvelle").count()})
+
+    @action(detail=True, methods=["post"])
+    def photos(self, request, pk=None):
+        d = self.get_object()
+        ajouter_photos(d, request.FILES.getlist("photos"))
+        return Response(InterventionSerializer(d, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"])
+    def cloturer(self, request, pk=None):
+        d = cloturer(self.get_object(), request.data.get("cout"), request.data.get("imputation"), request)
+        return Response(InterventionSerializer(d, context={"request": request}).data)

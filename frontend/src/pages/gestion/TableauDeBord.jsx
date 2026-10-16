@@ -134,13 +134,16 @@ export default function TableauDeBord() {
         </div>
       </div>
 
-      {(a.reservations > 0 || a.messages > 0 || a.messages_locataires > 0 || a.fins_contrat.length > 0 || a.mandats_expirant.length > 0) && (
+      {(a.reservations > 0 || a.messages > 0 || a.messages_locataires > 0 || a.fins_contrat.length > 0 || a.mandats_expirant.length > 0 || a.sorties_prevues?.length > 0) && (
         <div className="ligne-flex">
           {a.reservations > 0 && <LienBouton to="/reservations" taille="petit" icone={CalendarCheck}>{a.reservations} visite(s) à confirmer</LienBouton>}
           {a.messages > 0 && <LienBouton to="/messages" taille="petit" icone={Mail}>{a.messages} message(s) non lu(s)</LienBouton>}
           {a.messages_locataires > 0 && <LienBouton to="/messagerie" taille="petit" icone={MessagesSquare}>{a.messages_locataires} message(s) de locataires</LienBouton>}
           {a.fins_contrat.map((f) => (
             <LienBouton key={f.contrat} to={`/contrats/${f.contrat}`} taille="petit" icone={AlertTriangle}>Bail de {f.locataire} : fin dans {f.jours} j</LienBouton>
+          ))}
+          {a.sorties_prevues?.map((s) => (
+            <LienBouton key={`s${s.contrat}`} to={`/contrats/${s.contrat}`} taille="petit" icone={AlertTriangle}>Sortie de {s.locataire} {s.jours >= 0 ? `dans ${s.jours} j` : `prévue le ${s.date.split("-").reverse().join("/")}`}</LienBouton>
           ))}
           {a.mandats_expirant.map((m) => (
             <LienBouton key={m.bailleur_id} to={`/bailleurs/${m.bailleur_id}`} taille="petit" icone={AlertTriangle}>Mandat {m.bailleur} : fin dans {m.jours} j</LienBouton>
