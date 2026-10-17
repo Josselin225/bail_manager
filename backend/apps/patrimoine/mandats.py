@@ -64,3 +64,20 @@ def informer_locataires_renouvellement(mandat):
         )
 
     return _informer(mandat, "Renouvellement du mandat de gestion de votre logement", texte)
+
+
+def figer_existant():
+    """Pour des données reprises (import, démonstration) : clauses figées et biens datés sur chaque mandat et bail."""
+    from apps.core.models import ClauseContrat, ClauseMandat, clauses_en_vigueur
+    from apps.locatif.models import Contrat
+
+    from .models import BienConfie, MandatGestion
+
+    Contrat.objects.filter(clauses_signees__isnull=True).update(clauses_signees=clauses_en_vigueur(ClauseContrat))
+    MandatGestion.objects.filter(clauses_signees__isnull=True).update(clauses_signees=clauses_en_vigueur(ClauseMandat))
+    for m in MandatGestion.objects.select_related("bailleur"):
+        suivant = MandatGestion.objects.filter(bailleur=m.bailleur, date_debut__gt=m.date_debut).order_by("date_debut").first()
+        for maison in m.bailleur.maisons.all():
+            cree = maison.created_at.date()
+            if suivant is None or cree < suivant.date_debut:
+                BienConfie.objects.get_or_create(mandat=m, maison=maison, defaults={"confie_le": max(m.date_debut, cree)})

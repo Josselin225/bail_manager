@@ -89,6 +89,10 @@ def canal_disponible(cfg=None):
 
 def envoyer_message(telephone, texte, *, nom="", objet="", canal=None, request=None):
     """Envoie (ou simule) un message ; ne lève jamais d'exception : l'échec est consigné dans le journal des envois."""
+    from apps.core.licence import module_actif
+
+    if not module_actif("connecteurs"):
+        return None
     cfg = Connecteurs.charger()
     canal = canal or canal_disponible(cfg)
     numero = numero_international(telephone)

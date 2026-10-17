@@ -1,4 +1,5 @@
 """Relations : réservations de visites, messages du site et messagerie locataires."""
+from django.conf import settings
 from django.db import models
 
 from apps.patrimoine.models import Locataire, Maison
@@ -15,8 +16,13 @@ class Reservation(models.Model):
     nom_visiteur = models.CharField(max_length=255)
     tel_visiteur = models.CharField(max_length=50)
     date_visite = models.DateField()
+    heure_visite = models.TimeField(null=True, blank=True)
     message = models.TextField(blank=True, default="")
     statut = models.CharField(max_length=12, choices=Statut.choices, default=Statut.EN_ATTENTE)
+    origine = models.CharField(max_length=10, choices=[("site", "Site internet"), ("telephone", "Téléphone"), ("agence", "À l'agence")], default="site")
+    agent = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="visites")
+    compte_rendu = models.TextField(blank=True, default="")
+    interesse = models.BooleanField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

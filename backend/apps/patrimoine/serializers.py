@@ -23,17 +23,32 @@ class MandatSerializer(serializers.ModelSerializer):
     statut_libelle = serializers.CharField(source="get_statut_display", read_only=True)
     bailleur_nom = serializers.CharField(source="bailleur.nom", read_only=True)
     document = serializers.FileField(write_only=True, required=False, allow_null=True)
+    clauses = serializers.SerializerMethodField()
+    biens_confies = serializers.SerializerMethodField()
 
     class Meta:
         model = MandatGestion
         fields = [
             "id", "reference", "nb_baux", "bailleur", "bailleur_nom", "duree", "duree_libelle", "tacite_reconduction", "echeance", "date_signature", "date_debut", "date_fin", "taux_commission",
-            "statut", "statut_libelle", "en_vigueur", "document_signe", "document", "created_at",
+            "statut", "statut_libelle", "en_vigueur", "document_signe", "document", "created_at", "clauses", "biens_confies",
         ]
         read_only_fields = ["document_signe", "created_at", "statut"]
 
     def get_nb_baux(self, obj):
         return obj.contrats.count()
+
+    def get_clauses(self, obj):
+        if obj.clauses_signees is not None:
+            return obj.clauses_signees
+        from apps.core.models import ClauseMandat
+
+        return list(ClauseMandat.objects.filter(actif=True).values("titre", "contenu"))
+
+    def get_biens_confies(self, obj):
+        return [
+            {"id": b.maison_id, "designation": b.maison.designation, "type_maison": b.maison.type_maison, "adresse": b.maison.adresse, "confie_le": b.confie_le}
+            for b in obj.biens_confies.select_related("maison")
+        ]
 
     def get_echeance(self, obj):
         return obj.echeance()

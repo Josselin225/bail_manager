@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .articles_bail import ARTICLES_BAIL_CI
+from .exceptions import RegleMetier
 from .models import ClauseContrat, ClauseMandat, Journal, Parametres
 from .permissions import EstAdmin, LectureOuAdmin
 from .serializers import ClauseContratSerializer, ClauseMandatSerializer, JournalSerializer, ParametresSerializer
@@ -138,3 +139,29 @@ def media(request, chemin):
     if not chemin.startswith("public/"):
         resp["Cache-Control"] = "private, no-store"
     return resp
+
+
+@api_view(["GET", "POST"])
+def licence(request):
+    """État de la licence (tous) ; installation d'une nouvelle licence (administrateur)."""
+    from .licence import etat, lire
+    from .models import Licence
+
+    if request.method == "POST":
+        if not request.user.est_admin:
+            raise RegleMetier("Seul l'administrateur peut installer une licence.")
+        texte = (request.data.get("texte") or "").strip()
+        try:
+            d = lire(texte)
+        except ValueError as e:
+            raise RegleMetier(str(e))
+        lic = Licence.charger()
+        lic.texte, lic.installee_le = texte, timezone.now()
+        lic.save()
+        journaliser(request, "Licence", f"Licence {d.get('numero', '')} installée — {d.get('agence', '')}, jusqu'au {d['expire_le']:%d/%m/%Y}")
+    from apps.comptes.models import Utilisateur
+    from apps.patrimoine.models import Maison
+
+    e = etat()
+    e["utilises"] = {"utilisateurs": Utilisateur.objects.filter(is_active=True).count(), "biens": Maison.objects.count()}
+    return Response(e)

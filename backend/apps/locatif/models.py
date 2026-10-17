@@ -21,6 +21,8 @@ class Contrat(models.Model):
     date_contrat = models.DateField("Date de signature")
     date_debut = models.DateField()
     date_fin = models.DateField("Échéance du bail", null=True, blank=True)
+    # Clauses telles qu'elles étaient à la signature du bail (copie figée).
+    clauses_signees = models.JSONField(null=True, blank=True)
     statut_contrat = models.CharField(max_length=10, choices=Statut.choices, default=Statut.ACTIF)
     depot_garantie = models.DecimalField("Caution", max_digits=12, decimal_places=0, default=0)
     mois_avance = models.PositiveSmallIntegerField(default=2)
@@ -165,6 +167,10 @@ class EtatDesLieux(models.Model):
     pieces = models.JSONField(default=list)
     observations = models.TextField(blank=True, default="")
     etabli_par = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    # Signatures tracées au doigt sur la tablette, sur place ; effacées si le contenu est modifié ensuite.
+    signature_locataire = models.ImageField(upload_to="etats_des_lieux/signatures/", blank=True, null=True)
+    signature_agence = models.ImageField(upload_to="etats_des_lieux/signatures/", blank=True, null=True)
+    signe_le = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -231,3 +237,52 @@ class PlanApurement(models.Model):
     @property
     def reference(self):
         return f"PA-{self.pk:04d}" if self.pk else ""
+
+
+class CompteurPartage(models.Model):
+    """Compteur d'eau ou d'électricité commun à plusieurs logements (cour commune)."""
+
+    class Mode(models.TextChoices):
+        INDEX = "index", "Au prorata des sous-compteurs (index)"
+        EGAL = "egal", "À parts égales entre logements occupés"
+
+    nom = models.CharField(max_length=150)
+    type_charge = models.CharField(max_length=20, choices=[("Eau", "Eau"), ("Électricité", "Électricité")])
+    numero = models.CharField("N° de compteur / contrat SODECI-CIE", max_length=60, blank=True, default="")
+    mode = models.CharField(max_length=6, choices=Mode.choices, default=Mode.INDEX)
+    maisons = models.ManyToManyField("patrimoine.Maison", related_name="compteurs_partages")
+    actif = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "compteurs_partages"
+        ordering = ["nom"]
+
+
+class FacturePartagee(models.Model):
+    compteur = models.ForeignKey(CompteurPartage, on_delete=models.PROTECT, related_name="factures")
+    numero = models.CharField(max_length=60, blank=True, default="")
+    date_facture = models.DateField()
+    periode = models.CharField(max_length=60, blank=True, default="")
+    montant = models.DecimalField(max_digits=12, decimal_places=0)
+    cree_par = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "factures_partagees"
+        ordering = ["-date_facture", "-id"]
+
+
+class LigneRepartition(models.Model):
+    facture = models.ForeignKey(FacturePartagee, on_delete=models.CASCADE, related_name="lignes")
+    maison = models.ForeignKey("patrimoine.Maison", on_delete=models.PROTECT, related_name="+")
+    contrat = models.ForeignKey(Contrat, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    index_precedent = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    index_actuel = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    consommation = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    montant = models.DecimalField(max_digits=12, decimal_places=0)
+    charge = models.ForeignKey(ChargeLocative, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        db_table = "lignes_repartition"
+        ordering = ["id"]

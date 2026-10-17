@@ -42,3 +42,23 @@ class MouvementCaisse(models.Model):
     class Meta:
         db_table = "mouvements_caisse_entreprise"
         ordering = ["-date_operation", "-id"]
+
+
+class LigneRapprochee(models.Model):
+    """Ligne d'un relevé Mobile Money / bancaire déjà encaissée : son empreinte empêche tout double encaissement."""
+
+    empreinte = models.CharField(max_length=40, unique=True)
+    source = models.CharField(max_length=60, blank=True, default="")
+    date_operation = models.DateField()
+    montant = models.DecimalField(max_digits=12, decimal_places=0)
+    telephone = models.CharField(max_length=30, blank=True, default="")
+    libelle = models.CharField(max_length=255, blank=True, default="")
+    reference = models.CharField(max_length=120, blank=True, default="")
+    contrat = models.ForeignKey("locatif.Contrat", on_delete=models.PROTECT, related_name="lignes_rapprochees")
+    encaissement = models.ForeignKey("locatif.Encaissement", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    reste_non_affecte = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "lignes_rapprochees"
+        ordering = ["-created_at", "-id"]

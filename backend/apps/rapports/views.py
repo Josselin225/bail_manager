@@ -185,6 +185,7 @@ def tableau_de_bord(request):
                 {"bailleur": m.bailleur.nom, "bailleur_id": m.bailleur_id, "date_fin": m.date_fin, "jours": (m.date_fin - j).days}
                 for m in mandats_fin
             ],
+            "revisions": len(services.revisions_a_echeance(30, j)),
         },
         "mois_courant": {"libelle": libelle_periode(mois, annee), "lignes": situation},
         "graphique": {"annee": annee, "courante": par_mois(annee), "precedente": par_mois(annee - 1)},
@@ -486,6 +487,44 @@ def donnees_recap_fiscal(b, request):
     }
 
 
+@api_view(["GET"])
+def activite_agents(request):
+    """Activité de chaque membre de l'équipe sur la période : encaissements, baux, relances, visites, états des lieux.
+
+    L'administrateur voit toute l'équipe ; un agent ne voit que sa propre ligne.
+    """
+    from apps.comptes.models import Utilisateur
+    from apps.locatif.models import EtatDesLieux, Relance
+    from apps.relations.models import Reservation
+
+    j = aujourdhui()
+    du = _date(request.query_params.get("du"), j.replace(day=1))
+    au = _date(request.query_params.get("au"), j)
+    equipe = Utilisateur.objects.filter(is_active=True).order_by("nom_complet")
+    if getattr(request.user, "role", "") != "admin":
+        equipe = equipe.filter(pk=request.user.pk)
+    encs = Encaissement.objects.filter(date_encaissement__date__range=(du, au))
+    lignes = []
+    for u in equipe:
+        e = encs.filter(enregistre_par=u).aggregate(n=Count("id"), total=Sum("montant_recu"), commissions=Sum("commission"))
+        visites = Reservation.objects.filter(agent=u, date_visite__range=(du, au))
+        lignes.append({
+            "id": u.pk, "nom": u.nom_complet, "role": u.get_role_display() if hasattr(u, "get_role_display") else u.role,
+            "encaissements": e["n"], "montant": e["total"] or 0, "commissions": e["commissions"] or 0,
+            "baux": Contrat.objects.filter(cree_par=u, date_contrat__range=(du, au)).count(),
+            "relances": Relance.objects.filter(effectuee_par=u, date_relance__range=(du, au)).count(),
+            "visites": visites.filter(statut="termine").count(), "visites_prevues": visites.exclude(statut__in=["termine", "annule"]).count(),
+            "visiteurs_interesses": visites.filter(interesse=True).count(),
+            "etats_des_lieux": EtatDesLieux.objects.filter(etabli_par=u, date_etat__range=(du, au)).count(),
+        })
+    sans_auteur = encs.filter(enregistre_par__isnull=True).aggregate(n=Count("id"), total=Sum("montant_recu"))
+    return Response({
+        "du": du, "au": au, "lignes": lignes,
+        "automatiques": {"encaissements": sans_auteur["n"], "montant": sans_auteur["total"] or 0},
+        "totaux": {k: sum(l[k] for l in lignes) for k in ("encaissements", "montant", "commissions", "baux", "relances", "visites", "etats_des_lieux")},
+    })
+
+
 # ─── Calendrier ───────────────────────────────────────────────────────────────
 @api_view(["GET"])
 def calendrier(request):
@@ -506,6 +545,11 @@ def calendrier(request):
     for r in Reservation.objects.filter(date_visite__range=(du, au), statut__in=["en_attente", "confirme"]).select_related("maison"):
         evts.append({"id": f"visite-{r.pk}", "type": "visite", "date": r.date_visite, "statut": r.statut,
                      "titre": f"Visite — {r.nom_visiteur}", "detail": f"{r.maison.designation} — {r.tel_visiteur}", "lien": "/reservations"})
+    for rv in services.revisions_a_echeance(max(0, (au - j).days), j):
+        if du <= rv["echeance"] <= au:
+            evts.append({"id": f"revision-{rv['contrat']}", "type": "fin_contrat", "date": rv["echeance"], "statut": "info",
+                         "titre": f"Révision triennale possible — {rv['locataire']}", "detail": f"{rv['maison']} — loyer {int(rv['loyer']):,} FCFA".replace(",", " "),
+                         "lien": f"/contrats/{rv['contrat']}"})
     for c in Contrat.objects.filter(statut_contrat="actif", date_sortie_prevue__range=(du, au)).select_related("locataire", "maison"):
         evts.append({"id": f"sortie-{c.pk}", "type": "fin_contrat", "date": c.date_sortie_prevue, "statut": "info",
                      "titre": f"Sortie prévue — {c.locataire.nom}", "detail": f"{c.maison.designation} (préavis du {c.preavis_le:%d/%m/%Y})", "lien": f"/contrats/{c.pk}"})

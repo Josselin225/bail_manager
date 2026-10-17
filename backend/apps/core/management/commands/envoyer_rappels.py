@@ -6,6 +6,7 @@ from django.utils.html import escape
 
 from apps.core.models import Parametres
 from apps.core.utils import aujourdhui, fcfa, journaliser
+from apps.locatif import services
 from apps.locatif.models import Contrat
 from apps.locatif.notifications import envoyer
 from apps.patrimoine.mandats import informer_locataires_echeance
@@ -45,7 +46,8 @@ class Command(BaseCommand):
             sujet = "Rappel — loyer en retard" if en_retard else "Rappel — échéance proche"
             if envoyer([c.locataire.email], sujet, "Rappel de paiement", corps):
                 envoyes += 1
-        if p.contact_email and (retards or proches or fins or mandats_90):
+        revisions = [r for r in services.revisions_a_echeance(0, j)]
+        if p.contact_email and (retards or proches or fins or mandats_90 or revisions):
             def bloc(titre, items, fmt):
                 return f"<h3 style='margin:18px 0 6px'>{titre} ({len(items)})</h3><ul>" + "".join(f"<li>{fmt(c)}</li>" for c in items) + "</ul>" if items else ""
             html = (
@@ -53,6 +55,7 @@ class Command(BaseCommand):
                 + bloc("Échéances dans les 3 jours", proches, lambda c: f"{escape(c.locataire.nom)} — {escape(c.maison.designation)} — le {c.date_prochain_loyer:%d/%m/%Y}")
                 + bloc("Baux arrivant à échéance (30 j)", fins, lambda c: f"{escape(c.locataire.nom)} — {escape(c.maison.designation)} — fin le {c.date_fin:%d/%m/%Y}")
                 + bloc("Mandats de gestion arrivant à échéance (90 j)", mandats_90, lambda m: f"{escape(m.bailleur.nom)} — mandat {m.reference} — fin le {m.date_fin:%d/%m/%Y} ({(m.date_fin - j).days} j)")
+                + bloc("Révisions triennales possibles", revisions, lambda r: f"{escape(r['locataire'])} — {escape(r['maison'])} — loyer inchangé depuis le {r['depuis']:%d/%m/%Y}")
             )
             envoyer([p.contact_email], f"Synthèse quotidienne — {j:%d/%m/%Y}", "Synthèse quotidienne", html)
         resume = (

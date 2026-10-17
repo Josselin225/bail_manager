@@ -83,6 +83,9 @@ class MandatGestion(models.Model):
     taux_commission = models.DecimalField(max_digits=5, decimal_places=2, default=10)
     statut = models.CharField(max_length=10, choices=Statut.choices, default=Statut.ACTIF)
     document_signe = models.FileField(upload_to="mandats/", blank=True, null=True)
+    # Clauses telles qu'elles étaient à la signature : la modification ultérieure des clauses types ne réécrit pas le mandat.
+    clauses_signees = models.JSONField(null=True, blank=True)
+    biens = models.ManyToManyField("Maison", through="BienConfie", related_name="mandats", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -139,6 +142,19 @@ class Maison(models.Model):
 
     def __str__(self):
         return self.designation
+
+
+class BienConfie(models.Model):
+    """Bien placé sous un mandat de gestion, avec la date à laquelle il a été confié (historique du mandat)."""
+
+    mandat = models.ForeignKey(MandatGestion, on_delete=models.CASCADE, related_name="biens_confies")
+    maison = models.ForeignKey(Maison, on_delete=models.CASCADE, related_name="confiee_sous")
+    confie_le = models.DateField()
+
+    class Meta:
+        db_table = "mandats_biens"
+        unique_together = [("mandat", "maison")]
+        ordering = ["confie_le", "id"]
 
 
 class PhotoMaison(models.Model):

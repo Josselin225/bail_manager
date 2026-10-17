@@ -29,6 +29,16 @@ class ReglesMetierTests(TestCase):
             p = mock.patch(cible, _auj)
             p.start()
             self.addCleanup(p.stop)
+        import shutil
+        import tempfile
+
+        from django.test import override_settings
+
+        dossier = tempfile.mkdtemp()  # fichiers envoyés pendant les tests (signatures, photos) : jamais dans uploads/
+        self.addCleanup(shutil.rmtree, dossier, True)
+        reglage = override_settings(MEDIA_ROOT=dossier)
+        reglage.enable()
+        self.addCleanup(reglage.disable)
         Parametres.charger()
         self.admin = Utilisateur.objects.create_user("admin@test.ci", "motdepasse1", nom_complet="Admin", role="admin")
         self.agent = Utilisateur.objects.create_user("agent@test.ci", "motdepasse1", nom_complet="Agent", role="agent")
@@ -455,6 +465,254 @@ class ReglesMetierTests(TestCase):
 
         html = _apercu_annonce(RequestFactory().get(f"/nos-maisons/{self.m.pk}"), "<html><head><title>BailManager</title></head></html>")
         self.assertIn('property="og:title" content="Villa A1', html)
+
+
+    def test_clauses_et_biens_figes_secrets_et_documents(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.db import connection
+
+        from apps.connecteurs.models import Connecteurs
+        from apps.core.models import ClauseContrat, ClauseMandat
+
+        ClauseMandat.objects.create(titre="Gestion", contenu="Version signée du mandat")
+        ClauseContrat.objects.create(titre="Usage", contenu="Version signée du bail")
+        r = self.api.post("/api/mandats/", {"bailleur": self.b.pk, "date_signature": "2026-01-01", "date_debut": "2026-01-01", "taux_commission": 10}, format="json")
+        mandat = r.data["id"]
+        self.contrat()
+        c = Contrat.objects.get()
+        # Les clauses types changent après la signature : bail et mandat gardent leur version
+        ClauseMandat.objects.update(contenu="Nouvelle version")
+        ClauseContrat.objects.update(contenu="Nouvelle version")
+        m = self.api.get(f"/api/mandats/{mandat}/").data
+        self.assertIn("Version signée du mandat", [x["contenu"] for x in m["clauses"]])
+        self.assertIn("Version signée du bail", [x["contenu"] for x in self.api.get(f"/api/contrats/{c.pk}/impression/").data["clauses"]])
+        # Biens confiés : le bien existant au mandat, puis un bien ajouté ensuite, daté
+        self.assertEqual([b["designation"] for b in m["biens_confies"]], ["Villa A1"])
+        self.api.post("/api/maisons/", {"bailleur": self.b.pk, "designation": "Studio B2", "loyer": 40000}, format="json")
+        biens = self.api.get(f"/api/mandats/{mandat}/").data["biens_confies"]
+        self.assertEqual([(b["designation"], str(b["confie_le"])) for b in biens], [("Villa A1", "2026-01-01"), ("Studio B2", "2026-06-20")])
+        # Un renouvellement reprend les biens, l'ancien mandat garde sa liste
+        r = self.api.post("/api/mandats/", {"bailleur": self.b.pk, "date_signature": "2026-06-20", "date_debut": "2026-06-20", "taux_commission": 9}, format="json")
+        self.assertEqual(len(self.api.get(f"/api/mandats/{r.data['id']}/").data["biens_confies"]), 2)
+        self.assertEqual(len(self.api.get(f"/api/mandats/{mandat}/").data["biens_confies"]), 2)
+        # Secrets chiffrés en base, lisibles par le logiciel
+        cfg = Connecteurs.charger()
+        cfg.paiement_cle = "cle-api-tres-secrete"
+        cfg.save()
+        with connection.cursor() as cur:
+            cur.execute("select paiement_cle from connecteurs")
+            brut = cur.fetchone()[0]
+        self.assertTrue(brut.startswith("enc1:"))
+        self.assertNotIn("tres-secrete", brut)
+        self.assertEqual(Connecteurs.charger().paiement_cle, "cle-api-tres-secrete")
+        # Document joint : le contenu fait foi, pas l'extension
+        faux = SimpleUploadedFile("contrat.pdf", b"MZ\x90\x00 programme", content_type="application/pdf")
+        r = self.api.post("/api/documents/", {"entity_type": "bailleur", "entity_id": self.b.pk, "fichier": faux}, format="multipart")
+        self.assertEqual(r.status_code, 400)
+        vrai = SimpleUploadedFile("scan.pdf", b"%PDF-1.4\n%fin", content_type="application/pdf")
+        r = self.api.post("/api/documents/", {"entity_type": "bailleur", "entity_id": self.b.pk, "fichier": vrai}, format="multipart")
+        self.assertEqual(r.status_code, 201, r.data)
+
+
+    def test_rapprochement_releve(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.mandat()
+        self.l.telephone1 = "0505050505"
+        self.l.save()
+        self.contrat()  # avance mars-avril : mai et juin sont dus (100 000 chacun)
+        releve = (
+            "Relevé Wave - Agence\n"
+            "Date;Expéditeur;Description;Montant;ID transaction\n"
+            "05/06/2026 10:12;+225 05 05 05 05 05;Paiement loyer;150 000;T1\n"
+            "06/06/2026;0707000000;Inconnu;25 000;T2\n"
+            "07/06/2026;0707000001;Frais;-500;T3\n"
+        ).encode("cp1252")
+        envoi = lambda: SimpleUploadedFile("wave.csv", releve, content_type="text/csv")  # noqa: E731
+        r = self.api.post("/api/rapprochement/analyser/", {"fichier": envoi()}, format="multipart")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["colonnes"], {"date": 0, "montant": 3, "telephone": 1, "libelle": 2, "reference": 4})
+        l1, l2, l3 = r.data["lignes"]
+        self.assertEqual((l1["etat"], l1["contrat"], l1["montant"]), ("probable", Contrat.objects.get().pk, 150000))
+        self.assertEqual((l2["etat"], l3["etat"]), ("a_affecter", "ignoree"))
+        # 150 000 réglés : mai soldé (100 000) puis 50 000 sur juin
+        ligne = {k: str(v) if k in ("date", "montant") else v for k, v in l1.items()}
+        r = self.api.post("/api/rapprochement/encaisser/", {"lignes": [ligne], "mode": "mobile_money", "source": "Wave"}, format="json")
+        res = r.data["resultats"][0]
+        self.assertTrue(res["ok"], res)
+        self.assertEqual([x["periode"] for x in res["recus"]], ["Mai 2026", "Juin 2026"])
+        self.assertEqual(services.total_paye(Contrat.objects.get(), 6, 2026), 50000)
+        # Le même relevé réimporté : la ligne est reconnue, rien n'est encaissé deux fois
+        r = self.api.post("/api/rapprochement/analyser/", {"fichier": envoi()}, format="multipart")
+        self.assertEqual(r.data["lignes"][0]["etat"], "deja")
+        r = self.api.post("/api/rapprochement/encaisser/", {"lignes": [ligne], "mode": "mobile_money", "source": "Wave"}, format="json")
+        self.assertFalse(r.data["resultats"][0]["ok"])
+        self.assertEqual(Encaissement.objects.filter(contrat__locataire=self.l).count(), 4)
+
+
+    def test_compteur_partage(self):
+        from apps.locatif.models import ChargeLocative
+
+        self.mandat()
+        self.contrat()
+        c = Contrat.objects.get()
+        url = f"/api/contrats/{c.pk}/etat-des-lieux/entree/"
+        r = self.api.post(url, {"date_etat": "2026-03-05", "index_eau": "100", "nombre_cles": 2, "pieces": self.api.get(url).data["pieces"]}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        vide = Maison.objects.create(bailleur=self.b, designation="Studio vide", loyer=40000)
+        r = self.api.post("/api/compteurs/", {"nom": "Cour A1", "type_charge": "Eau", "mode": "index", "maisons": [self.m.pk, vide.pk]}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        cid = r.data["id"]
+        prep = {x["designation"]: x for x in self.api.get(f"/api/compteurs/{cid}/preparation/", {"date": "2026-06-10"}).data}
+        self.assertEqual(prep["Villa A1"]["index_precedent"], 100)       # repris de l'état des lieux d'entrée
+        self.assertIsNone(prep["Studio vide"]["contrat"])
+        solde = solde_bailleur(self.b)
+        # 30 m³ chez le locataire, 10 m³ dans le logement vide : 30 001 FCFA répartis 3/4 - 1/4
+        r = self.api.post(f"/api/compteurs/{cid}/factures/", {"date_facture": "2026-06-10", "montant": 30001, "numero": "F-1", "lignes": [
+            {"maison": self.m.pk, "index_actuel": "130"}, {"maison": vide.pk, "index_precedent": "50", "index_actuel": "60"}]}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        parts = {l["maison"]: l["montant"] for l in r.data["lignes"]}
+        self.assertEqual(parts, {"Villa A1": 22501, "Studio vide": 7500})
+        self.assertEqual(sum(parts.values()), 30001)
+        self.assertEqual(ChargeLocative.objects.get(contrat=c).montant, 22501)
+        self.assertEqual(solde_bailleur(self.b), solde - 7500)            # part du logement vide au propriétaire
+        # Facture suivante : l'index précédent est le dernier relevé
+        prep = {x["designation"]: x for x in self.api.get(f"/api/compteurs/{cid}/preparation/").data}
+        self.assertEqual(prep["Villa A1"]["index_precedent"], 130)
+        r = self.api.post(f"/api/compteurs/{cid}/factures/", {"date_facture": "2026-06-15", "montant": 1000, "lignes": [{"maison": self.m.pk, "index_actuel": "120"}]}, format="json")
+        self.assertEqual(r.status_code, 400)                              # index en baisse refusé
+        # À parts égales : seul le logement occupé paie
+        self.api.patch(f"/api/compteurs/{cid}/", {"mode": "egal"}, format="json")
+        r = self.api.post(f"/api/compteurs/{cid}/factures/", {"date_facture": "2026-06-15", "montant": 9000}, format="json")
+        self.assertEqual({l["maison"]: l["montant"] for l in r.data["lignes"]}, {"Villa A1": 9000, "Studio vide": 0})
+
+
+    def test_agenda_des_visites_et_signature_etat_des_lieux(self):
+        import base64
+        import io
+
+        from PIL import Image
+
+        self.mandat()
+        # Visite prise au téléphone, confirmée d'office, puis attribuée et faite
+        r = self.api.post("/api/reservations/", {"maison": self.m.pk, "nom_visiteur": "Koffi", "tel_visiteur": "0101", "date_visite": "2026-06-22",
+                                                 "heure_visite": "10:30", "origine": "telephone"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual((r.data["statut"], r.data["origine"]), ("confirme", "telephone"))
+        v = r.data["id"]
+        self.api.patch(f"/api/reservations/{v}/", {"agent": self.agent.pk}, format="json")
+        agenda = self.api.get("/api/reservations/agenda/").data
+        self.assertEqual([(x["nom_visiteur"], x["heure_visite"], x["agent_nom"]) for x in agenda], [("Koffi", "10:30:00", "Agent")])
+        self.api.force_authenticate(self.agent)
+        self.assertEqual(len(self.api.get("/api/reservations/agenda/", {"moi": 1}).data), 1)
+        self.api.patch(f"/api/reservations/{v}/", {"statut": "termine", "compte_rendu": "Intéressé, veut voir le bail", "interesse": True}, format="json")
+        self.api.force_authenticate(self.admin)
+        self.assertEqual(len(self.api.get("/api/reservations/agenda/", {"du": "2026-06-23"}).data), 0)
+        # Bien loué : plus de visite possible
+        self.contrat()
+        r = self.api.post("/api/reservations/", {"maison": self.m.pk, "nom_visiteur": "X", "tel_visiteur": "1", "date_visite": "2026-06-25"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        # État des lieux signé au doigt sur la tablette
+        c = Contrat.objects.get()
+        url = f"/api/contrats/{c.pk}/etat-des-lieux/entree/"
+        pieces = self.api.get(url).data["pieces"]
+        self.assertEqual(self.api.post(url + "signer/", {"locataire": "x", "agence": "y"}, format="json").status_code, 400)  # pas encore établi
+        self.api.post(url, {"date_etat": "2026-03-05", "nombre_cles": 2, "pieces": pieces}, format="json")
+        tampon = io.BytesIO()
+        Image.new("RGBA", (300, 120), (0, 0, 0, 0)).save(tampon, "PNG")
+        png = "data:image/png;base64," + base64.b64encode(tampon.getvalue()).decode()
+        self.assertEqual(self.api.post(url + "signer/", {"locataire": png}, format="json").status_code, 400)                  # les deux signatures
+        r = self.api.post(url + "signer/", {"locataire": png, "agence": png}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertIsNotNone(self.api.get(url).data["signatures"])
+        # Enregistrer sans changement garde les signatures ; une modification les annule
+        self.api.post(url, {"date_etat": "2026-03-05", "nombre_cles": 2, "pieces": pieces}, format="json")
+        self.assertIsNotNone(self.api.get(url).data["signatures"])
+        self.api.post(url, {"date_etat": "2026-03-05", "nombre_cles": 3, "pieces": pieces}, format="json")
+        self.assertIsNone(self.api.get(url).data["signatures"])
+
+
+    def test_activite_des_agents(self):
+        self.mandat()
+        self.contrat()
+        self.api.force_authenticate(self.agent)
+        self.payer(Contrat.objects.get().pk, 100000, 5)
+        r = self.api.get("/api/rapports/activite-agents/", {"du": "2026-01-01", "au": "2026-12-31"})
+        self.assertEqual([l["nom"] for l in r.data["lignes"]], ["Agent"])            # un agent ne voit que lui
+        self.assertEqual((r.data["lignes"][0]["encaissements"], r.data["lignes"][0]["montant"]), (1, 100000))
+        self.api.force_authenticate(self.admin)
+        r = self.api.get("/api/rapports/activite-agents/", {"du": "2026-01-01", "au": "2026-12-31"})
+        par_nom = {l["nom"]: l for l in r.data["lignes"]}
+        self.assertEqual(set(par_nom), {"Admin", "Agent"})
+        self.assertEqual((par_nom["Admin"]["baux"], par_nom["Admin"]["encaissements"]), (1, 2))   # bail + avance de 2 mois
+
+
+    def test_revision_triennale_a_echeance(self):
+        self.mandat()
+        self.contrat(date_debut="2023-05-01", mois_avance=0)       # trois ans révolus le 01/05/2026
+        c = Contrat.objects.get()
+        a = self.api.get("/api/revisions/a-echeance/").data
+        self.assertEqual([(x["contrat"], str(x["echeance"])) for x in a], [(c.pk, "2026-05-01")])
+        self.assertEqual(self.api.get("/api/tableau-de-bord/").data["alertes"]["revisions"], 1)
+        r = self.api.post(f"/api/contrats/{c.pk}/reviser/", {"nouveau_loyer": 110000, "date_effet": "2026-09-01", "origine": "triennale", "motif": "Révision triennale"}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        lettre = self.api.get(f"/api/revisions/{r.data['id']}/").data
+        self.assertEqual((lettre["locataire_nom"], lettre["bailleur_nom"], lettre["variation"]), ("Yao Aya", "Koné Ibrahim", 10.0))
+        # Prochaine révision possible trois ans après la date d'effet
+        self.assertEqual(self.api.get("/api/revisions/a-echeance/").data, [])
+        self.assertEqual(services.revisions_a_echeance(0, date(2029, 9, 1))[0]["depuis"], date(2026, 9, 1))
+
+
+    def test_licence(self):
+        import base64
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        from apps.core import licence
+
+        cle = Ed25519PrivateKey.generate()   # clé de test : la vraie clé privée n'est jamais dans le projet
+        pem = cle.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+        p = mock.patch.object(licence, "CLE_PUBLIQUE", base64.b64encode(cle.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode())
+        p.start()
+        self.addCleanup(p.stop)
+        faire = lambda **d: licence.signer({"numero": "LIC-T", "agence": "Agence T", "expire_le": "2027-12-31", "utilisateurs": None, "biens": None, "modules": [], **d}, pem)  # noqa: E731
+        # Sans licence : essai de 30 jours, tout est ouvert
+        e = self.api.get("/api/licence/").data
+        self.assertEqual((e["statut"], e["essai"], len(e["modules"])), ("essai", True, len(licence.MODULES)))
+        self.assertEqual(self.api.get("/api/compteurs/").status_code, 200)
+        # Licence modifiée à la main : refusée
+        texte = faire(modules=["connecteurs"], utilisateurs=2, biens=1)
+        corps, sig = texte.split(".")
+        falsifiee = base64.urlsafe_b64encode(base64.urlsafe_b64decode(corps + "==").replace(b"2027", b"2099")).decode().rstrip("=") + "." + sig
+        self.assertEqual(self.api.post("/api/licence/", {"texte": falsifiee}, format="json").status_code, 400)
+        self.api.force_authenticate(self.agent)
+        self.assertEqual(self.api.post("/api/licence/", {"texte": texte}, format="json").status_code, 400)   # administrateur seulement
+        self.api.force_authenticate(self.admin)
+        r = self.api.post("/api/licence/", {"texte": texte}, format="json")
+        self.assertEqual((r.data["statut"], r.data["agence"], r.data["utilises"]), ("valide", "Agence T", {"utilisateurs": 2, "biens": 1}))
+        # Modules non inclus et limites
+        self.assertEqual(self.api.get("/api/compteurs/").status_code, 403)
+        self.assertEqual(self.api.get("/api/rapprochement/historique/").status_code, 403)
+        self.mandat()
+        r = self.api.post("/api/maisons/", {"bailleur": self.b.pk, "designation": "Studio 2", "loyer": 30000}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("limitée à 1 biens", r.data["detail"])
+        r = self.api.post("/api/utilisateurs/", {"email": "trois@test.ci", "nom_complet": "Trois", "role": "agent", "password": "motdepasse12"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        # Expirée depuis plus de 15 jours : lecture seule (consultation et sauvegarde permises)
+        self.api.post("/api/licence/", {"texte": faire(expire_le="2026-05-01", modules=["compteurs"])}, format="json")
+        e = self.api.get("/api/licence/").data
+        self.assertEqual((e["statut"], e["lecture_seule"]), ("expiree", True))
+        self.assertEqual(self.api.get("/api/maisons/").status_code, 200)
+        r = self.api.patch(f"/api/maisons/{self.m.pk}/", {"designation": "X"}, format="json")
+        self.assertEqual((r.status_code, r.json()["code"]), (403, "licence_expiree"))
+        self.assertEqual(self.api.post("/api/auth/deconnexion/").status_code, 200)
+        self.api.force_authenticate(self.admin)
+        # En période de grâce : tout fonctionne encore
+        self.api.post("/api/licence/", {"texte": faire(expire_le="2026-06-10", modules=["compteurs"])}, format="json")
+        self.assertEqual(self.api.get("/api/licence/").data["statut"], "grace")
+        self.assertEqual(self.api.patch(f"/api/maisons/{self.m.pk}/", {"designation": "Villa A1 bis"}, format="json").status_code, 200)
 
 
 def _png(nom="photo.png"):

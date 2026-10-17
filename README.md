@@ -4,7 +4,7 @@ Logiciel de gestion locative, financière et comptable immobilière — refonte 
 
 La structure et la logique de la version 1 sont conservées : patrimoine sous mandat de gestion, baux, encaissements avec répartition bailleur / commission, comptes courants bailleurs, caisse agence, cautions, rapports, site vitrine, espace locataire et journal d'audit.
 
-S'y ajoutent : états des lieux d'entrée et de sortie, préavis, recouvrement gradué et plans d'apurement, demandes d'intervention, espace propriétaire, connecteurs SMS / WhatsApp / Mobile Money / signature par code SMS (avec mode test), récapitulatif fiscal annuel, partage des annonces, application installable (PWA) et sauvegarde chiffrée hors du serveur.
+S'y ajoutent : états des lieux d'entrée et de sortie, préavis, recouvrement gradué et plans d'apurement, demandes d'intervention, espace propriétaire, connecteurs SMS / WhatsApp / Mobile Money / signature par code SMS (avec mode test), récapitulatif fiscal annuel, partage des annonces, application installable (PWA), sauvegarde chiffrée hors du serveur, rapprochement des relevés Mobile Money et bancaires, compteurs partagés, agenda des visites, état des lieux signé sur tablette, activité de l'équipe, révision triennale et licence par agence.
 
 ## Démarrage rapide (Windows)
 
@@ -56,3 +56,5 @@ python manage.py test apps                                       # tests des rè
 | `python manage.py envoyer_rappels` | Rappels de loyer, information des locataires 30 j avant la fin d'un mandat non reconduit, synthèse quotidienne (ex-`cron_rappels.php`) |
 | `python manage.py sauvegarder` | Archive ZIP données + fichiers dans `sauvegardes/`, puis copie chiffrée vers la destination réglée (Paramètres > Sauvegarde) |
 | `python manage.py dechiffrer_sauvegarde <fichier.zip.chiffre>` | Rend lisible une copie chiffrée (la phrase de chiffrement est demandée) |
+| `python manage.py generer_licence --agence … --jusquau AAAA-MM-JJ [--utilisateurs N] [--biens N] [--modules …] --cle <cle-privee.pem>` | **Éditeur seulement** : produit la licence d'une agence (à coller dans Paramètres > Licence) |
+| `scripts-windows\3-configurer-serveur.bat` (en administrateur) | Serveur de l'agence : démarrage avec Windows, pare-feu, rappels et sauvegardes planifiés |

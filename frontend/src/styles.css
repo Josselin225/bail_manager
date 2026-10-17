@@ -1489,3 +1489,70 @@ form.tente .fichier:has(input:invalid) { border-color: var(--signal); }
 .partage-boutons .btn { gap: 6px; }
 .partage-whatsapp svg { color: #1a9e55; }
 .partage-facebook svg { color: #1b65d6; }
+
+/* Paramètres > Serveur */
+.acces-reseau { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; margin-bottom: 12px; }
+.adresse-reseau { display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px solid var(--ligne); border-radius: 12px; background: var(--surface); }
+.adresse-reseau svg { flex: none; border-radius: 8px; background: #fff; padding: 4px; }
+.adresse-reseau .adresse { font-size: 17px; word-break: break-all; }
+
+/* Rapprochement */
+.colonnes-releve { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 10px; }
+.combo-rapprochement { min-width: 220px; }
+.combo-rapprochement .champ { margin: 0; }
+.pied-rapprochement { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--ligne); }
+@media (max-width: 760px) { .combo-rapprochement { min-width: 0; width: 100%; } }
+
+/* Compteurs partagés */
+.grille-compteurs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+.choix-maisons { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 6px; max-height: 260px; overflow: auto; margin-top: 8px; padding: 2px; }
+.case-maison { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--ligne); border-radius: 10px; cursor: pointer; }
+.case-maison.choisie { border-color: var(--marine-3); background: var(--info-pale); }
+.case-maison > span { display: grid; gap: 1px; min-width: 0; }
+.tableau-repartition .saisie { min-width: 90px; max-width: 130px; }
+.facture-partagee { border: 1px solid var(--ligne); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+.tableau.compact td { padding: 6px 8px; font-size: 13px; }
+.tableau-repartition td:last-child { white-space: nowrap; }
+
+/* Signature au doigt (état des lieux sur tablette) */
+.zone-signature { position: relative; display: grid; gap: 8px; }
+.zone-signature canvas { width: 100%; height: 170px; border: 1.5px dashed var(--ligne-forte); border-radius: 12px; background: #fff; touch-action: none; cursor: crosshair; }
+.zone-signature canvas:not(.vide) { border-style: solid; border-color: var(--marine-3); }
+.consigne-signature { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; color: #9aa3b2; font-size: 14px; pointer-events: none; }
+.signatures-faites { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.signatures-faites figure { margin: 0; border: 1px solid var(--ligne); border-radius: 12px; padding: 8px; background: #fff; }
+.signatures-faites img { width: 100%; height: 120px; object-fit: contain; }
+.signatures-faites figcaption { font-size: 12.5px; color: #4a5568; text-align: center; }
+.doc .signature-tracee { display: block; max-width: 100%; height: 58px; object-fit: contain; margin-top: 4px; }
+.doc .mention-signature-edl { font-size: 10px; color: #1d7a4e; font-weight: 600; margin: 14px 0 0; }
+@media (max-width: 640px) { .signatures-faites { grid-template-columns: 1fr; } }
+/* Tablette et téléphone : cibles tactiles plus grandes pour remplir l'état des lieux sur place */
+@media (pointer: coarse) {
+  .edl-etats button { height: 46px; padding: 0 14px; font-size: 14px; }
+  .edl-etats { flex-wrap: wrap; }
+}
+
+/* Agenda des visites */
+.liste-visites { display: grid; gap: 10px; }
+.carte-visite { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 12px; border: 1px solid var(--ligne); border-left: 4px solid var(--info); border-radius: 12px; background: var(--surface); }
+.carte-visite.statut-en_attente { border-left-color: var(--ambre); }
+.carte-visite.statut-termine { border-left-color: var(--ok); opacity: 0.85; }
+.heure-visite { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; color: var(--marine-3); }
+[data-theme="dark"] .heure-visite { color: var(--info); }
+.corps-visite { display: grid; gap: 3px; min-width: 0; }
+.corps-visite svg { vertical-align: -1px; }
+.actions-visite { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 260px; }
+@media (max-width: 760px) { .carte-visite { grid-template-columns: 1fr; } .actions-visite { justify-content: flex-start; max-width: none; } }
+
+/* Licence */
+.bandeau-licence { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; margin-bottom: 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; }
+.bandeau-licence svg { flex: none; margin-top: 2px; }
+.bandeau-licence a { font-weight: 700; color: inherit; text-decoration: underline; }
+.bandeau-licence.alerte { background: var(--ambre-pale); color: #6e4300; }
+.bandeau-licence.grace, .bandeau-licence.expiree { background: var(--signal-pale); color: #8a2018; }
+[data-theme="dark"] .bandeau-licence.alerte { background: #3a2a0c; color: #f3cf8a; }
+[data-theme="dark"] .bandeau-licence.grace, [data-theme="dark"] .bandeau-licence.expiree { background: #3d1714; color: #f4b4ad; }
+.sous-titre-panneau { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--discret); margin: 18px 0 8px; }
+.modules-licence { display: grid; gap: 8px; }
+.modules-licence > div { color: var(--discret); }
+.modules-licence > div.inclus { color: var(--texte); }

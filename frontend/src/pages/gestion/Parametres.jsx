@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, BookMarked, DatabaseBackup, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { api, telecharger } from "../../lib/api";
@@ -6,6 +7,8 @@ import { appliquerCouleur, useSession } from "../../lib/session";
 import { Badge, Bouton, Case, Encart, EntetePage, Fenetre, FenetreFormulaire, Fichier, Onglets, Panneau, Saisie, Tableau, Zone, useConfirmer, useToast } from "../../components/ui";
 
 import Connecteurs, { SauvegardeEnLigne } from "../../components/Connecteurs";
+import Serveur from "../../components/Serveur";
+import Licence from "../../components/Licence";
 
 const COULEURS = ["#0e2a47", "#1f3b73", "#0b4f4a", "#3d2a6b", "#5a1f2a", "#26323f"];
 
@@ -164,16 +167,19 @@ function Sauvegardes() {
 }
 
 export default function Parametres() {
-  const [onglet, setOnglet] = useState("entreprise");
+  const [params] = useSearchParams();
+  const [onglet, setOnglet] = useState(params.get("onglet") || "entreprise");
   return (
     <>
       <EntetePage titre="Paramètres" soustitre="Identité de l'agence, mentions des documents, clauses types et sauvegardes." />
-      <Onglets actif={onglet} onChange={setOnglet} onglets={[{ cle: "entreprise", libelle: "Entreprise" }, { cle: "bail", libelle: "Clauses du bail" }, { cle: "mandat", libelle: "Clauses du mandat" }, { cle: "connecteurs", libelle: "Connecteurs" }, { cle: "sauvegarde", libelle: "Sauvegarde" }]} />
+      <Onglets actif={onglet} onChange={setOnglet} onglets={[{ cle: "entreprise", libelle: "Entreprise" }, { cle: "bail", libelle: "Clauses du bail" }, { cle: "mandat", libelle: "Clauses du mandat" }, { cle: "connecteurs", libelle: "Connecteurs" }, { cle: "sauvegarde", libelle: "Sauvegarde" }, { cle: "serveur", libelle: "Serveur" }, { cle: "licence", libelle: "Licence" }]} />
       {onglet === "entreprise" && <Entreprise />}
       {onglet === "bail" && <Clauses url="/clauses-contrat/" titre="Clauses imprimées sur les contrats de bail" bibliotheque />}
       {onglet === "mandat" && <Clauses url="/clauses-mandat/" titre="Clauses imprimées sur les mandats de gestion" />}
       {onglet === "connecteurs" && <Connecteurs />}
       {onglet === "sauvegarde" && <Sauvegardes />}
+      {onglet === "serveur" && <Serveur />}
+      {onglet === "licence" && <Licence />}
     </>
   );
 }

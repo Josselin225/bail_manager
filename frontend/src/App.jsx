@@ -60,8 +60,12 @@ const ReleveBailleur = p(() => import("./pages/impression/ReleveBailleur"));
 const ReleveCaution = p(() => import("./pages/impression/ReleveCaution"));
 const ImpressionRapport = p(() => import("./pages/impression/ImpressionRapport"));
 const DocEtatDesLieux = p(() => import("./pages/impression/DocEtatDesLieux"));
+const DocRevision = p(() => import("./pages/impression/DocRevision"));
 const DocRelance = p(() => import("./pages/impression/DocRelance"));
 const DocPlanApurement = p(() => import("./pages/impression/DocPlanApurement"));
+const Equipe = p(() => import("./pages/gestion/Equipe"));
+const CompteursPartages = p(() => import("./pages/gestion/CompteursPartages"));
+const Rapprochement = p(() => import("./pages/gestion/Rapprochement"));
 const Recouvrement = p(() => import("./pages/gestion/Recouvrement"));
 const EtatDesLieux = p(() => import("./pages/gestion/EtatDesLieux"));
 
@@ -107,6 +111,7 @@ export default function App() {
           <Route path="rapport/:type" element={<ImpressionRapport />} />
           <Route path="etat-des-lieux/:id/:type" element={<DocEtatDesLieux />} />
           <Route path="relance/:contrat/:relance" element={<DocRelance />} />
+          <Route path="revision/:id" element={<DocRevision />} />
           <Route path="plan-apurement/:contrat/:plan" element={<DocPlanApurement />} />
         </Route>
 
@@ -125,6 +130,9 @@ export default function App() {
           <Route path="/encaissements" element={<Encaissements />} />
           <Route path="/calendrier" element={<Calendrier />} />
           <Route path="/recouvrement" element={<Recouvrement />} />
+          <Route path="/rapprochement" element={<Rapprochement />} />
+          <Route path="/compteurs" element={<CompteursPartages />} />
+          <Route path="/equipe" element={<Equipe />} />
           <Route path="/charges" element={<Charges />} />
           <Route path="/revisions" element={<Revisions />} />
           <Route path="/interventions" element={<Interventions />} />

@@ -5,9 +5,10 @@ import {
   ArrowUpRight, BarChart3, BookOpen, Building2, CalendarCheck, CalendarDays, ChevronDown, ChevronsLeft, ChevronsRight, CircleUserRound,
   ClipboardList, DoorOpen, FileSignature, FileText, Gauge, HandCoins, Handshake, History, Home, Info, KeyRound, Landmark, LayoutDashboard, LifeBuoy, LogOut, Mail,
   Menu, MessagesSquare, Moon, Receipt, Search, Settings, ShieldCheck, Sun, TrendingUp, UserRound, Users, Wallet, Wrench, Zap,
-  AlarmClock, MonitorDown,
+  AlarmClock, Droplets, UsersRound, GitCompareArrows, MonitorDown,
 } from "lucide-react";
 import { useInstallation } from "../lib/pwa";
+import { BandeauLicence } from "./Licence";
 import { api } from "../lib/api";
 import { appliquerTheme, themeInitial, useSession } from "../lib/session";
 import { Avatar, Bouton, Chargement } from "./ui";
@@ -55,6 +56,7 @@ const NAV = [
     icone: KeyRound,
     liens: [
       { lien: "/charges", libelle: "Charges locatives", icone: Zap },
+      { lien: "/compteurs", libelle: "Compteurs partagés", icone: Droplets, module: "compteurs" },
       { lien: "/revisions", libelle: "Révisions de loyer", icone: TrendingUp },
       { lien: "/interventions", libelle: "Interventions", icone: Wrench, compteur: "interventions" },
     ],
@@ -65,6 +67,7 @@ const NAV = [
     liens: [
       { lien: "/comptes-bailleurs", libelle: "Comptes bailleurs", icone: Wallet },
       { lien: "/caisse", libelle: "Caisse agence", icone: Receipt },
+      { lien: "/rapprochement", libelle: "Rapprochement", icone: GitCompareArrows, module: "rapprochement" },
       { lien: "/cautions", libelle: "Cautions", icone: ShieldCheck },
     ],
   },
@@ -72,7 +75,7 @@ const NAV = [
     groupe: "Relations",
     icone: Handshake,
     liens: [
-      { lien: "/reservations", libelle: "Réservations", icone: CalendarCheck, compteur: "reservations" },
+      { lien: "/reservations", libelle: "Visites", icone: CalendarCheck, compteur: "reservations" },
       { lien: "/messages", libelle: "Messages du site", icone: Mail, compteur: "messages" },
       { lien: "/messagerie", libelle: "Messagerie locataires", icone: MessagesSquare, compteur: "locataires" },
     ],
@@ -82,6 +85,7 @@ const NAV = [
     icone: Gauge,
     liens: [
       { lien: "/rapports", libelle: "Rapports", icone: BarChart3 },
+      { lien: "/equipe", libelle: "Activité de l'équipe", icone: UsersRound },
       { lien: "/journal", libelle: "Journal d'activité", icone: History, admin: true },
     ],
   },
@@ -97,7 +101,8 @@ const NAV = [
 
 /** Groupe du menu en tiroir : l'en-tête ouvre/ferme ; fermé, il affiche la somme de ses compteurs. */
 function TiroirMenu({ item, ouvert, onBasculer, estAdmin, compteurs, reduit }) {
-  const liens = item.liens.filter((l) => !l.admin || estAdmin);
+  const { licence } = useSession();
+  const liens = item.liens.filter((l) => (!l.admin || estAdmin) && (!l.module || !licence || licence.modules.includes(l.module)));
   const total = liens.reduce((s, l) => s + (l.compteur ? compteurs?.[l.compteur] || 0 : 0), 0);
   const visible = ouvert || reduit;
   const id = `tiroir-${item.groupe.replace(/\W+/g, "-")}`;
@@ -189,6 +194,7 @@ function PaletteRecherche({ ouvert, onFermer }) {
 
 function MenuUtilisateur() {
   const { utilisateur, estAdmin, deconnexion } = useSession();
+  const installer = useInstallation();
   const [ouvert, setOuvert] = useState(false);
   const ref = useRef(null);
   const nav = useNavigate();
@@ -220,6 +226,12 @@ function MenuUtilisateur() {
               <Link to="/parametres"><Settings size={16} /> Paramètres</Link>
             </>
           )}
+          {installer && (
+            <>
+              <hr />
+              <button onClick={installer}><MonitorDown size={16} /> Installer l'application</button>
+            </>
+          )}
           <hr />
           <button onClick={async () => (await deconnexion(), nav("/connexion"))}>
             <LogOut size={16} /> Se déconnecter
@@ -232,7 +244,6 @@ function MenuUtilisateur() {
 
 export default function Coquille() {
   const { utilisateur, estAdmin, entreprise } = useSession();
-  const installer = useInstallation();
   const [reduit, setReduit] = useState(() => localStorage.getItem("bm-menu") === "reduit");
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -317,7 +328,6 @@ export default function Coquille() {
             <kbd>Ctrl K</kbd>
           </div>
           <div className="barre-droite">
-            {installer && <Bouton variante="fantome" icone={MonitorDown} onClick={installer} title="Installer BailManager comme une application">Installer</Bouton>}
             <a className="btn fantome masque-mobile" href="/espace-locataire" title="Ouvrir l'espace locataire">
               <DoorOpen size={17} />
             </a>
@@ -329,6 +339,7 @@ export default function Coquille() {
           </div>
         </header>
         <main className="contenu">
+          <BandeauLicence />
           <Suspense fallback={<Chargement />}>
             <Outlet />
           </Suspense>

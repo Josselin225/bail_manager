@@ -229,9 +229,11 @@ def espace(request):
 
 def _paiement_en_ligne(loc):
     """Ce que le locataire peut régler en ligne (None si l'agence n'a pas activé le paiement Mobile Money)."""
+    from apps.core.licence import module_actif
+
     cfg = Connecteurs.charger()
     c = loc.contrats.filter(statut_contrat="actif").first()
-    if not cfg.paiement_actif or c is None:
+    if not cfg.paiement_actif or c is None or not module_actif("connecteurs"):
         return None
     p = periode_a_payer(c)
     return {"test": cfg.paiement_fournisseur == "test", "periode": p.libelle if p else None, "montant": p.reste if p else 0,

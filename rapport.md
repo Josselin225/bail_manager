@@ -90,7 +90,8 @@ Le volume de code est d'environ 5 100 lignes Python côté serveur, hors migrati
   - photos par pièce ;
   - relevés des compteurs et nombre de clés ;
   - document annexé au bail, imprimable rempli ou en grille vierge à compléter sur place ;
-  - proposé juste après l'impression du contrat.
+  - proposé juste après l'impression du contrat ;
+  - **sur tablette** : grandes cases tactiles, puis signature au doigt du locataire et de l'agent ; les signatures s'impriment sur le document et sont annulées si le contenu est modifié ensuite.
 - **Sortie du locataire** :
   - préavis de départ (3 mois), donné par l'agence ou par le locataire depuis son espace ; date de sortie calculée et signalée au tableau de bord et au calendrier ;
   - état des lieux de sortie pré-rempli à partir de l'entrée, avec la colonne « Entrée » en regard ;
@@ -100,6 +101,12 @@ Le volume de code est d'environ 5 100 lignes Python côté serveur, hors migrati
   - relances graduées : rappel amiable (délai 8 jours), relance (8 jours), mise en demeure (15 jours) ; chaque niveau produit sa lettre imprimable ;
   - plan d'apurement : dette répartie en 2 à 24 mensualités, accord à signer par le locataire, suivi de chaque échéance (honorée, en retard, à venir).
 - **Révisions de loyer** : à la demande du bailleur, révision triennale ou accord entre les parties. Les mois passés gardent l'ancien montant.
+  - les baux dont le loyer n'a pas bougé depuis trois ans sont repérés (onglet « À réviser », alerte du tableau de bord, calendrier, synthèse quotidienne) ;
+  - la révision ouvre une lettre au locataire prête à imprimer, avec contrôle du préavis de trois mois (art. 423-424).
+- **Compteurs partagés** (cour commune, une facture SODECI ou CIE pour plusieurs logements) :
+  - répartition au prorata des sous-compteurs (index repris de la facture précédente ou de l'état des lieux d'entrée) ou à parts égales entre logements occupés ;
+  - la part de chaque logement occupé devient une charge sur son bail ; celle d'un logement vide est débitée du compte du propriétaire ;
+  - historique des factures et de leur répartition.
 - **Charges locatives**, **cautions** (retenues, restitution) et **résiliation** avec solde de tout compte.
 
 - **Demandes d'intervention** (pannes, réparations) :
@@ -127,6 +134,11 @@ Ces services sont **prêts à brancher** : l'agence choisit son fournisseur et s
 ### 3.4 Finances
 - **Comptes courants des bailleurs**, versements et relevés de compte imprimables.
 - **Caisse de l'agence** : commissions, frais d'agence, entrées et sorties.
+- **Rapprochement des relevés** Mobile Money (Wave, Orange Money, MTN, Moov) et bancaires :
+  - import d'un fichier CSV ou Excel, colonnes reconnues automatiquement (modifiables) ;
+  - chaque paiement reçu est rapproché d'un bail par le téléphone du locataire, le montant dû et son nom dans le libellé ;
+  - encaissement de la sélection en un clic, réparti du plus ancien mois dû au plus récent ;
+  - un paiement déjà encaissé est reconnu à chaque nouvel import : jamais de double encaissement.
 
 ### 3.5 Pilotage
 - **Tableau de bord** en graphiques :
@@ -141,6 +153,7 @@ Ces services sont **prêts à brancher** : l'agence choisit son fournisseur et s
 - **Rapports imprimables** : journalier, mensuel, annuel, sur une période, état d'occupation, impayés. Tous exportables vers Excel.
 - **Calendrier en trois vues** (jour, mois, année) : échéances de loyer, visites, fins de bail et de mandat.
 - **Journal d'activité** : traçabilité de toutes les opérations.
+- **Activité de l'équipe** : pour chaque membre de l'agence, sur la période choisie, montants encaissés, baux signés, relances, visites faites (et visiteurs intéressés), états des lieux. Un agent ne voit que sa propre activité.
 
 ### 3.6 Relations
 - **Site vitrine public** :
@@ -149,6 +162,7 @@ Ces services sont **prêts à brancher** : l'agence choisit son fournisseur et s
   - fiche de bien avec galerie plein écran ;
   - réservation de visite ;
   - formulaire de contact.
+- **Agenda des visites** : semaine par semaine, visites du site et visites prises au téléphone ou à l'agence, avec heure, agent attribué (« Je m'en charge », « Mes visites ») et compte rendu (visiteur intéressé ou non).
 - **Espace locataire** :
   - paiements et quittances téléchargeables ;
   - charges ;
@@ -190,6 +204,12 @@ Toutes ces règles sont vérifiées **par le serveur**. L'interface ne peut donc
 | Préavis de départ | 3 mois ; annulable par l'administrateur seulement |
 | Relances | Une seule progression : rappel, relance, puis mise en demeure ; impossible si le locataire est à jour |
 | Plan d'apurement | Le total des mensualités égale la dette ; un nouveau plan remplace le précédent |
+| Clauses d'un bail ou d'un mandat | Figées à la signature : modifier les clauses types ne change pas les documents déjà signés |
+| Biens confiés | Chaque bien est rattaché au mandat sous lequel il a été confié, avec sa date ; un renouvellement reprend les biens, l'ancien mandat garde sa liste |
+| Facture partagée | La somme des parts égale la facture ; un index en baisse est refusé |
+| Rapprochement | Une ligne de relevé ne peut être encaissée qu'une fois |
+| Signatures d'état des lieux | Toute modification après signature annule les signatures |
+| Licence | Limites d'utilisateurs, de biens et de modules ; lecture seule 15 jours après l'échéance |
 | Maison occupée | Toute maison ayant un contrat actif est « Occupée » sur le site ; aucune visite n'y est réservable |
 
 Les contrats de bail mentionnent l'agence mandataire (avec son représentant), le propriétaire, la référence et la durée du mandat. Ils précisent que la fin du mandat n'affecte pas le bail.
@@ -228,14 +248,15 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
   - déconnexion après inactivité, réglable par utilisateur ;
   - protection CSRF.
 - **Espaces en ligne** : locataires et bailleurs se connectent avec leur téléphone et un code à usage personnel, stocké chiffré, désactivable à tout moment ; session limitée à 30 minutes.
-- **Identifiants des fournisseurs** (SMS, WhatsApp, paiement) : réservés à l'administrateur, jamais renvoyés par le serveur, séparés de la fiche entreprise publique.
+- **Identifiants des fournisseurs** (SMS, WhatsApp, paiement, sauvegarde) : réservés à l'administrateur, jamais renvoyés par le serveur, séparés de la fiche entreprise publique, et **chiffrés dans la base** (une copie volée de la base ne suffit pas à les lire).
+- **Licence** : signée électroniquement (Ed25519) par l'éditeur ; le logiciel ne contient que la clé publique, une licence ne peut donc être ni fabriquée ni prolongée sans la clé privée de l'éditeur.
 - **Droits** : l'administrateur seul peut supprimer, résilier un mandat, réviser un loyer, gérer les utilisateurs et les paramètres.
-- **Fichiers téléversés** : contrôle du type réel. Les photos de maisons passent en plus par une vérification d'image ; la taille est limitée à 8 Mo.
+- **Fichiers téléversés** : le contenu fait foi, jamais l'extension (un fichier renommé en « .pdf » est refusé) ; toute image est en plus décodée pour vérification ; la taille est limitée à 8 Mo.
 - **Configuration** : les éléments sensibles (clé secrète, base, fichiers clients) sont exclus du dépôt Git.
 
 ## 7. Qualité
 
-- **28 tests automatiques** sur les règles de gestion. Ils couvrent notamment :
+- **35 tests automatiques** sur les règles de gestion. Ils couvrent notamment :
   - mandat obligatoire ;
   - calcul de l'avance et de la caution ;
   - impayés et paiements partiels ;
@@ -251,13 +272,20 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
   - relances graduées et plan d'apurement ;
   - espace bailleur (connexion, chiffres, cloisonnement entre bailleurs) ;
   - connecteurs en mode test (secrets jamais renvoyés, SMS simulé, signature par code, paiement simulé et encaissé une seule fois) ;
-  - récapitulatif fiscal, sauvegarde chiffrée (aller-retour, mauvaise phrase refusée, destination absente signalée) et aperçu des annonces partagées.
-- **Contrôle visuel** des 34 pages principales, en bureau et sur mobile, après chaque évolution : aucun débordement, aucune erreur JavaScript.
+  - récapitulatif fiscal, sauvegarde chiffrée (aller-retour, mauvaise phrase refusée, destination absente signalée) et aperçu des annonces partagées ;
+  - clauses et biens figés à la signature, secrets chiffrés, contrôle du contenu des documents ;
+  - rapprochement de relevé (reconnaissance, répartition sur les mois dus, aucun double encaissement) ;
+  - compteurs partagés (prorata, parts égales, logement vide au propriétaire) ;
+  - agenda des visites et signature d'état des lieux sur tablette ;
+  - activité de l'équipe, révision triennale, licence (essai, modules, limites, falsification, grâce, lecture seule).
+- **Contrôle visuel** des 37 pages principales, en bureau et sur mobile, après chaque évolution : aucun débordement, aucune erreur JavaScript.
 - **Commande** : `python manage.py test apps`.
 
 ## 8. Installation et exploitation
 
 - **Installation Windows** : `scripts-windows\1-installer.bat`, puis `2-demarrer.bat`. Le logiciel est alors accessible sur http://localhost:8000. Détails dans `docs/INSTALLATION.md`.
+- **Serveur de l'agence** (installation locale, chaque agence garde sa base) : `3-configurer-serveur.bat`, lancé une fois en administrateur, fait démarrer BailManager avec Windows, ouvre le pare-feu au réseau de l'agence et planifie rappels et sauvegardes. Paramètres > Serveur affiche l'adresse à ouvrir sur les autres postes (avec QR code pour les téléphones), la base, l'espace disque et le dernier passage des tâches.
+- **Licences** : chaque agence reçoit une licence (durée, nombre d'utilisateurs, nombre de biens, modules) générée par l'éditeur avec `python manage.py generer_licence` et la clé privée, et la colle dans Paramètres > Licence. Sans licence : essai de 30 jours, tous modules ouverts.
 - **Reprise des données de la version 1** : `python manage.py importer_ancienne_base`, décrite dans `docs/MIGRATION.md`.
 - **Démonstration** : `python manage.py donnees_demo` (données fictives et photos libres de droits).
 - **Tâches planifiées** :
@@ -271,12 +299,12 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
 ## 9. Limites connues et perspectives
 
 - **Connecteurs** : les appels aux vrais fournisseurs suivent leur documentation publique, mais ils restent à valider avec les identifiants de l'agence (comptes de test CinetPay / PayDunya, expéditeur SMS agréé). WhatsApp impose des modèles de messages pré-approuvés pour écrire à un client hors d'une conversation en cours.
-- **Identifiants des fournisseurs** : stockés en base ; les chiffrer avec une clé propre au serveur renforcerait la protection en cas de vol de la base.
+- **Installation locale** : tant que le logiciel n'est pas en ligne, les espaces locataire et propriétaire ne sont joignables que depuis le réseau de l'agence, et la confirmation automatique des paiements Mobile Money (qui suppose que l'agrégateur joigne le serveur) n'est pas possible : le rapprochement des relevés prend le relais.
+- **Clé de chiffrement des secrets** : elle dérive de `SECRET_KEY` (ou de `CLE_CHIFFREMENT`) dans le fichier `.env`. Si ce fichier est perdu ou modifié, les identifiants des fournisseurs sont à ressaisir.
+- **Clé privée des licences** : conservée par l'éditeur hors du projet ; sa perte empêche d'émettre de nouvelles licences (il faudrait diffuser une nouvelle version du logiciel avec une nouvelle clé publique). À sauvegarder en lieu sûr.
 - **Signature par code SMS** : c'est une signature électronique simple. Sa valeur probante est à confirmer avec un conseil juridique.
-- **Documents joints** : le contrôle de type se fie encore à l'extension quand le contenu n'est pas reconnu. C'est une correction d'une ligne, à faire.
 - **Biens d'un bailleur au mandat expiré** : décider s'ils doivent être retirés automatiquement du site vitrine.
-- **Clauses** : elles s'impriment dans leur version actuelle. Il faudrait conserver la version en vigueur à la signature de chaque bail ou mandat.
-- **Biens confiés** : la liste imprimée sur un mandat est celle d'aujourd'hui, et non celle de sa date de signature.
+- **Clauses des baux et mandats antérieurs à cette version** : faute d'historique, elles ont été figées sur les clauses en vigueur au moment de la mise à jour.
 - **Sauvegarde en ligne** : l'archive est chiffrée en mémoire ; pour une agence avec plusieurs gigaoctets de photos, il faudra la traiter par morceaux. La conservation des anciennes copies en WebDAV ou S3 se règle chez l'hébergeur (règles de cycle de vie).
 - **Photos de démonstration** : à remplacer par les vraies photos des biens avant toute présentation à un client.
 - **Textes destinés aux locataires** (information sur le mandat, messages) : à faire valider par un conseil juridique.

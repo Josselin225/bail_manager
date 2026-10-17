@@ -9,8 +9,6 @@ export default function DocMandat() {
   const e = useEntreprise();
   const { data: m, error } = useQuery({ queryKey: ["mandat", id], queryFn: () => api.get(`/mandats/${id}/`) });
   const { data: b } = useQuery({ queryKey: ["bailleur", m?.bailleur], queryFn: () => api.get(`/bailleurs/${m.bailleur}/`), enabled: !!m });
-  const { data: clauses = [] } = useQuery({ queryKey: ["/clauses-mandat/"], queryFn: () => api.get("/clauses-mandat/") });
-  const { data: biens } = useQuery({ queryKey: ["maisons", { bailleur: m?.bailleur }], queryFn: () => api.get("/maisons/", { bailleur: m.bailleur, taille: 200 }), enabled: !!m });
   return (
     <Imprimable titre="Mandat de gestion" chargement={!m || !b || !e} erreur={error}>
       {m && b && e && (
@@ -30,14 +28,17 @@ export default function DocMandat() {
               <tr><th>Commission de gestion</th><td><b>{m.taux_commission} %</b> de chaque loyer encaissé, retenue avant reversement</td></tr>
             </tbody>
           </table>
-          {biens?.results?.length > 0 && (
+          {m.biens_confies.length > 0 && (
             <>
               <h2>Biens confiés</h2>
-              <table><tbody>{biens.results.map((x) => <tr key={x.id}><td>{x.designation}</td><td>{x.type_maison}</td><td>{x.adresse}</td></tr>)}</tbody></table>
+              <table>
+                <thead><tr><th>Bien</th><th>Type</th><th>Adresse</th><th className="nowrap">Confié le</th></tr></thead>
+                <tbody>{m.biens_confies.map((x) => <tr key={x.id}><td>{x.designation}</td><td>{x.type_maison}</td><td>{x.adresse}</td><td className="nowrap">{dateFr(x.confie_le)}</td></tr>)}</tbody>
+              </table>
             </>
           )}
           <h2>Clauses</h2>
-          {clauses.filter((c) => c.actif).map((c, i) => <div key={c.id} className="clause"><b>Article {i + 1} — {c.titre}.</b> {c.contenu}</div>)}
+          {m.clauses.map((c, i) => <div key={i} className="clause"><b>Article {i + 1} — {c.titre}.</b> {c.contenu}</div>)}
           <p>Le mandataire signe, au nom et pour le compte du mandant, les contrats de bail des biens confiés ; chaque bail fait référence au présent mandat ({m.reference}).</p>
           <p style={{ marginTop: 12 }}>Fait en deux exemplaires, {e.ville_signature ? `à ${e.ville_signature}, ` : ""}le {dateLongue(m.date_signature)}.</p>
           <div className="signatures">

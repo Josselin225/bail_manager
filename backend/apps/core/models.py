@@ -88,6 +88,11 @@ class ClauseBase(models.Model):
         return self.titre
 
 
+def clauses_en_vigueur(modele):
+    """Copie des clauses actives (titre, contenu), à figer dans un bail ou un mandat au moment de sa signature."""
+    return list(modele.objects.filter(actif=True).values("titre", "contenu"))
+
+
 class ClauseContrat(ClauseBase):
     class Meta(ClauseBase.Meta):
         db_table = "clauses_contrat"
@@ -123,3 +128,20 @@ class RateLimit(models.Model):
 
     class Meta:
         db_table = "rate_limits"
+
+
+class Licence(models.Model):
+    """Licence installée (texte signé) et début de la période d'essai de cette installation."""
+
+    texte = models.TextField(blank=True, default="")
+    installee_le = models.DateTimeField(null=True, blank=True)
+    debut_essai = models.DateField()
+
+    class Meta:
+        db_table = "licence"
+
+    @classmethod
+    def charger(cls):
+        from .utils import aujourdhui
+
+        return cls.objects.first() or cls.objects.create(debut_essai=aujourdhui())

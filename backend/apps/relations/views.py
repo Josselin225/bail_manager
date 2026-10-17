@@ -15,15 +15,50 @@ from .models import DemandeIntervention, MessageLocataire, MessageVisiteur, Rese
 from .serializers import MessageLocataireSerializer, MessageVisiteurSerializer, ReservationSerializer
 
 
-class ReservationViewSet(mixins.ListModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
+class ReservationViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
     serializer_class = ReservationSerializer
     permission_classes = [SuppressionAdmin]
-    filterset_fields = ["statut", "maison"]
+    filterset_fields = ["statut", "maison", "agent"]
     search_fields = ["nom_visiteur", "tel_visiteur", "maison__designation"]
-    http_method_names = ["get", "patch", "delete"]
+    http_method_names = ["get", "post", "patch", "delete"]
 
     def get_queryset(self):
-        return Reservation.objects.select_related("maison")
+        qs = Reservation.objects.select_related("maison", "agent")
+        du, au = self.request.query_params.get("du"), self.request.query_params.get("au")
+        if du:
+            qs = qs.filter(date_visite__gte=du)
+        if au:
+            qs = qs.filter(date_visite__lte=au)
+        return qs
+
+    def perform_create(self, ser):
+        """Visite prise au téléphone ou à l'agence (celles du site arrivent par le formulaire public)."""
+        if ser.validated_data["maison"].statut == "occupe":
+            raise RegleMetier("Ce bien est occupé : aucune visite n'est possible pour le moment.")
+        r = ser.save(statut=Reservation.Statut.CONFIRME, origine=ser.validated_data.get("origine") if ser.validated_data.get("origine") in ("telephone", "agence") else "telephone")
+        journaliser(self.request, "Visite", f"{r.nom_visiteur} — {r.maison.designation} le {r.date_visite:%d/%m/%Y}")
+
+    @action(detail=False)
+    def agents(self, request):
+        """Personnes de l'agence à qui confier une visite."""
+        from apps.comptes.models import Utilisateur
+
+        return Response([{"valeur": u.pk, "libelle": u.nom_complet} for u in Utilisateur.objects.filter(is_active=True).order_by("nom_complet")])
+
+    @action(detail=False)
+    def agenda(self, request):
+        """Visites confirmées ou à confirmer d'une période (par défaut : les 7 prochains jours), triées par jour et heure."""
+        from datetime import timedelta
+
+        from apps.core.utils import aujourdhui
+
+        j = aujourdhui()
+        du = request.query_params.get("du") or j.isoformat()
+        au = request.query_params.get("au") or (j + timedelta(days=6)).isoformat()
+        qs = Reservation.objects.select_related("maison", "agent").filter(date_visite__range=(du, au)).exclude(statut="annule")
+        if request.query_params.get("moi"):
+            qs = qs.filter(agent=request.user)
+        return Response(ReservationSerializer(qs.order_by("date_visite", "heure_visite", "id"), many=True).data)
 
     def perform_update(self, ser):
         r = ser.save()

@@ -1,6 +1,5 @@
 """Fonctions utilitaires partagées (équivalent de config/db.php de la version PHP)."""
 import calendar
-import mimetypes
 import uuid
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -170,7 +169,8 @@ def _mime_reel(fichier) -> str:
         return "image/webp"
     if debut.startswith(b"%PDF"):
         return "application/pdf"
-    return mimetypes.guess_type(getattr(fichier, "name", ""))[0] or "application/octet-stream"
+    # Contenu non reconnu : refusé, quel que soit le nom (un « .pdf » renommé ne passe pas).
+    return "application/octet-stream"
 
 
 def valider_fichier(fichier, types=TYPES_IMAGES, prefixe="fichier"):
@@ -184,6 +184,16 @@ def valider_fichier(fichier, types=TYPES_IMAGES, prefixe="fichier"):
     if ext is None:
         formats = ", ".join(sorted({v.upper() for v in types.values()}))
         raise RegleMetier(f"Format de fichier non autorisé. Formats acceptés : {formats}.")
+    if mime.startswith("image/"):
+        from PIL import Image, UnidentifiedImageError
+
+        try:
+            with Image.open(fichier) as img:
+                img.verify()  # image réellement décodable, pas seulement une signature recopiée
+        except (UnidentifiedImageError, OSError, SyntaxError, ValueError):
+            raise RegleMetier("Ce fichier n'est pas une image valide.")
+        finally:
+            fichier.seek(0)
     fichier.name = f"{prefixe}_{timezone.now():%Y%m%d%H%M%S}_{uuid.uuid4().hex[:8]}.{ext}"
     fichier.content_type = mime
     return fichier

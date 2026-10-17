@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api";
-import { dateFr, dateLongue } from "../../lib/format";
+import { dateFr, dateLongue, dateHeure } from "../../lib/format";
 import { EnteteDoc, Imprimable, PiedDoc, useEntreprise } from "../../components/Document";
 
 const ORDRE_ETATS = ["neuf", "bon", "usage", "mauvais"];
@@ -108,9 +108,10 @@ export default function DocEtatDesLieux() {
             et le décompte du dépôt de garantie. Fait en deux exemplaires, {e.ville_signature ? `à ${e.ville_signature}, ` : ""}
             {vierge ? "le ____ / ____ / ________" : `le ${dateLongue(d.date_etat)}`}.
           </p>
+          {d.signatures && <p className="mention-signature-edl">Signé sur place, sur tablette, le {dateHeure(d.signatures.le)}.</p>}
           <div className="signatures">
-            <div>Le preneur<br />{d.locataire.nom}<br /><span style={{ fontSize: 10 }}>(« Certifié exact »)</span></div>
-            <div>Pour le bailleur, l'agence mandataire<br />{e.nom_entreprise}{e.representant_nom && <><br />{e.representant_nom}{e.representant_qualite && `, ${e.representant_qualite}`}</>}</div>
+            <div>Le preneur<br />{d.locataire.nom}<br /><span style={{ fontSize: 10 }}>(« Certifié exact »)</span>{d.signatures && <img className="signature-tracee" src={d.signatures.locataire} alt="Signature du locataire" />}</div>
+            <div>Pour le bailleur, l'agence mandataire<br />{e.nom_entreprise}{e.representant_nom && <><br />{e.representant_nom}{e.representant_qualite && `, ${e.representant_qualite}`}</>}{d.signatures && <img className="signature-tracee" src={d.signatures.agence} alt="Signature de l'agence" />}</div>
           </div>
           <PiedDoc e={e} />
         </div>

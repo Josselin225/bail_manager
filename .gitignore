@@ -7,3 +7,6 @@ backend/**/__pycache__/
 frontend/node_modules/
 *.pyc
 .venv/
+
+# Clés privées (licences) : jamais dans le dépôt
+*.pem

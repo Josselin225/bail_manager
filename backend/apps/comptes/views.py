@@ -34,7 +34,15 @@ def _infos_session(request):
             "email": p.contact_email,
         },
         "version": settings.APP_VERSION,
+        "licence": _resume_licence() if u.is_authenticated else None,
     }
+
+
+def _resume_licence():
+    from apps.core.licence import etat
+
+    e = etat()
+    return {k: e[k] for k in ("statut", "essai", "agence", "expire_le", "jours", "lecture_seule", "fin_grace", "modules")}
 
 
 @api_view(["GET"])
@@ -165,10 +173,18 @@ class UtilisateurViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def perform_create(self, ser):
+        from apps.core.licence import verifier_limite
+
+        if ser.validated_data.get("is_active", True):
+            verifier_limite("utilisateurs", Utilisateur.objects.filter(is_active=True).count())
         u = ser.save()
         journaliser(self.request, "Utilisateur", f"Création de {u.nom_complet} ({u.role})")
 
     def perform_update(self, ser):
+        from apps.core.licence import verifier_limite
+
+        if ser.validated_data.get("is_active") and not ser.instance.is_active:
+            verifier_limite("utilisateurs", Utilisateur.objects.filter(is_active=True).count())
         u = ser.save()
         journaliser(self.request, "Utilisateur", f"Modification de {u.nom_complet}")
 

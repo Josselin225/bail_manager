@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, FilePlus2, HandCoins, Mail, MessagesSquare, CalendarCheck } from "lucide-react";
+import { AlertTriangle, CalendarClock, ChevronLeft, ChevronRight, FilePlus2, HandCoins, Mail, MessagesSquare, CalendarCheck, TrendingUp } from "lucide-react";
 import { api } from "../../lib/api";
 import { MOIS, MOIS_COURTS, compact, fcfa, nombre } from "../../lib/format";
 import { useSession } from "../../lib/session";
@@ -134,8 +134,9 @@ export default function TableauDeBord() {
         </div>
       </div>
 
-      {(a.reservations > 0 || a.messages > 0 || a.messages_locataires > 0 || a.fins_contrat.length > 0 || a.mandats_expirant.length > 0 || a.sorties_prevues?.length > 0) && (
+      {(a.reservations > 0 || a.messages > 0 || a.messages_locataires > 0 || a.fins_contrat.length > 0 || a.mandats_expirant.length > 0 || a.sorties_prevues?.length > 0 || a.revisions > 0) && (
         <div className="ligne-flex">
+          {a.revisions > 0 && <LienBouton to="/revisions?onglet=a-reviser" taille="petit" icone={TrendingUp}>{a.revisions} révision(s) triennale(s) possible(s)</LienBouton>}
           {a.reservations > 0 && <LienBouton to="/reservations" taille="petit" icone={CalendarCheck}>{a.reservations} visite(s) à confirmer</LienBouton>}
           {a.messages > 0 && <LienBouton to="/messages" taille="petit" icone={Mail}>{a.messages} message(s) non lu(s)</LienBouton>}
           {a.messages_locataires > 0 && <LienBouton to="/messagerie" taille="petit" icone={MessagesSquare}>{a.messages_locataires} message(s) de locataires</LienBouton>}

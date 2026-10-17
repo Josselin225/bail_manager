@@ -14,6 +14,7 @@ from apps.core.models import Parametres
 from apps.core.utils import ajouter_mois, aujourdhui
 from apps.locatif import services
 from apps.locatif.models import ChargeLocative, Contrat
+from apps.patrimoine.mandats import figer_existant
 from apps.patrimoine.models import Bailleur, Locataire, MandatGestion, Maison
 from apps.relations.models import MessageLocataire, MessageVisiteur, Reservation
 
@@ -54,6 +55,7 @@ class Command(BaseCommand):
             for k in range(3):
                 t, loyer = random.choice(types)
                 maisons.append(Maison.objects.create(bailleur=b, designation=f"{t} {quartiers[(i + k) % 6]} n°{k + 1}", type_maison=t.split()[0] if t.startswith("Villa") else t, adresse=f"Yamoussoukro, {quartiers[(i + k) % 6]}", loyer=loyer, condition=4, description="Logement en bon état, eau et électricité (compteurs individuels), cour sécurisée."))
+        figer_existant()
         for i, nom in enumerate(locs):
             l = Locataire.objects.create(nom=nom, telephone1=f"05{random.randint(10000000, 99999999)}", profession=random.choice(["Enseignant", "Commerçante", "Infirmier", "Comptable", "Étudiante", "Chauffeur"]))
             if i >= 9:

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AlarmClock, CalendarClock, CalendarRange, ClipboardCheck, PenLine, Send, FileX2, HandCoins, Pencil, Plus, Printer, ShieldMinus, TrendingUp, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
@@ -224,7 +224,18 @@ export default function FicheContrat() {
   const [onglet, setOnglet] = useState("paiements");
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
+  const [params, setParams] = useSearchParams();
+  const nav = useNavigate();
   const { data: c, refetch } = useQuery({ queryKey: ["contrat", id], queryFn: () => api.get(`/contrats/${id}/`) });
+  // Arrivée depuis « Révisions > À réviser » : formulaire de révision triennale prêt, effet au plus tôt dans 3 mois
+  useEffect(() => {
+    if (!c || !params.get("reviser")) return;
+    const effet = new Date();
+    effet.setMonth(effet.getMonth() + 3, 1);
+    setForm({ origine: params.get("reviser"), nouveau_loyer: "", motif: "Révision triennale", date_effet: isoDate(effet) });
+    setModal("revision");
+    setParams({}, { replace: true });
+  }, [c]); // eslint-disable-line
   const supprimerCharge = useAction((ch) => api.delete(`/charges/${ch.id}/`), { succes: "Charge supprimée.", apres: () => refetch() });
   const annulerPreavis = useAction(() => api.post(`/contrats/${id}/annuler-preavis/`), { succes: "Préavis annulé.", apres: () => refetch() });
   if (!c) return <Chargement />;
@@ -419,7 +430,7 @@ export default function FicheContrat() {
       <FenetreFormulaire titre="Échéance du bail" taille="etroite" ouvert={modal === "echeance"} onFermer={fermer} onValider={async () => (await api.post(`/contrats/${c.id}/echeance/`, form), "Échéance mise à jour.")}>
         <div className="formulaire"><Saisie libelle="Date de fin" type="date" plein valeur={form.date_fin} onChange={(date_fin) => setForm({ date_fin })} aide="Vide = tacite reconduction." /></div>
       </FenetreFormulaire>
-      <FenetreFormulaire titre="Réviser le loyer" ouvert={modal === "revision"} onFermer={fermer} libelleValider="Réviser le loyer" onValider={async () => (await api.post(`/contrats/${c.id}/reviser/`, form), "Révision enregistrée.")}>
+      <FenetreFormulaire titre="Réviser le loyer" ouvert={modal === "revision"} onFermer={fermer} libelleValider="Réviser le loyer" onValider={async () => { const r = await api.post(`/contrats/${c.id}/reviser/`, form); nav(`/impression/revision/${r.id}`); return "Révision enregistrée : remettez la lettre au locataire."; }}>
         <Encart>Loyer actuel : <b>{fcfa(c.loyer_mensuel)}</b>. Les mois antérieurs à la date d'effet gardent l'ancien montant ; le loyer du bien est mis à jour pour les prochains baux.</Encart>
         <div className="formulaire">
           <Liste libelle="Origine de la révision" plein valeur={form.origine || "bailleur"} onChange={(v) => setForm({ ...form, origine: v })} options={[{ valeur: "bailleur", libelle: "À la demande du bailleur" }, { valeur: "triennale", libelle: "Révision triennale" }, { valeur: "accord", libelle: "Accord entre les parties" }]} />

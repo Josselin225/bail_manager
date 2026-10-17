@@ -11,7 +11,7 @@ export function FournisseurSession({ children }) {
   const rafraichir = useCallback(async () => {
     try {
       const d = await api.get("/auth/session/");
-      setEtat({ pret: true, utilisateur: d.utilisateur, entreprise: d.entreprise || {}, version: d.version });
+      setEtat({ pret: true, utilisateur: d.utilisateur, entreprise: d.entreprise || {}, version: d.version, licence: d.licence });
       appliquerCouleur(d.entreprise?.couleur);
       return d;
     } catch {
@@ -29,7 +29,7 @@ export function FournisseurSession({ children }) {
 
   const connexion = async (email, password) => {
     const d = await api.post("/auth/connexion/", { email, password });
-    setEtat({ pret: true, utilisateur: d.utilisateur, entreprise: d.entreprise || {}, version: d.version });
+    setEtat({ pret: true, utilisateur: d.utilisateur, entreprise: d.entreprise || {}, version: d.version, licence: d.licence });
     appliquerCouleur(d.entreprise?.couleur);
     return d;
   };

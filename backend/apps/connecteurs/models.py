@@ -5,6 +5,8 @@ Les identifiants sont rangés ici, et non dans Parametres, car la fiche entrepri
 """
 from django.db import models
 
+from apps.core.chiffrement import ChampSecret
+
 
 class Connecteurs(models.Model):
     class FournisseurSms(models.TextChoices):
@@ -26,11 +28,11 @@ class Connecteurs(models.Model):
 
     sms_fournisseur = models.CharField(max_length=12, choices=FournisseurSms.choices, default=FournisseurSms.TEST)
     sms_identifiant = models.CharField("Identifiant (client ID / Account SID)", max_length=200, blank=True, default="")
-    sms_secret = models.CharField("Secret (client secret / Auth token)", max_length=255, blank=True, default="")
+    sms_secret = ChampSecret("Secret (client secret / Auth token)", blank=True, default="")
     sms_expediteur = models.CharField("Expéditeur", max_length=30, blank=True, default="", help_text="Numéro ou nom d'expéditeur validé chez le fournisseur.")
 
     whatsapp_fournisseur = models.CharField(max_length=12, choices=FournisseurWhatsapp.choices, default=FournisseurWhatsapp.DESACTIVE)
-    whatsapp_jeton = models.CharField("Jeton d'accès", max_length=500, blank=True, default="")
+    whatsapp_jeton = ChampSecret("Jeton d'accès", blank=True, default="")
     whatsapp_numero_id = models.CharField("Identifiant du numéro", max_length=60, blank=True, default="")
 
     canal_prefere = models.CharField(max_length=10, choices=[("sms", "SMS"), ("whatsapp", "WhatsApp")], default="sms")
@@ -40,8 +42,8 @@ class Connecteurs(models.Model):
 
     paiement_fournisseur = models.CharField(max_length=12, choices=FournisseurPaiement.choices, default=FournisseurPaiement.TEST)
     paiement_site_id = models.CharField("Site ID / Token", max_length=200, blank=True, default="")
-    paiement_cle = models.CharField("Clé API / Master key", max_length=255, blank=True, default="")
-    paiement_secret = models.CharField("Clé secrète / Private key", max_length=255, blank=True, default="")
+    paiement_cle = ChampSecret("Clé API / Master key", blank=True, default="")
+    paiement_secret = ChampSecret("Clé secrète / Private key", blank=True, default="")
 
     signature_sms = models.BooleanField("Signature des baux par code SMS", default=True)
 
@@ -57,8 +59,8 @@ class Connecteurs(models.Model):
     sauvegarde_bucket = models.CharField("Compartiment (bucket)", max_length=120, blank=True, default="")
     sauvegarde_region = models.CharField("Région", max_length=40, blank=True, default="")
     sauvegarde_identifiant = models.CharField("Identifiant / Access key", max_length=200, blank=True, default="")
-    sauvegarde_secret = models.CharField("Mot de passe / Secret key", max_length=255, blank=True, default="")
-    sauvegarde_phrase = models.CharField("Phrase de chiffrement", max_length=255, blank=True, default="")
+    sauvegarde_secret = ChampSecret("Mot de passe / Secret key", blank=True, default="")
+    sauvegarde_phrase = ChampSecret("Phrase de chiffrement", blank=True, default="")
     sauvegarde_garder = models.PositiveSmallIntegerField("Copies conservées (dossier)", default=30)
     derniere_sauvegarde_le = models.DateTimeField(null=True, blank=True)
     derniere_sauvegarde_statut = models.TextField(blank=True, default="")

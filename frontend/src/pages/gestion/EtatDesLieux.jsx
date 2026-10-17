@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, ClipboardCheck, Plus, Printer, Save, Trash2, X } from "lucide-react";
+import { Camera, ClipboardCheck, PenLine, Plus, Printer, Save, Trash2, X } from "lucide-react";
 import { api } from "../../lib/api";
-import { dateFr } from "../../lib/format";
-import { Bouton, Chargement, Encart, EntetePage, LienBouton, Panneau, Saisie, Zone, useToast } from "../../components/ui";
+import { dateFr, dateHeure } from "../../lib/format";
+import { Badge, Bouton, Chargement, Encart, EntetePage, LienBouton, Panneau, Saisie, Zone, useToast } from "../../components/ui";
+import Signature from "../../components/Signature";
 import Visionneuse from "../../components/Visionneuse";
 
 const ORDRE_ETATS = ["neuf", "bon", "usage", "mauvais"];
@@ -50,6 +51,59 @@ function PhotosPiece({ piece, photos, base, actif, onChange }) {
 }
 
 /** Saisie de l'état des lieux d'un bail (entrée ou sortie), pièce par pièce. */
+/** Signatures sur place, sur la tablette : locataire et agent, après enregistrement de l'état des lieux. */
+function SignaturesSurPlace({ data, url, onSigne }) {
+  const toast = useToast();
+  const locataire = useRef(null);
+  const agence = useRef(null);
+  const [refaire, setRefaire] = useState(false);
+  const [envoi, setEnvoi] = useState(false);
+  if (!data.etabli) return null;
+  if (data.signatures && !refaire) {
+    return (
+      <Panneau titre="Signatures" icone={PenLine}>
+        <div className="signatures-faites">
+          <figure><img src={data.signatures.locataire} alt="Signature du locataire" /><figcaption>Le locataire — {data.locataire.nom}</figcaption></figure>
+          <figure><img src={data.signatures.agence} alt="Signature de l'agence" /><figcaption>Pour l'agence</figcaption></figure>
+        </div>
+        <div className="ligne-flex" style={{ justifyContent: "space-between", marginTop: 10 }}>
+          <Badge ton="ok">Signé sur place le {dateHeure(data.signatures.le)}</Badge>
+          <Bouton taille="petit" variante="fantome" onClick={() => setRefaire(true)}>Refaire les signatures</Bouton>
+        </div>
+      </Panneau>
+    );
+  }
+  const valider = async () => {
+    const l = locataire.current.image();
+    const a = agence.current.image();
+    if (!l || !a) return toast.erreur("Les deux signatures sont nécessaires.");
+    setEnvoi(true);
+    try {
+      await api.post(`${url}signer/`, { locataire: l, agence: a });
+      toast.succes("État des lieux signé.");
+      setRefaire(false);
+      onSigne();
+    } catch (err) {
+      toast.erreur(err.message);
+    } finally {
+      setEnvoi(false);
+    }
+  };
+  return (
+    <Panneau titre="Signer sur place" icone={PenLine}>
+      <p className="discret" style={{ marginTop: 0 }}>Relisez l'état des lieux avec le locataire, puis faites signer chacun sur la tablette. Toute modification ultérieure annule les signatures.</p>
+      <div className="grille g2">
+        <Signature ref={locataire} libelle="Le locataire" nom={data.locataire.nom} />
+        <Signature ref={agence} libelle="Pour l'agence" />
+      </div>
+      <div className="ligne-flex" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+        {refaire && <Bouton onClick={() => setRefaire(false)}>Annuler</Bouton>}
+        <Bouton variante="primaire" icone={PenLine} chargement={envoi} onClick={valider}>Valider les signatures</Bouton>
+      </div>
+    </Panneau>
+  );
+}
+
 export default function EtatDesLieux() {
   const { id, type = "entree" } = useParams();
   const nav = useNavigate();
@@ -167,8 +221,9 @@ export default function EtatDesLieux() {
           <Zone libelle="Observations" valeur={f.observations} onChange={(v) => setF({ ...f, observations: v })} rows={4} aide="Équipements fournis, réserves du locataire, travaux prévus…" />
         </div>
       </Panneau>
+      <SignaturesSurPlace data={data} url={url} onSigne={() => client.invalidateQueries({ queryKey: ["etat-des-lieux", id, type] })} />
       <div className="ligne-flex" style={{ justifyContent: "flex-end" }}>
-        <span className="discret petit-texte">{data.etabli ? `Établi le ${dateFr(data.date_etat)}` : "Pas encore enregistré"}</span>
+        <span className="discret petit-texte">{data.etabli ? `Établi le ${dateFr(data.date_etat)}` : "Pas encore enregistré — enregistrez-le pour le faire signer sur place"}</span>
         <Bouton type="submit" variante="primaire" icone={Save} chargement={envoi}>Enregistrer l'état des lieux</Bouton>
       </div>
     </form>

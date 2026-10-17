@@ -138,8 +138,14 @@ class ContratViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
                 "observations": str(d.get("observations") or "").strip(),
             }
             if edl:
+                modifie = any(getattr(edl, k) != v for k, v in valeurs.items())
                 for k, v in valeurs.items():
                     setattr(edl, k, v)
+                if modifie and edl.signe_le:
+                    # Le document signé ne correspond plus : les signatures sont à refaire.
+                    for champ in (edl.signature_locataire, edl.signature_agence):
+                        champ.delete(save=False)
+                    edl.signe_le = None
                 edl.save()
             else:
                 edl = EtatDesLieux.objects.create(contrat=c, type_etat=type_etat, etabli_par=request.user, **valeurs)
@@ -162,6 +168,11 @@ class ContratViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
                 "nombre_cles": edl.nombre_cles, "pieces": edl.pieces, "observations": edl.observations,
                 "etabli_par": edl.etabli_par.nom_complet if edl.etabli_par else "", "modifie_le": edl.updated_at,
                 "photos": [{"id": ph.pk, "piece": ph.piece, "url": request.build_absolute_uri(ph.image.url)} for ph in edl.photos.all()],
+                "signatures": {
+                    "le": edl.signe_le,
+                    "locataire": request.build_absolute_uri(edl.signature_locataire.url) if edl.signature_locataire else None,
+                    "agence": request.build_absolute_uri(edl.signature_agence.url) if edl.signature_agence else None,
+                } if edl.signe_le else None,
             })
         else:
             base.update({
@@ -178,6 +189,36 @@ class ContratViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             else:
                 base["degradations"] = []
         return Response(base, status=201 if request.method == "POST" else 200)
+
+    @action(detail=True, methods=["post"], url_path=r"etat-des-lieux/(?P<type_etat>entree|sortie)/signer")
+    def signer_etat_des_lieux(self, request, pk=None, type_etat="entree"):
+        """Signatures du locataire et de l'agent, tracées sur la tablette (images PNG en base64)."""
+        import base64
+
+        from django.core.files.base import ContentFile
+        from django.utils import timezone
+
+        c = self.get_object()
+        edl = c.etats_des_lieux.filter(type_etat=type_etat).first()
+        if edl is None:
+            raise RegleMetier("Enregistrez d'abord l'état des lieux, puis faites-le signer.")
+        images = {}
+        for qui in ("locataire", "agence"):
+            donnee = str(request.data.get(qui) or "")
+            if not donnee.startswith("data:image/png;base64,"):
+                raise RegleMetier("Les deux signatures (locataire et agence) sont nécessaires.")
+            brut = base64.b64decode(donnee.split(",", 1)[1])
+            if not brut.startswith(b"\x89PNG") or len(brut) > 500_000:
+                raise RegleMetier("Signature illisible : recommencez.")
+            images[qui] = brut
+        for qui, brut in images.items():
+            champ = getattr(edl, f"signature_{qui}")
+            champ.delete(save=False)
+            champ.save(f"edl_{edl.pk}_{qui}_{timezone.now():%Y%m%d%H%M%S}.png", ContentFile(brut), save=False)
+        edl.signe_le = timezone.now()
+        edl.save(update_fields=["signature_locataire", "signature_agence", "signe_le"])
+        journaliser(request, "État des lieux", f"{edl.get_type_etat_display()} signé sur place — contrat {c.reference} — {c.locataire.nom}")
+        return Response({"le": edl.signe_le, "locataire": request.build_absolute_uri(edl.signature_locataire.url), "agence": request.build_absolute_uri(edl.signature_agence.url)})
 
     @action(detail=True, methods=["post"], url_path=r"etat-des-lieux/(?P<type_etat>entree|sortie)/photos")
     def photos_etat_des_lieux(self, request, pk=None, type_etat="entree"):
@@ -324,7 +365,7 @@ class ContratViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Cr
             "reference": m.reference, "date_signature": m.date_signature, "date_debut": m.date_debut,
             "duree": m.duree, "tacite_reconduction": m.tacite_reconduction, "date_fin": m.date_fin,
         } if m else None
-        data["clauses"] = list(ClauseContrat.objects.filter(actif=True).values("titre", "contenu"))
+        data["clauses"] = c.clauses_signees if c.clauses_signees is not None else list(ClauseContrat.objects.filter(actif=True).values("titre", "contenu"))
         data["signature_electronique"] = signature_du_contrat(c)
         data["restitution"] = MouvementCautionSerializer(c.mouvements_caution.filter(type_mouvement="restitution"), many=True).data
         data["retenues"] = MouvementCautionSerializer(c.mouvements_caution.filter(type_mouvement="retenue"), many=True).data
@@ -418,13 +459,28 @@ class ChargeViewSet(viewsets.ModelViewSet):
         ch.delete()
 
 
-class RevisionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+class RevisionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     serializer_class = RevisionSerializer
     filterset_fields = ["contrat"]
     search_fields = ["contrat__locataire__nom", "contrat__maison__designation", "motif"]
 
     def get_queryset(self):
-        return RevisionLoyer.objects.select_related("contrat__locataire", "contrat__maison", "effectue_par")
+        return RevisionLoyer.objects.select_related("contrat__locataire", "contrat__maison__bailleur", "effectue_par")
+
+    def retrieve(self, request, *args, **kwargs):
+        """Révision avec ce qu'il faut pour la lettre au locataire."""
+        r = self.get_object()
+        c = r.contrat
+        data = RevisionSerializer(r).data
+        data.update({
+            "contrat_reference": c.reference, "date_debut": c.date_debut, "locataire_nom": c.locataire.nom, "locataire_telephone": c.locataire.telephone1,
+            "maison_nom": c.maison.designation, "maison_adresse": c.maison.adresse, "bailleur_nom": c.maison.bailleur.nom,
+        })
+        return Response(data)
+
+    @action(detail=False, url_path="a-echeance", pagination_class=None)
+    def a_echeance(self, request):
+        return Response(services.revisions_a_echeance(int(request.query_params.get("horizon", 90))))
 
 
 class CautionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):

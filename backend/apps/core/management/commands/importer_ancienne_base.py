@@ -25,6 +25,7 @@ from apps.core.utils import arrondir, parser_periode
 from apps.finances.models import CompteCourantBailleur, MouvementCaisse
 from apps.locatif.models import ChargeLocative, Contrat, Encaissement, MouvementCaution, RevisionLoyer
 from apps.locatif.services import recalculer_echeance
+from apps.patrimoine.mandats import figer_existant
 from apps.patrimoine.models import Bailleur, Document, Locataire, LocataireAcces, MandatGestion, Maison, PhotoMaison
 from apps.relations.models import MessageLocataire, MessageVisiteur, Reservation
 
@@ -106,6 +107,7 @@ class Command(BaseCommand):
             raise CommandError("La base cible contient déjà des contrats. Utilisez une base vide (ou --forcer).")
         with transaction.atomic():
             self.importer()
+            figer_existant()
         self.reinitialiser_sequences()
         self.stdout.write(self.style.SUCCESS(
             f"Import terminé. Fichiers copiés : {self.nb_fichiers}" + (f" — introuvables : {self.manquants}" if self.manquants else "")

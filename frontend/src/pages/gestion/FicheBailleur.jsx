@@ -40,7 +40,7 @@ export function FormVersement({ ouvert, onFermer, bailleur, solde }) {
 export default function FicheBailleur() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { estAdmin } = useSession();
+  const { estAdmin, licence } = useSession();
   const confirmer = useConfirmer();
   const [onglet, setOnglet] = useState("biens");
   const [modal, setModal] = useState(null);
@@ -100,7 +100,7 @@ export default function FicheBailleur() {
               <Encart ton="alerte" titre="Aucun mandat en vigueur">Sans mandat, impossible d'ajouter un bien ou de signer un bail pour ce bailleur.</Encart>
             )}
           </Panneau>
-          <AccesBailleur b={b} onChange={refetch} />
+          {(!licence || licence.modules.includes("espace_bailleur")) && <AccesBailleur b={b} onChange={refetch} />}
         </div>
       </div>
 

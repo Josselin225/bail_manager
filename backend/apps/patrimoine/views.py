@@ -18,7 +18,9 @@ from apps.locatif.models import Contrat
 from apps.locatif.services import exiger_mandat_actif
 from apps.patrimoine.mandats import informer_locataires_renouvellement
 
-from .models import Bailleur, BailleurAcces, Document, Locataire, LocataireAcces, MandatGestion, Maison, PhotoMaison
+from apps.core.models import ClauseMandat, clauses_en_vigueur
+
+from .models import Bailleur, BailleurAcces, BienConfie, Document, Locataire, LocataireAcces, MandatGestion, Maison, PhotoMaison
 from .serializers import (
     BailleurMiniSerializer, BailleurSerializer, DocumentSerializer, LocataireSerializer, MaisonSerializer,
     MandatSerializer,
@@ -31,6 +33,14 @@ def _somme(qs, champ="montant"):
         Value(0), output_field=DecimalField(max_digits=14, decimal_places=0),
     )
 
+
+
+def confier(maison, mandat):
+    """Rattache un bien au mandat en vigueur (liste « Biens confiés » du mandat, datée)."""
+    if mandat is not None:
+        from apps.core.utils import aujourdhui
+
+        BienConfie.objects.get_or_create(mandat=mandat, maison=maison, defaults={"confie_le": aujourdhui()})
 
 class BailleurViewSet(viewsets.ModelViewSet):
     serializer_class = BailleurSerializer
@@ -102,7 +112,9 @@ class MandatViewSet(viewsets.ModelViewSet):
         b = ser.validated_data["bailleur"]
         renouvellement = MandatGestion.objects.filter(bailleur=b, statut="actif").exists()
         MandatGestion.objects.filter(bailleur=b, statut="actif").update(statut="resilie")
-        m = ser.save()
+        m = ser.save(clauses_signees=clauses_en_vigueur(ClauseMandat))
+        for maison in b.maisons.all():
+            BienConfie.objects.get_or_create(mandat=m, maison=maison, defaults={"confie_le": m.date_debut})
         journaliser(self.request, "Mandat de gestion", f"Mandat {m.reference} enregistré pour {b.nom} — {m.taux_commission}%")
         if renouvellement:
             n = informer_locataires_renouvellement(m)
@@ -201,14 +213,17 @@ class MaisonViewSet(viewsets.ModelViewSet):
         return Response(sorted(set(base) | set(types)))
 
     def perform_create(self, ser):
-        exiger_mandat_actif(ser.validated_data["bailleur"])
+        from apps.core.licence import verifier_limite
+
+        verifier_limite("biens", Maison.objects.count())
+        mandat = exiger_mandat_actif(ser.validated_data["bailleur"])
         m = ser.save()
+        confier(m, mandat)
         journaliser(self.request, "Création maison", f"{m.designation} — bailleur {m.bailleur.nom}")
 
     def perform_update(self, ser):
         nouveau = ser.validated_data.get("bailleur")
-        if nouveau and nouveau != ser.instance.bailleur:
-            exiger_mandat_actif(nouveau)
+        mandat = exiger_mandat_actif(nouveau) if nouveau and nouveau != ser.instance.bailleur else None
         loyer = ser.validated_data.get("loyer")
         if loyer is not None and loyer != ser.instance.loyer and ser.instance.contrats.filter(statut_contrat="actif").exists():
             raise RegleMetier(
@@ -216,6 +231,8 @@ class MaisonViewSet(viewsets.ModelViewSet):
                 "à la demande du bailleur."
             )
         m = ser.save()
+        if mandat:
+            confier(m, mandat)
         journaliser(self.request, "Modification maison", m.designation)
 
     def perform_destroy(self, m):

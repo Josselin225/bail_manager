@@ -14,7 +14,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from apps.core.exceptions import RegleMetier
-from apps.core.models import Parametres
+from apps.core.models import ClauseContrat, Parametres, clauses_en_vigueur
 from apps.core.utils import (
     ajouter_mois, arrondir, auteur, aujourdhui, date_du_mois, fcfa, index_periode, journaliser,
     libelle_periode, periode_depuis_index,
@@ -287,6 +287,7 @@ def creer_contrat(
         depot_garantie=loyer * CAUTION_NB_MOIS, mois_avance=mois_avance, avance_loyer=loyer * mois_avance,
         droit_agence=arrondir(droit_agence or 0),
         cree_par=request.user if request and request.user.is_authenticated else None,
+        clauses_signees=clauses_en_vigueur(ClauseContrat),
     )
     maison.statut = Maison.Statut.OCCUPE
     maison.save(update_fields=["statut"])
@@ -392,6 +393,29 @@ def reviser_loyer(contrat: Contrat, nouveau_loyer, motif="", date_effet=None, re
         f"({rev.get_origine_display().lower()}). Motif : {motif}",
     )
     return rev
+
+
+PERIODE_REVISION_MOIS = 36
+
+
+def revisions_a_echeance(horizon_jours=90, jour=None):
+    """Baux dont le loyer n'a pas été révisé depuis trois ans (depuis le début du bail ou la dernière révision),
+    ou qui y arrivent dans `horizon_jours` : la révision triennale peut être proposée au bailleur."""
+    from datetime import timedelta
+
+    jour = jour or aujourdhui()
+    res = []
+    for c in Contrat.objects.filter(statut_contrat=Contrat.Statut.ACTIF).select_related("locataire", "maison__bailleur").prefetch_related("revisions"):
+        derniere = max((r.date_effet for r in c.revisions.all() if r.date_effet), default=None)
+        base = derniere or c.date_debut
+        echeance = ajouter_mois(base, PERIODE_REVISION_MOIS)
+        if echeance <= jour + timedelta(days=horizon_jours):
+            res.append({
+                "contrat": c.pk, "reference": c.reference, "locataire": c.locataire.nom, "maison": c.maison.designation,
+                "bailleur": c.maison.bailleur.nom, "loyer": c.loyer_mensuel, "depuis": base, "derniere_revision": derniere,
+                "echeance": echeance, "jours": (echeance - jour).days,
+            })
+    return sorted(res, key=lambda x: x["echeance"])
 
 
 # ─── Cautions & résiliation ───────────────────────────────────────────────────

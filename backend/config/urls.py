@@ -9,6 +9,8 @@ from apps.finances import views as finances
 from apps.locatif import views as locatif
 from apps.patrimoine import views as patrimoine
 from apps.connecteurs import views as connecteurs
+from apps.core import systeme
+from apps.locatif import vues_compteurs
 from apps.portail import bailleur as portail_bailleur
 from apps.portail import views as portail
 from apps.rapports import views as rapports
@@ -28,6 +30,7 @@ router.register("revisions", locatif.RevisionViewSet, basename="revision")
 router.register("cautions", locatif.CautionViewSet, basename="caution")
 router.register("compte-bailleurs", finances.CompteBailleurViewSet, basename="compte-bailleur")
 router.register("caisse", finances.CaisseViewSet, basename="caisse")
+router.register("compteurs", vues_compteurs.CompteurViewSet, basename="compteur")
 router.register("reservations", relations.ReservationViewSet, basename="reservation")
 router.register("messages", relations.MessageVisiteurViewSet, basename="message")
 router.register("messagerie", relations.MessagerieLocataireViewSet, basename="messagerie")
@@ -46,6 +49,11 @@ api = [
     path("auth/reinitialiser/", comptes.reinitialiser_mot_de_passe),
     path("parametres/", core.parametres),
     path("sauvegarde/", core.sauvegarde),
+    path("systeme/", systeme.systeme),
+    path("licence/", core.licence),
+    path("rapprochement/analyser/", finances.rapprochement_analyser),
+    path("rapprochement/encaisser/", finances.rapprochement_encaisser),
+    path("rapprochement/historique/", finances.rapprochement_historique),
     path("tableau-de-bord/", rapports.tableau_de_bord),
     path("rapports/mois-paiements/", rapports.mois_paiements),
     path("rapports/journalier/", rapports.rapport_journalier),
@@ -56,6 +64,7 @@ api = [
     path("rapports/impayes/", rapports.liste_impayes),
     path("rapports/releve-bailleur/<int:pk>/", rapports.releve_bailleur),
     path("rapports/recap-fiscal/<int:pk>/", rapports.recap_fiscal),
+    path("rapports/activite-agents/", rapports.activite_agents),
     path("calendrier/", rapports.calendrier),
     path("recherche/", rapports.recherche),
     path("export/excel/", rapports.export_excel),

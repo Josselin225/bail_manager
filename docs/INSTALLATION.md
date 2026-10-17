@@ -30,13 +30,16 @@ Sur le PC serveur :
    ```
    et relancer `1-installer.bat` (il applique les tables sur MySQL).
 3. Donner une **adresse IP fixe** au serveur (box/routeur ou paramètres réseau Windows), par ex. `192.168.1.10`.
-4. Ouvrir le port dans le pare-feu (invite de commandes **en administrateur**) :
-   ```
-   netsh advfirewall firewall add rule name="BailManager" dir=in action=allow protocol=TCP localport=8000
-   ```
-5. Lancer `2-demarrer.bat` : la fenêtre affiche l'adresse réseau à utiliser.
+4. Clic droit sur `scripts-windows-configurer-serveur.bat` > **Exécuter en tant qu'administrateur**. En une fois, il :
+   - ouvre le port 8000 du pare-feu aux postes du réseau privé ;
+   - fait démarrer BailManager **avec Windows**, en arrière-plan, même sans ouvrir de session ;
+   - planifie les rappels (8 h) et les sauvegardes (13 h et 20 h) ;
+   - affiche l'adresse à utiliser sur les autres postes.
 
-Sur les autres postes : ouvrir `http://192.168.1.10:8000` dans Chrome/Edge et l'ajouter aux favoris. Rien à installer.
+   Ensuite, n'utilisez plus `2-demarrer.bat` sur ce PC. Pour tout annuler : `4-retirer-configuration.bat` (en administrateur).
+5. Vérifier dans **Paramètres > Serveur** : adresse réseau (avec un QR code pour les téléphones), base, espace disque, dernier passage des rappels et des sauvegardes.
+
+Sur les autres postes : ouvrir `http://192.168.1.10:8000` dans Chrome/Edge, puis l'ajouter aux favoris ou l'installer comme application (menu du profil > « Installer l'application »). Rien d'autre à installer.
 
 Le site vitrine et l'espace locataire sont à la même adresse (`/`, `/nos-maisons`, `/espace-locataire`). Pour qu'ils soient visibles depuis Internet, il faut l'installation C (ou une redirection de port sur la box, déconseillée sans HTTPS).
 
@@ -93,6 +96,19 @@ sudo certbot --nginx -d gestion.votre-agence.ci
 
 Dans `.env`, ajouter `CSRF_TRUSTED_ORIGINS=https://gestion.votre-agence.ci`.
 
+## Licence
+
+À l'installation, BailManager fonctionne **30 jours en essai**, tous modules ouverts. Ensuite, l'administrateur colle la licence de l'agence dans **Paramètres > Licence**.
+
+Une licence fixe : la date de fin, le nombre d'utilisateurs actifs, le nombre de biens et les modules (connecteurs SMS / Mobile Money / signature, espace propriétaire, rapprochement, compteurs partagés). Alerte 30 jours avant la fin, 15 jours de grâce, puis **lecture seule** : tout reste consultable, imprimable, exportable et sauvegardable jusqu'à l'installation d'une nouvelle licence.
+
+**Pour l'éditeur** (vous seul) — produire la licence d'une agence :
+```
+python manage.py generer_licence --agence "Agence Le Berger" --jusquau 2027-12-31 --utilisateurs 3 --biens 80 ^
+    --modules tous --cle C:\Users\kkjos\BailManager-licences\cle-privee-licences.pem
+```
+La clé privée (`cle-privee-licences.pem`) ne doit jamais être copiée chez un client ni dans le dépôt Git : conservez-en une copie en lieu sûr (clé USB, coffre), sa perte empêche d'émettre de nouvelles licences.
+
 ## Tâches automatiques
 
 | Tâche | Windows (Planificateur de tâches) | Linux (`crontab -e`, utilisateur www-data) |
@@ -100,7 +116,7 @@ Dans `.env`, ajouter `CSRF_TRUSTED_ORIGINS=https://gestion.votre-agence.ci`.
 | Rappels de loyer, chaque jour à 8 h | `scripts-windows\rappels-quotidiens.bat` | `0 8 * * * cd /opt/bailmanager/backend && .venv/bin/python manage.py envoyer_rappels` |
 | Sauvegarde, chaque soir à 20 h | `scripts-windows\sauvegarde-quotidienne.bat` | `0 20 * * * cd /opt/bailmanager/backend && .venv/bin/python manage.py sauvegarder` |
 
-Windows : Planificateur de tâches > Créer une tâche de base > Quotidienne > Démarrer un programme > choisir le `.bat`. Les sauvegardes vont dans `backend\sauvegardes\` (30 dernières conservées) : copiez-les régulièrement hors du PC.
+Windows : `3-configurer-serveur.bat` crée ces tâches (dossier « BailManager » du Planificateur de tâches). À la main : Planificateur de tâches > Créer une tâche de base > Quotidienne > Démarrer un programme > choisir le `.bat`. Les sauvegardes vont dans `backend\sauvegardes\` (30 dernières conservées) : copiez-les régulièrement hors du PC.
 
 Les rappels exigent la configuration e-mail (`MAIL_HOST`…). Sans elle, tout fonctionne sauf l'envoi des e-mails.
 
