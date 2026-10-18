@@ -234,6 +234,7 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
   - des tableaux aérés et des chiffres clés en tuiles ;
   - des blocs de signature ;
   - pour la quittance, deux exemplaires sur une seule page A4.
+- **Guide d'utilisation illustré** (menu Aide) : 8 parties et 40 fiches, chacune avec une capture réelle annotée de pastilles numérotées qui renvoient aux étapes du texte, des encadrés « Bon à savoir » et « Règles appliquées par le logiciel », une recherche, des questions fréquentes, l'agrandissement des captures et l'impression du guide complet.
 - **Accessibilité** :
   - navigation au clavier ;
   - contrastes vérifiés ;

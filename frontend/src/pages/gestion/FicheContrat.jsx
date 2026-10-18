@@ -192,7 +192,7 @@ function PanneauRecouvrement({ c }) {
   const planActif = r.plans.find((p) => p.actif);
   return (
     <Panneau titre="Recouvrement" icone={AlarmClock}>
-      {dette > 0 && <p className="petit-texte" style={{ marginTop: 0 }}><b>{fcfa(dette)}</b> dus ({r.situation.periodes}).</p>}
+      {dette > 0 && <p className="petit-texte" style={{ marginTop: 0 }}><b>{fcfa(dette)}</b> dus ({r.situation.periodes.join(", ")}).</p>}
       {r.relances.length > 0 && (
         <div className="liste-relances">
           {r.relances.map((x) => (

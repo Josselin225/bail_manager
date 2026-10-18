@@ -1,85 +1,169 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { EntetePage, Panneau } from "../../components/ui";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { BookOpen, ChevronLeft, ChevronRight, CircleHelp, Lightbulb, Maximize2, Printer, Search, ShieldCheck } from "lucide-react";
+import { Bouton, EntetePage } from "../../components/ui";
+import Visionneuse from "../../components/Visionneuse";
+import { QUESTIONS, SECTIONS } from "./guideContenu";
 
-const SECTIONS = [
-  { id: "demarrage", titre: "Mise en route", lignes: [
-    ["Paramètres", "Commencez par Paramètres : nom de l'agence, logo, coordonnées, mentions légales (CC, RCCM, banque) imprimées en pied de chaque document, et taux de commission par défaut."],
-    ["Utilisateurs", "Créez un compte par membre du personnel. Un agent encaisse, crée bailleurs, biens, locataires et contrats ; seul l'administrateur supprime, résilie, révise un loyer, gère les comptes et consulte le journal."],
-  ] },
-  { id: "patrimoine", titre: "Patrimoine", lignes: [
-    ["Bailleur puis mandat", "Enregistrez le propriétaire : un code (BA-XX2026-0001) est généré. Saisissez ensuite son mandat de gestion (taux de commission, durée, scan signé). Sans mandat en vigueur, impossible d'ajouter un bien ou de signer un bail pour lui. Un nouveau mandat remplace le précédent (renouvellement)."],
-    ["Maisons", "Chaque bien appartient à un bailleur sous mandat. Ajoutez jusqu'à trois photos : elles apparaissent sur le site public (« Nos maisons ») tant que le bien est libre et publié."],
-    ["Locataires", "Le téléphone principal sert d'identifiant à l'espace locataire. Joignez photo et CNI recto/verso ; les autres pièces vont dans l'onglet Documents de la fiche."],
-  ] },
-  { id: "contrats", titre: "Contrats de bail", lignes: [
-    ["Créer un bail", "Choisissez une maison libre et un locataire. La caution est fixée à 2 mois de loyer (Art. 416) ; l'avance est de 0 à 2 mois (Art. 415) ; les frais d'agence sont modifiables. Le total à verser se calcule en direct."],
-    ["Ce qui se passe à l'enregistrement", "Le bien passe « occupé », l'avance génère les quittances des premiers mois (part bailleur créditée, commission en caisse), les frais d'agence entrent en caisse et le reçu de signature s'ouvre pour impression."],
-    ["Échéance, révision, résiliation", "Depuis la fiche du contrat : fixer une date de fin (elle apparaît au calendrier et dans les rappels), réviser le loyer à partir d'un mois donné, faire une retenue sur caution, ou résilier (solde de tout compte)."],
-  ] },
-  { id: "encaissements", titre: "Encaissements et quittances", lignes: [
-    ["Encaisser", "Menu Encaissements ou fiche du contrat. Le premier mois non soldé est proposé automatiquement avec le reste à payer. Le paiement partiel est accepté ; un montant supérieur au reste est refusé (le surplus se saisit sur le mois suivant)."],
-    ["Règle des dettes antérieures", "On ne peut pas encaisser un mois tant qu'un mois précédent n'est pas soldé : le formulaire l'indique et propose de basculer sur le mois dû."],
-    ["Répartition", "Chaque encaissement crédite le compte du bailleur du montant net et verse la commission (taux du mandat) dans la caisse de l'agence. Un reçu émis ne peut être ni modifié ni supprimé."],
-    ["Quittance", "Montant en chiffres et en lettres, période, reste dû, rappel des impayés et QR code de vérification. Imprimez ou enregistrez en PDF (« Enregistrer au format PDF » dans la fenêtre d'impression)."],
-  ] },
-  { id: "finances", titre: "Finances", lignes: [
-    ["Comptes bailleurs", "Historique des crédits (loyers nets) et versements de chaque bailleur. « Verser au bailleur » enregistre une remise d'argent, plafonnée au solde dû. Le relevé imprimable sert de justificatif."],
-    ["Caisse agence", "Commissions, frais d'agence, retenues pour réparations ; les dépenses de l'agence se saisissent en « Retrait / dépense » (impossible au-delà du solde)."],
-    ["Cautions", "Registre des dépôts. À la résiliation : la retenue « réparations » va en caisse, la retenue « loyers impayés » solde les mois dus les plus anciens (quittances émises), le reste est restitué au locataire."],
-  ] },
-  { id: "relations", titre: "Site public et relations", lignes: [
-    ["Réservations", "Les demandes de visite du site arrivent ici : confirmez, marquez « visite faite » ou annulez."],
-    ["Messages du site", "Messages du formulaire Contact ; répondez par e-mail directement si l'envoi d'e-mails est configuré."],
-    ["Rapprochement des relevés", "Finances > Rapprochement : déposez le relevé exporté de Wave, Orange Money, MTN, Moov ou de la banque (CSV ou Excel). Chaque paiement est rapproché d'un locataire (téléphone, montant, nom) ; vérifiez, complétez les lignes « À affecter » puis « Encaisser la sélection ». Un paiement déjà encaissé est reconnu au prochain import."],
-    ["Compteurs partagés", "Gestion locative > Compteurs partagés : déclarez le compteur commun d'une cour et ses logements, puis « Saisir une facture » : la facture est répartie selon les index ou à parts égales, et chaque part devient une charge sur le bail (celle d'un logement vide va au propriétaire)."],
-    ["Agenda des visites", "Relations > Visites : la semaine des visites (site, téléphone, agence). « Je m'en charge » attribue la visite ; « Visite faite » enregistre le compte rendu. « Nouvelle visite » pour une demande reçue au téléphone."],
-    ["État des lieux sur tablette", "Ouvrez l'état des lieux sur la tablette, remplissez-le pièce par pièce, enregistrez, puis faites signer le locataire et l'agent au doigt dans « Signer sur place ». Les signatures s'impriment sur le document ; une modification ultérieure les annule."],
-    ["Révision triennale", "Gestion locative > Révisions de loyer > « À réviser » : baux sans révision depuis trois ans. « Réviser » ouvre le formulaire (effet dans trois mois au plus tôt), puis la lettre au locataire à imprimer."],
-    ["Licence", "Paramètres > Licence : état, échéance, utilisateurs et biens autorisés, modules inclus. Collez-y la nouvelle licence remise par votre fournisseur. À l'échéance : 15 jours de grâce, puis lecture seule (rien n'est perdu)."],
-    ["Serveur de l'agence", "Paramètres > Serveur : adresse à ouvrir sur les autres postes et téléphones du réseau (QR code), base, espace disque, dernier passage des rappels et des sauvegardes. Pour le démarrage automatique : scripts-windows\\3-configurer-serveur.bat en administrateur."],
-    ["Connecteurs (SMS, WhatsApp, Mobile Money)", "Paramètres > Connecteurs (administrateur) : choisissez le fournisseur SMS, WhatsApp et l'agrégateur de paiement, saisissez les identifiants puis « Essayer ». En mode test, rien n'est envoyé ni débité : consultez le « Journal des envois ». Les relances, confirmations de paiement et rappels partent automatiquement selon les cases cochées."],
-    ["Signature électronique", "Fiche du contrat > Conditions > « Faire signer par SMS » : un code à 6 chiffres est envoyé au locataire ; il le saisit dans son espace ou vous le dicte. Le bail imprimé porte alors la mention de signature électronique."],
-    ["Récapitulatif fiscal", "Fiche bailleur > « Récapitulatif annuel » (ou espace propriétaire) : loyers encaissés, commissions et net par bien sur l'année choisie, à imprimer ou exporter vers Excel pour la déclaration des revenus fonciers."],
-    ["Partager une annonce", "Sur le site (fiche d'une maison) ou sur la fiche d'un bien disponible : boutons WhatsApp, Facebook et « Copier le lien ». L'aperçu affiche la photo, le titre et le loyer."],
-    ["Installer l'application", "Dans Chrome ou Edge (ordinateur, Android), le bouton « Installer » en haut de l'écran ajoute BailManager comme une application. Sur iPhone : Partager > « Sur l'écran d'accueil »."],
-    ["Sauvegarde hors du serveur", "Paramètres > Sauvegarde : choisissez un dossier (disque externe, Google Drive / OneDrive synchronisé), WebDAV ou S3, et une phrase de chiffrement. La tâche quotidienne y dépose une copie chiffrée ; « Sauvegarder maintenant » le fait à la demande."],
-    ["Espace bailleur", "Sur la fiche bailleur, « Générer un code » (administrateur) : le propriétaire se connecte sur /espace-bailleur avec son téléphone et ce code pour suivre son solde, ses versements, l'occupation de ses biens, imprimer ses relevés et consulter les quittances de ses locataires."],
-    ["Recouvrement", "Menu Contrats & loyers > Recouvrement : tous les locataires en retard. « Rappel amiable », puis « Relance », puis « Mise en demeure » créent la lettre du niveau suivant, prête à imprimer. « Plan » étale la dette en mensualités et imprime l'accord à faire signer ; le suivi des échéances apparaît sur la fiche du contrat."],
-    ["Espace locataire", "Sur la fiche locataire, « Générer un code » (administrateur) : le locataire se connecte sur /espace-locataire avec son téléphone et ce code pour voir ses paiements, télécharger ses quittances, consulter ses charges et écrire à l'agence (menu Messagerie locataires)."],
-  ] },
-  { id: "pilotage", titre: "Pilotage et sécurité", lignes: [
-    ["Tableau de bord", "L'échéancier du mois montre chaque loyer attendu : vert payé, orange partiel, rouge en retard, gris à venir. Les flèches changent de mois."],
-    ["Recherche", "Ctrl + K (ou la barre en haut) cherche bailleurs, locataires, maisons, contrats et numéros de reçu."],
-    ["Rapports", "Journalier, mensuel, annuel, période, occupation, impayés, relevé bailleur : impression, PDF et export Excel."],
-    ["Journal et sauvegardes", "Toutes les opérations sont journalisées (utilisateur, date, IP). Paramètres > Sauvegarde télécharge une archive complète ; une sauvegarde quotidienne automatique se planifie à l'installation."],
-  ] },
-];
+const sansAccents = (t) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const texteFiche = (f) => sansAccents([f.titre, f.intro, f.legende, ...(f.etapes || []), ...(f.astuces || []), ...(f.regles || [])].join(" "));
 
+function Fiche({ f, onZoom }) {
+  return (
+    <article id={f.id} className="fiche-guide">
+      <h2>{f.titre}</h2>
+      {f.intro && <p className="intro-fiche">{f.intro}</p>}
+      <div className={`corps-fiche ${f.image ? "" : "sans-image"}`}>
+        {f.image && (
+          <figure className="capture-guide">
+            <button type="button" onClick={() => onZoom(f)} aria-label={`Agrandir la capture : ${f.legende}`}>
+              <img src={`/guide/${f.image}`} alt={f.legende} loading="lazy" />
+              <span className="zoom-capture"><Maximize2 size={14} /> Agrandir</span>
+            </button>
+            <figcaption>{f.legende}</figcaption>
+          </figure>
+        )}
+        {f.etapes?.length > 0 && (
+          <ol className="etapes-guide">
+            {f.etapes.map((e, i) => <li key={i}><span className="numero-etape" aria-hidden="true">{i + 1}</span><span>{e}</span></li>)}
+          </ol>
+        )}
+      </div>
+      {f.astuces?.length > 0 && (
+        <div className="encadre-guide astuce">
+          <div className="titre-encadre"><Lightbulb size={16} /> Bon à savoir</div>
+          <ul>{f.astuces.map((a, i) => <li key={i}>{a}</li>)}</ul>
+        </div>
+      )}
+      {f.regles?.length > 0 && (
+        <div className="encadre-guide regle">
+          <div className="titre-encadre"><ShieldCheck size={16} /> Règles appliquées par le logiciel</div>
+          <ul>{f.regles.map((r, i) => <li key={i}>{r}</li>)}</ul>
+        </div>
+      )}
+    </article>
+  );
+}
+
+/** Guide utilisateur illustré : sommaire, recherche, pas-à-pas numérotés comme les pastilles des captures. */
 export default function Guide() {
-  const [actif, setActif] = useState(SECTIONS[0].id);
-  const s = SECTIONS.find((x) => x.id === actif);
+  const { hash } = useLocation();
+  const nav = useNavigate();
+  const [actif, setActif] = useState(() => SECTIONS.find((s) => s.fiches.some((f) => `#${f.id}` === hash))?.id || SECTIONS[0].id);
+  const [recherche, setRecherche] = useState("");
+  const [zoom, setZoom] = useState(null);
+  const [tout, setTout] = useState(false);
+
+  const resultats = useMemo(() => {
+    const q = sansAccents(recherche.trim());
+    if (q.length < 2) return null;
+    return SECTIONS.flatMap((s) => s.fiches.filter((f) => q.split(/\s+/).every((m) => texteFiche(f).includes(m))).map((f) => ({ ...f, section: s })));
+  }, [recherche]);
+
+  useEffect(() => {
+    if (!hash) return;
+    const t = setTimeout(() => document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    return () => clearTimeout(t);
+  }, [hash, actif]);
+
+  // Impression de tout le guide : toutes les parties s'affichent, puis on revient à la partie en cours une fois l'impression finie
+  const imprimer = () => {
+    setTout(true);
+    window.addEventListener("afterprint", () => setTout(false), { once: true });
+    setTimeout(() => window.print(), 500);
+  };
+  const ouvrir = (s, f) => {
+    setRecherche("");
+    setActif(s.id);
+    nav(f ? `#${f.id}` : "#", { replace: true });
+    if (!f) window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const index = SECTIONS.findIndex((s) => s.id === actif);
+  const section = SECTIONS[index] || SECTIONS[0];
+  const affichees = tout ? SECTIONS : [section];
+  const images = (tout ? SECTIONS.flatMap((s) => s.fiches) : section.fiches).filter((f) => f.image);
+
   return (
     <>
-      <EntetePage titre="Guide d'utilisation" soustitre="Les règles de gestion et les gestes du quotidien, module par module." />
-      <div className="grille grille-guide">
-        <Panneau serre>
-          <nav style={{ padding: 6 }}>
-            {SECTIONS.map((x) => (
-              <button key={x.id} className={`btn bloc ${x.id === actif ? "primaire" : "fantome"}`} style={{ justifyContent: "flex-start", marginBottom: 2 }} onClick={() => setActif(x.id)}>{x.titre}</button>
+      <EntetePage titre="Guide d'utilisation" soustitre="Chaque écran expliqué pas à pas, avec ses captures : les pastilles rouges correspondent aux étapes numérotées.">
+        <Bouton icone={Printer} onClick={imprimer} className="non-imprime">Imprimer le guide</Bouton>
+      </EntetePage>
+      <div className="guide">
+        <aside className="sommaire-guide non-imprime">
+          <label className="recherche-guide">
+            <Search size={16} />
+            <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Chercher dans le guide…" aria-label="Chercher dans le guide" />
+          </label>
+          <nav aria-label="Sommaire du guide">
+            {SECTIONS.map((s, i) => (
+              <div key={s.id} className={`groupe-sommaire ${s.id === actif && !resultats ? "actif" : ""}`}>
+                <button type="button" onClick={() => ouvrir(s)}><span className="num-section">{i + 1}</span>{s.titre}</button>
+                {s.id === actif && !resultats && (
+                  <ul>{s.fiches.map((f) => <li key={f.id}><a href={`#${f.id}`} onClick={(e) => { e.preventDefault(); ouvrir(s, f); }} className={hash === `#${f.id}` ? "courant" : ""}>{f.titre}</a></li>)}</ul>
+                )}
+              </div>
             ))}
-          </nav>
-        </Panneau>
-        <Panneau titre={s.titre}>
-          {s.lignes.map(([t, txt]) => (
-            <div key={t} style={{ marginBottom: 18, maxWidth: 760 }}>
-              <h3 style={{ marginBottom: 4 }}>{t}</h3>
-              <p className="discret" style={{ margin: 0, lineHeight: 1.6 }}>{txt}</p>
+            <div className={`groupe-sommaire ${actif === "faq" && !resultats ? "actif" : ""}`}>
+              <button type="button" onClick={() => (setRecherche(""), setActif("faq"), window.scrollTo({ top: 0 }))}><span className="num-section"><CircleHelp size={13} /></span>Questions fréquentes</button>
             </div>
-          ))}
-          <p className="petit-texte discret">Une question ? <Link to="/a-propos">Contactez le support</Link>.</p>
-        </Panneau>
+          </nav>
+        </aside>
+
+        <div className="contenu-guide">
+          {resultats ? (
+            <section className="section-guide">
+              <h1 className="titre-section">{resultats.length} résultat{resultats.length > 1 ? "s" : ""} pour « {recherche} »</h1>
+              {resultats.length === 0 && <p className="discret">Aucune fiche ne correspond. Essayez un autre mot (encaisser, caution, mandat, relance, licence…).</p>}
+              <div className="resultats-guide">
+                {resultats.map((f) => (
+                  <button key={f.id} type="button" className="resultat-guide" onClick={() => ouvrir(f.section, f)}>
+                    {f.image && <img src={`/guide/${f.image}`} alt="" loading="lazy" />}
+                    <span><span className="petit-texte discret">{f.section.titre}</span><b>{f.titre}</b><span className="petit-texte">{f.intro || f.legende}</span></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : actif === "faq" && !tout ? (
+            <section className="section-guide">
+              <h1 className="titre-section">Questions fréquentes</h1>
+              <div className="faq-guide">
+                {QUESTIONS.map(([q, r]) => <details key={q}><summary>{q}</summary><p>{r}</p></details>)}
+              </div>
+              <p className="petit-texte discret">Une autre question ? <Link to="/a-propos">Contactez le support</Link>.</p>
+            </section>
+          ) : (
+            <>
+              {affichees.map((s) => (
+                <section key={s.id} className="section-guide">
+                  <div className="bandeau-section">
+                    <BookOpen size={22} />
+                    <div>
+                      <span className="sur-titre-section">Partie {SECTIONS.indexOf(s) + 1} sur {SECTIONS.length}</span>
+                      <h1 className="titre-section">{s.titre}</h1>
+                      <p>{s.resume}</p>
+                    </div>
+                  </div>
+                  {s.fiches.map((f) => <Fiche key={f.id} f={f} onZoom={setZoom} />)}
+                </section>
+              ))}
+              {!tout && (
+                <div className="navigation-guide non-imprime">
+                  {index > 0 ? <Bouton icone={ChevronLeft} onClick={() => ouvrir(SECTIONS[index - 1])}>{SECTIONS[index - 1].titre}</Bouton> : <span />}
+                  {index < SECTIONS.length - 1 && <Bouton variante="primaire" onClick={() => ouvrir(SECTIONS[index + 1])}>{SECTIONS[index + 1].titre} <ChevronRight size={16} /></Bouton>}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
+      {zoom && (
+        <Visionneuse
+          photos={images.map((f) => `/guide/${f.image}`)}
+          depart={Math.max(0, images.findIndex((f) => f.id === zoom.id))}
+          titre={zoom.titre}
+          onFermer={() => setZoom(null)}
+        />
+      )}
     </>
   );
 }
