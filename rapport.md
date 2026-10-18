@@ -182,7 +182,7 @@ Ces services sont **prêts à brancher** : l'agence choisit son fournisseur et s
   - loyers encaissés, commissions et net, bien par bien, avec les mois loués ;
   - travaux et ajustements imputés, sommes versées ;
   - imprimable et exportable vers Excel, pour aider à déclarer les revenus fonciers.
-- **Application installable (PWA)** : BailManager s'installe sur ordinateur et téléphone (bouton « Installer »), avec raccourcis vers les espaces locataire et propriétaire. Les données personnelles ne sont jamais conservées dans le cache du téléphone.
+- **Application installable (PWA)** : BailManager s'installe sur ordinateur et téléphone (« Installer l'application » dans le menu du profil ; bouton « Installer » dans les espaces locataire et propriétaire), avec raccourcis vers les espaces locataire et propriétaire. Les données personnelles ne sont jamais conservées dans le cache du téléphone.
 - **Rappels automatiques** (tâche quotidienne) :
   - retards de paiement et échéances proches ;
   - synthèse envoyée à l'agence ;
