@@ -9,9 +9,11 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // changeOrigin: false — Django voit l'adresse réellement ouverte (localhost:5173, IP du poste…) : les liens
+    // vers les photos qu'il construit restent sur la même origine, donc la session de l'utilisateur les accompagne.
     proxy: {
-      "/api": "http://127.0.0.1:8000",
-      "/media": "http://127.0.0.1:8000",
+      "/api": { target: "http://127.0.0.1:8000", changeOrigin: false },
+      "/media": { target: "http://127.0.0.1:8000", changeOrigin: false },
     },
   },
   build: {

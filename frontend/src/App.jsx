@@ -63,6 +63,7 @@ const DocEtatDesLieux = p(() => import("./pages/impression/DocEtatDesLieux"));
 const DocRevision = p(() => import("./pages/impression/DocRevision"));
 const DocRelance = p(() => import("./pages/impression/DocRelance"));
 const DocPlanApurement = p(() => import("./pages/impression/DocPlanApurement"));
+const Menu = p(() => import("./pages/gestion/Menu"));
 const Equipe = p(() => import("./pages/gestion/Equipe"));
 const CompteursPartages = p(() => import("./pages/gestion/CompteursPartages"));
 const Rapprochement = p(() => import("./pages/gestion/Rapprochement"));
@@ -117,6 +118,7 @@ export default function App() {
 
         <Route element={<Protege><Coquille /></Protege>}>
           <Route path="/tableau-de-bord" element={<TableauDeBord />} />
+          <Route path="/menu" element={<Menu />} />
           <Route path="/bailleurs" element={<Bailleurs />} />
           <Route path="/bailleurs/:id" element={<FicheBailleur />} />
           <Route path="/maisons" element={<Maisons />} />

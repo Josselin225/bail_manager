@@ -222,6 +222,7 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
 - **Mode sombre** complet.
 - **Navigation** :
   - menu latéral en tiroirs, avec compteurs ;
+  - page **Menu** (sous « Tableau de bord ») : toutes les fonctions avec leur description, en trois vues — tuiles, liste, icônes (une illustration en couleur par fonction, fond selon la rubrique) — combinables avec deux ordres — par rubrique ou de A à Z (regroupées par lettre, avec barre de lettres) —, tous mémorisés ; filtre, favoris épinglés et pages récemment ouvertes ;
   - recherche globale (Ctrl K) ;
   - en-têtes de page fixes au défilement ;
   - un même loader à l'image de la marque.
@@ -234,7 +235,7 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
   - des tableaux aérés et des chiffres clés en tuiles ;
   - des blocs de signature ;
   - pour la quittance, deux exemplaires sur une seule page A4.
-- **Guide d'utilisation illustré** (menu Aide) : 8 parties et 40 fiches, chacune avec une capture réelle annotée de pastilles numérotées qui renvoient aux étapes du texte, des encadrés « Bon à savoir » et « Règles appliquées par le logiciel », une recherche, des questions fréquentes, l'agrandissement des captures et l'impression du guide complet.
+- **Guide d'utilisation illustré** (menu Aide) : 8 parties et 41 fiches, chacune avec une capture réelle annotée de pastilles numérotées qui renvoient aux étapes du texte, des encadrés « Bon à savoir » et « Règles appliquées par le logiciel », une recherche, des questions fréquentes, l'agrandissement des captures et l'impression du guide complet.
 - **Accessibilité** :
   - navigation au clavier ;
   - contrastes vérifiés ;
@@ -279,7 +280,7 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
   - compteurs partagés (prorata, parts égales, logement vide au propriétaire) ;
   - agenda des visites et signature d'état des lieux sur tablette ;
   - activité de l'équipe, révision triennale, licence (essai, modules, limites, falsification, grâce, lecture seule).
-- **Contrôle visuel** des 37 pages principales, en bureau et sur mobile, après chaque évolution : aucun débordement, aucune erreur JavaScript.
+- **Contrôle visuel** des 38 pages principales, en bureau et sur mobile, après chaque évolution : aucun débordement, aucune erreur JavaScript.
 - **Commande** : `python manage.py test apps`.
 
 ## 8. Installation et exploitation

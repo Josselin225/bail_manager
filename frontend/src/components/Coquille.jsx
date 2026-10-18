@@ -1,108 +1,22 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight, BarChart3, BookOpen, Building2, CalendarCheck, CalendarDays, ChevronDown, ChevronsLeft, ChevronsRight, CircleUserRound,
   ClipboardList, DoorOpen, FileSignature, FileText, Gauge, HandCoins, Handshake, History, Home, Info, KeyRound, Landmark, LayoutDashboard, LifeBuoy, LogOut, Mail,
   Menu, MessagesSquare, Moon, Receipt, Search, Settings, ShieldCheck, Sun, TrendingUp, UserRound, Users, Wallet, Wrench, Zap,
   AlarmClock, Droplets, UsersRound, GitCompareArrows, MonitorDown,
 } from "lucide-react";
+import { NAV, lienVisible, noterVisite, useCompteurs } from "../lib/navigation";
 import { useInstallation } from "../lib/pwa";
 import { BandeauLicence } from "./Licence";
 import { api } from "../lib/api";
 import { appliquerTheme, themeInitial, useSession } from "../lib/session";
 import { Avatar, Bouton, Chargement } from "./ui";
 
-function useCompteurs(actif) {
-  return useQuery({
-    queryKey: ["compteurs"],
-    enabled: actif,
-    refetchInterval: 60000,
-    queryFn: async () => {
-      const [r, m, l, i] = await Promise.all([
-        api.get("/reservations/", { statut: "en_attente", taille: 1 }),
-        api.get("/messages/", { lu: false, taille: 1 }),
-        api.get("/messagerie/compteur/"),
-        api.get("/interventions/compteur/"),
-      ]);
-      return { reservations: r.count, messages: m.count, locataires: l.non_lus, interventions: i.nouvelles };
-    },
-  });
-}
-
-const NAV = [
-  { lien: "/tableau-de-bord", libelle: "Tableau de bord", icone: LayoutDashboard },
-  {
-    groupe: "Patrimoine",
-    icone: Building2,
-    liens: [
-      { lien: "/bailleurs", libelle: "Bailleurs", icone: UserRound },
-      { lien: "/maisons", libelle: "Maisons", icone: Home },
-      { lien: "/locataires", libelle: "Locataires", icone: Users },
-    ],
-  },
-  {
-    groupe: "Contrats & loyers",
-    icone: ClipboardList,
-    liens: [
-      { lien: "/contrats", libelle: "Contrats de bail", icone: FileSignature },
-      { lien: "/encaissements", libelle: "Encaissements", icone: HandCoins },
-      { lien: "/recouvrement", libelle: "Recouvrement", icone: AlarmClock },
-      { lien: "/calendrier", libelle: "Calendrier", icone: CalendarDays },
-    ],
-  },
-  {
-    groupe: "Gestion locative",
-    icone: KeyRound,
-    liens: [
-      { lien: "/charges", libelle: "Charges locatives", icone: Zap },
-      { lien: "/compteurs", libelle: "Compteurs partagés", icone: Droplets, module: "compteurs" },
-      { lien: "/revisions", libelle: "Révisions de loyer", icone: TrendingUp },
-      { lien: "/interventions", libelle: "Interventions", icone: Wrench, compteur: "interventions" },
-    ],
-  },
-  {
-    groupe: "Finances",
-    icone: Landmark,
-    liens: [
-      { lien: "/comptes-bailleurs", libelle: "Comptes bailleurs", icone: Wallet },
-      { lien: "/caisse", libelle: "Caisse agence", icone: Receipt },
-      { lien: "/rapprochement", libelle: "Rapprochement", icone: GitCompareArrows, module: "rapprochement" },
-      { lien: "/cautions", libelle: "Cautions", icone: ShieldCheck },
-    ],
-  },
-  {
-    groupe: "Relations",
-    icone: Handshake,
-    liens: [
-      { lien: "/reservations", libelle: "Visites", icone: CalendarCheck, compteur: "reservations" },
-      { lien: "/messages", libelle: "Messages du site", icone: Mail, compteur: "messages" },
-      { lien: "/messagerie", libelle: "Messagerie locataires", icone: MessagesSquare, compteur: "locataires" },
-    ],
-  },
-  {
-    groupe: "Pilotage",
-    icone: Gauge,
-    liens: [
-      { lien: "/rapports", libelle: "Rapports", icone: BarChart3 },
-      { lien: "/equipe", libelle: "Activité de l'équipe", icone: UsersRound },
-      { lien: "/journal", libelle: "Journal d'activité", icone: History, admin: true },
-    ],
-  },
-  {
-    groupe: "Aide",
-    icone: LifeBuoy,
-    liens: [
-      { lien: "/guide", libelle: "Guide d'utilisation", icone: BookOpen },
-      { lien: "/a-propos", libelle: "À propos", icone: Info },
-    ],
-  },
-];
-
 /** Groupe du menu en tiroir : l'en-tête ouvre/ferme ; fermé, il affiche la somme de ses compteurs. */
 function TiroirMenu({ item, ouvert, onBasculer, estAdmin, compteurs, reduit }) {
   const { licence } = useSession();
-  const liens = item.liens.filter((l) => (!l.admin || estAdmin) && (!l.module || !licence || licence.modules.includes(l.module)));
+  const liens = item.liens.filter((l) => lienVisible(l, estAdmin, licence));
   const total = liens.reduce((s, l) => s + (l.compteur ? compteurs?.[l.compteur] || 0 : 0), 0);
   const visible = ouvert || reduit;
   const id = `tiroir-${item.groupe.replace(/\W+/g, "-")}`;
@@ -130,7 +44,7 @@ function TiroirMenu({ item, ouvert, onBasculer, estAdmin, compteurs, reduit }) {
 }
 
 // Groupe contenant la page affichée (ouvert d'office)
-const groupeDe = (chemin) => NAV.find((g) => g.liens?.some((l) => chemin === l.lien || chemin.startsWith(`${l.lien}/`)))?.groupe;
+const groupeDe = (chemin) => NAV.find((g) => !g.menuSeul && g.liens?.some((l) => chemin === l.lien || chemin.startsWith(`${l.lien}/`)))?.groupe;
 
 const ICONES_TYPE = { bailleur: UserRound, locataire: Users, maison: Home, contrat: FileSignature, quittance: FileText };
 
@@ -252,7 +166,7 @@ export default function Coquille() {
   const loc = useLocation();
 
   const [tiroir, setTiroir] = useState(() => groupeDe(loc.pathname) ?? null);
-  useEffect(() => { setMobile(false); }, [loc.pathname]);
+  useEffect(() => { setMobile(false); noterVisite(loc.pathname); }, [loc.pathname]);
   useEffect(() => {
     const g = groupeDe(loc.pathname);
     if (g) setTiroir(g);
@@ -293,7 +207,7 @@ export default function Coquille() {
           {marque}
         </Link>
         <nav className="menu-defile">
-          {NAV.map((item) =>
+          {NAV.filter((item) => !item.menuSeul).map((item) =>
             item.lien ? (
               <NavLink key={item.lien} to={item.lien} className={({ isActive }) => `menu-lien ${isActive ? "actif" : ""}`} title={item.libelle}>
                 <item.icone size={18} />

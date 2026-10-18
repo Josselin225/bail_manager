@@ -45,6 +45,19 @@ export const SECTIONS = [
         ],
       },
       {
+        id: "menu",
+        titre: "La page Menu",
+        image: "42-menu.jpg",
+        legende: "Menu : toutes les fonctions du logiciel sur une page.",
+        intro: "Juste sous « Tableau de bord » dans le menu de gauche : toutes les fonctions de BailManager, avec une description, regroupées par rubrique et classées de A à Z dans chaque vue. Les pastilles rouges signalent ce qui attend (visites, messages, interventions).",
+        etapes: [
+          "Le filtre réduit la liste à ce que vous cherchez (« caution », « visite », « encaisser »…).",
+          "Deux réglages, mémorisés : l'ordre — « Par rubrique » ou « De A à Z » (toutes les fonctions par ordre alphabétique, regroupées par lettre, avec une barre de lettres pour sauter à une lettre) — et la vue — Tuiles (avec descriptions), Liste (compacte) ou Icônes (une illustration en couleur par fonction, comme sur un téléphone). Les deux se combinent : par exemple les icônes de A à Z.",
+          "L'étoile épingle une fonction dans vos Favoris, en tête de page ; les pages récemment ouvertes s'affichent juste en dessous.",
+        ],
+        astuces: ["Favoris, pages récentes et vue choisie sont propres à votre navigateur."],
+      },
+      {
         id: "recherche",
         titre: "Retrouver une fiche (Ctrl + K)",
         image: "04-recherche.jpg",
