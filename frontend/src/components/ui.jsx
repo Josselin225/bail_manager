@@ -310,7 +310,17 @@ export function EntetePage({ titre, soustitre, fil, children, photo }) {
     const verifier = () => {
       attente = 0;
       const el = ref.current;
-      if (el) setColle(window.scrollY > 8 && el.getBoundingClientRect().top <= parseFloat(getComputedStyle(el).top) + 1);
+      if (!el) return;
+      setColle((c) => {
+        // Le mode compact raccourcit la page d'environ 60 px : sur une page à peine plus haute que l'écran,
+        // il ferait remonter la page, réafficher l'en-tête en grand, et ainsi de suite (sautillement sans fin).
+        // On ne compacte donc que si la page reste confortablement défilable, avec un écart entre l'entrée
+        // (au-delà de 40 px) et la sortie (retour en haut) du mode compact.
+        const defilable = document.documentElement.scrollHeight - window.innerHeight + (c ? 60 : 0);
+        if (defilable < 220) return false;
+        if (c) return window.scrollY > 4;
+        return window.scrollY > 40 && el.getBoundingClientRect().top <= parseFloat(getComputedStyle(el).top) + 1;
+      });
     };
     const f = () => { if (!attente) attente = requestAnimationFrame(verifier); };
     verifier();
