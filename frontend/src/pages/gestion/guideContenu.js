@@ -86,7 +86,10 @@ export const SECTIONS = [
           "Cliquez sur « Nouveau bailleur », remplissez nom, téléphone, CNI et adresse, puis enregistrez.",
           "Cliquez sur une ligne pour ouvrir la fiche du bailleur et enregistrer aussitôt son mandat de gestion.",
         ],
-        regles: ["Un bailleur qui possède des biens ou un historique financier ne peut pas être supprimé."],
+        regles: [
+          "Un bailleur qui possède des biens ou un historique financier ne peut pas être supprimé.",
+          "Contrôle des doublons : pendant la saisie, les fiches qui ressemblent (même téléphone, même CNI, même e-mail, nom identique ou proche) s'affichent en haut du formulaire. Un téléphone, une CNI ou un e-mail déjà connu demande une confirmation avant d'enregistrer.",
+        ],
       },
       {
         id: "fiche-bailleur",
@@ -151,6 +154,7 @@ export const SECTIONS = [
           "Espace locataire : « Générer un code » ; communiquez au locataire son téléphone et ce code (affiché une seule fois). Il consulte ses paiements, télécharge ses quittances, écrit à l'agence, signale une panne ou donne son préavis.",
         ],
         astuces: ["Joignez photo et CNI recto/verso ; les autres pièces (bulletins de salaire, attestation…) vont dans l'onglet Documents."],
+        regles: ["Contrôle des doublons à la saisie : un locataire déjà enregistré (même téléphone, même pièce d'identité, même e-mail, ou nom identique ou proche, quel que soit l'ordre des mots) est signalé en haut du formulaire, avec un lien vers sa fiche. Les indices forts demandent une confirmation avant de créer une nouvelle fiche."],
       },
     ],
   },

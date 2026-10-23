@@ -1765,3 +1765,9 @@ form.tente .fichier:has(input:invalid) { border-color: var(--signal); }
 .nouveautes-apropos.colonnes { grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); column-gap: 28px; }
 .bas-apropos { align-items: stretch; }
 .bas-apropos .contacts-apropos .btn { flex: 1 1 100%; }
+
+/* Doublons à la saisie */
+.liste-doublons { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; }
+.liste-doublons li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.raisons-doublon { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.liste-doublons a { margin-left: auto; font-weight: 700; }

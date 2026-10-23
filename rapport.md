@@ -210,6 +210,7 @@ Toutes ces règles sont vérifiées **par le serveur**. L'interface ne peut donc
 | Rapprochement | Une ligne de relevé ne peut être encaissée qu'une fois |
 | Signatures d'état des lieux | Toute modification après signature annule les signatures |
 | Licence | Limites d'utilisateurs, de biens et de modules ; lecture seule 15 jours après l'échéance |
+| Doublons (locataires, bailleurs) | Fiches ressemblantes signalées pendant la saisie ; même téléphone, pièce d'identité ou e-mail : confirmation exigée avant d'enregistrer |
 | Maison occupée | Toute maison ayant un contrat actif est « Occupée » sur le site ; aucune visite n'y est réservable |
 
 Les contrats de bail mentionnent l'agence mandataire (avec son représentant), le propriétaire, la référence et la durée du mandat. Ils précisent que la fin du mandat n'affecte pas le bail.
@@ -258,7 +259,7 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
 
 ## 7. Qualité
 
-- **35 tests automatiques** sur les règles de gestion. Ils couvrent notamment :
+- **36 tests automatiques** sur les règles de gestion. Ils couvrent notamment :
   - mandat obligatoire ;
   - calcul de l'avance et de la caution ;
   - impayés et paiements partiels ;

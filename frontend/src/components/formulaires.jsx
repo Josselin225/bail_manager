@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FileText, HandCoins, Paperclip, Trash2, Upload } from "lucide-react";
 import { api } from "../lib/api";
 import { MODES, MOIS, dateFr, fcfa, isoDate } from "../lib/format";
@@ -10,6 +10,55 @@ import {
   Bouton, Case, Champ, Combo, Encart, Fichier, FenetreFormulaire, Liste, Montant, Saisie, SaisieMontant, Segments, Tableau, Vide, Zone,
   useConfirmer, useToast,
 } from "./ui";
+
+/**
+ * Fiches existantes qui ressemblent à la saisie (nom, téléphone, pièce d'identité, e-mail), cherchées pendant la frappe.
+ * `type` : "locataires" ou "bailleurs" ; `exclure` : la fiche en cours de modification.
+ */
+function AlerteDoublons({ type, valeurs, exclure }) {
+  const [differe, setDiffere] = useState(valeurs);
+  useEffect(() => {
+    const t = setTimeout(() => setDiffere(valeurs), 450);
+    return () => clearTimeout(t);
+  }, [JSON.stringify(valeurs)]); // eslint-disable-line
+  const utile = Object.values(differe).some((v) => String(v || "").trim().length >= 3);
+  const { data = [] } = useQuery({
+    queryKey: ["doublons", type, differe, exclure],
+    queryFn: () => api.get(`/${type}/doublons/`, { ...differe, exclure: exclure || "" }),
+    enabled: utile,
+    staleTime: 30000,
+  });
+  if (!utile || !data.length) return null;
+  const forts = data.some((d) => d.fort);
+  return (
+    <div className="plein">
+      <Encart ton={forts ? "attention" : "info"} titre={forts ? "Cette personne est peut-être déjà enregistrée" : "Fiches au nom proche"}>
+        <ul className="liste-doublons">
+          {data.map((d) => (
+            <li key={d.id}>
+              <span><b>{d.nom}</b>{d.telephone && <span className="discret"> — {d.telephone}</span>}</span>
+              <span className="raisons-doublon">{d.raisons.map((r) => <span key={r} className={`badge ${r.startsWith("nom") ? "" : "attention"}`}>{r}</span>)}</span>
+              <Link to={d.lien} className="petit-texte">Ouvrir la fiche</Link>
+            </li>
+          ))}
+        </ul>
+        {forts && <div className="petit-texte">Vérifiez avant d'enregistrer : un doublon éparpille les paiements et l'historique de la personne.</div>}
+      </Encart>
+    </div>
+  );
+}
+
+/** Enregistre ; si le serveur signale un doublon probable, demande confirmation puis réessaie. */
+async function enregistrerAvecControle(envoyer, confirmer) {
+  try {
+    return await envoyer({});
+  } catch (e) {
+    if (e.donnees?.code !== "doublon_possible") throw e;
+    const ok = await confirmer({ titre: "Doublon possible", message: `${e.message.replace(/^Doublon possible : /, "")} Enregistrer quand même une nouvelle fiche ?`, libelle: "Enregistrer quand même" });
+    if (!ok) throw new Error("Enregistrement annulé : vérifiez la fiche existante.");
+    return envoyer({ confirmer_doublon: true });
+  }
+}
 
 /** Ne garde que les champs modifiés + les fichiers nouvellement choisis. */
 function nettoyer(f, champsFichiers = []) {
@@ -35,6 +84,7 @@ const useFormulaire = (initial, ouvert) => {
 export function FormBailleur({ ouvert, onFermer, bailleur, onEnregistre }) {
   const vide = { nom: "", sexe: "", numero_cni: "", telephone1: "", telephone2: "", email: "", adresse: "", photo: null };
   const [f, maj] = useFormulaire(bailleur ? { ...vide, ...bailleur, photo: null } : vide, ouvert);
+  const confirmer = useConfirmer();
   return (
     <FenetreFormulaire
       titre={bailleur ? `Modifier ${bailleur.nom}` : "Nouveau bailleur"}
@@ -46,12 +96,13 @@ export function FormBailleur({ ouvert, onFermer, bailleur, onEnregistre }) {
           { nom: f.nom, sexe: f.sexe, numero_cni: f.numero_cni, telephone1: f.telephone1, telephone2: f.telephone2, email: f.email, adresse: f.adresse, photo: f.photo },
           ["photo"],
         );
-        const r = bailleur ? await api.patch(`/bailleurs/${bailleur.id}/`, donnees) : await api.post("/bailleurs/", donnees);
+        const r = await enregistrerAvecControle((plus) => (bailleur ? api.patch(`/bailleurs/${bailleur.id}/`, { ...donnees, ...plus }) : api.post("/bailleurs/", { ...donnees, ...plus })), confirmer);
         onEnregistre?.(r, !bailleur);
         return bailleur ? "Bailleur mis à jour." : `Bailleur ${r.code_bailleur} enregistré.`;
       }}
     >
       <div className="formulaire">
+        {ouvert && <AlerteDoublons type="bailleurs" exclure={bailleur?.id} valeurs={{ nom: f.nom, telephone1: f.telephone1, telephone2: f.telephone2, email: f.email, numero_cni: f.numero_cni }} />}
         <div className="titre-section">Identité</div>
         <Saisie libelle="Nom complet" valeur={f.nom} onChange={maj("nom")} requis />
         <Liste libelle="Sexe" valeur={f.sexe} onChange={maj("sexe")} vide="—" options={[{ valeur: "M", libelle: "Masculin" }, { valeur: "F", libelle: "Féminin" }]} />
@@ -179,6 +230,7 @@ export function FormMaison({ ouvert, onFermer, maison, bailleurParDefaut, onEnre
 export function FormLocataire({ ouvert, onFermer, locataire, onEnregistre }) {
   const vide = { nom: "", telephone1: "", telephone2: "", email: "", piece_identite: "", profession: "", photo_locataire: null, photo_cni_recto: null, photo_cni_verso: null };
   const [f, maj] = useFormulaire(locataire ? { ...vide, ...locataire, photo_locataire: null, photo_cni_recto: null, photo_cni_verso: null } : vide, ouvert);
+  const confirmer = useConfirmer();
   return (
     <FenetreFormulaire
       titre={locataire ? `Modifier ${locataire.nom}` : "Nouveau locataire"}
@@ -190,12 +242,13 @@ export function FormLocataire({ ouvert, onFermer, locataire, onEnregistre }) {
           { nom: f.nom, telephone1: f.telephone1, telephone2: f.telephone2, email: f.email, piece_identite: f.piece_identite, profession: f.profession, photo_locataire: f.photo_locataire, photo_cni_recto: f.photo_cni_recto, photo_cni_verso: f.photo_cni_verso },
           ["photo_locataire", "photo_cni_recto", "photo_cni_verso"],
         );
-        const r = locataire ? await api.patch(`/locataires/${locataire.id}/`, d) : await api.post("/locataires/", d);
+        const r = await enregistrerAvecControle((plus) => (locataire ? api.patch(`/locataires/${locataire.id}/`, { ...d, ...plus }) : api.post("/locataires/", { ...d, ...plus })), confirmer);
         onEnregistre?.(r);
         return locataire ? "Locataire mis à jour." : "Locataire enregistré.";
       }}
     >
       <div className="formulaire">
+        {ouvert && <AlerteDoublons type="locataires" exclure={locataire?.id} valeurs={{ nom: f.nom, telephone1: f.telephone1, telephone2: f.telephone2, email: f.email, piece_identite: f.piece_identite }} />}
         <div className="titre-section">Identité</div>
         <Saisie libelle="Nom complet" valeur={f.nom} onChange={maj("nom")} requis />
         <Saisie libelle="Profession" valeur={f.profession} onChange={maj("profession")} />

@@ -20,6 +20,7 @@ from apps.patrimoine.mandats import informer_locataires_renouvellement
 
 from apps.core.models import ClauseMandat, clauses_en_vigueur
 
+from . import doublons
 from .models import Bailleur, BailleurAcces, BienConfie, Document, Locataire, LocataireAcces, MandatGestion, Maison, PhotoMaison
 from .serializers import (
     BailleurMiniSerializer, BailleurSerializer, DocumentSerializer, LocataireSerializer, MaisonSerializer,
@@ -33,6 +34,21 @@ def _somme(qs, champ="montant"):
         Value(0), output_field=DecimalField(max_digits=14, decimal_places=0),
     )
 
+
+
+def _controle_doublons(vue, ser, modele, champ_piece, libelle, lien):
+    """Avant d'enregistrer : doublon probable = confirmation demandée (création, ou modification d'un identifiant)."""
+    instance = ser.instance
+    donnees = {k: ser.validated_data.get(k, getattr(instance, k, "") if instance else "") for k in ("nom", "telephone1", "telephone2", "email", champ_piece)}
+    if instance and not any(k in ser.validated_data and ser.validated_data[k] != getattr(instance, k) for k in ("telephone1", "telephone2", "email", champ_piece)):
+        return  # aucun identifiant modifié : pas de nouvelle vérification
+    confirme = str(vue.request.data.get("confirmer_doublon", "")).lower() in ("1", "true", "oui")
+    doublons.exiger_confirmation(modele, donnees, champ_piece, instance.pk if instance else None, confirme, libelle, lien)
+
+
+def _recherche_doublons(request, modele, champ_piece, lien):
+    d = {k: request.query_params.get(k, "") for k in ("nom", "telephone1", "telephone2", "email", champ_piece)}
+    return Response(doublons.chercher(modele, d, champ_piece, request.query_params.get("exclure") or None, lien))
 
 
 def confier(maison, mandat):
@@ -61,6 +77,11 @@ class BailleurViewSet(viewsets.ModelViewSet):
         """Liste courte pour les menus déroulants."""
         return Response(BailleurMiniSerializer(Bailleur.objects.prefetch_related("mandats"), many=True).data)
 
+    @action(detail=False, pagination_class=None)
+    def doublons(self, request):
+        """Bailleurs qui ressemblent à la saisie en cours (nom, téléphone, CNI, e-mail)."""
+        return _recherche_doublons(request, Bailleur, "numero_cni", "/bailleurs/")
+
     @action(detail=True, methods=["post"], permission_classes=[EstAdmin], url_path="generer-code")
     def generer_code(self, request, pk=None):
         """Code d'accès à l'espace bailleur : affiché une seule fois, stocké haché."""
@@ -80,10 +101,12 @@ class BailleurViewSet(viewsets.ModelViewSet):
         return Response({"ok": True})
 
     def perform_create(self, ser):
+        _controle_doublons(self, ser, Bailleur, "numero_cni", "le bailleur", "/bailleurs/")
         b = ser.save()
         journaliser(self.request, "Création bailleur", f"{b.nom} ({b.code_bailleur})")
 
     def perform_update(self, ser):
+        _controle_doublons(self, ser, Bailleur, "numero_cni", "le bailleur", "/bailleurs/")
         b = ser.save()
         journaliser(self.request, "Modification bailleur", f"{b.nom} ({b.code_bailleur})")
 
@@ -264,6 +287,11 @@ class LocataireViewSet(viewsets.ModelViewSet):
         return qs
 
     @action(detail=False, pagination_class=None)
+    def doublons(self, request):
+        """Locataires qui ressemblent à la saisie en cours (nom, téléphone, pièce d'identité, e-mail)."""
+        return _recherche_doublons(request, Locataire, "piece_identite", "/locataires/")
+
+    @action(detail=False, pagination_class=None)
     def options(self, request):
         qs = Locataire.objects.order_by("nom").values("id", "nom", "telephone1")
         if request.query_params.get("sans_contrat"):
@@ -271,10 +299,12 @@ class LocataireViewSet(viewsets.ModelViewSet):
         return Response(list(qs))
 
     def perform_create(self, ser):
+        _controle_doublons(self, ser, Locataire, "piece_identite", "le locataire", "/locataires/")
         l = ser.save()
         journaliser(self.request, "Création locataire", l.nom)
 
     def perform_update(self, ser):
+        _controle_doublons(self, ser, Locataire, "piece_identite", "le locataire", "/locataires/")
         l = ser.save()
         journaliser(self.request, "Modification locataire", l.nom)
 

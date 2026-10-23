@@ -715,6 +715,36 @@ class ReglesMetierTests(TestCase):
         self.assertEqual(self.api.patch(f"/api/maisons/{self.m.pk}/", {"designation": "Villa A1 bis"}, format="json").status_code, 200)
 
 
+    def test_doublons_a_la_saisie(self):
+        Locataire.objects.filter(pk=self.l.pk).update(telephone1="0505050505", piece_identite="CI 0012-3456", email="aya@test.ci")
+        # Recherche pendant la saisie : téléphone écrit autrement, nom dans l'autre ordre, accents ignorés
+        r = self.api.get("/api/locataires/doublons/", {"nom": "aya yao", "telephone1": "+225 05 05 05 05 05"})
+        self.assertEqual(r.data[0]["id"], self.l.pk)
+        self.assertTrue(r.data[0]["fort"])
+        self.assertIn("même téléphone", r.data[0]["raisons"])
+        self.assertIn("nom identique", r.data[0]["raisons"])
+        r = self.api.get("/api/locataires/doublons/", {"nom": "Yao Ayaa"})            # petite faute : signalé, sans bloquer
+        self.assertEqual((r.data[0]["raisons"], r.data[0]["fort"]), (["nom proche"], False))
+        self.assertEqual(self.api.get("/api/locataires/doublons/", {"nom": "Traoré Mariam"}).data, [])
+        # Enregistrement : confirmation exigée pour un indice fort (pièce d'identité), puis acceptée
+        nouveau = {"nom": "Aya Y.", "telephone1": "0101010101", "piece_identite": "ci00123456"}
+        r = self.api.post("/api/locataires/", nouveau, format="json")
+        self.assertEqual((r.status_code, r.data["code"]), (400, "doublon_possible"))
+        self.assertIn("même pièce d'identité", r.data["detail"])
+        r = self.api.post("/api/locataires/", {**nouveau, "confirmer_doublon": True}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        # Un nom seulement proche n'empêche pas l'enregistrement
+        self.assertEqual(self.api.post("/api/locataires/", {"nom": "Yao Ayaa", "telephone1": "0202020202"}, format="json").status_code, 201)
+        # Modification sans toucher aux identifiants : pas de nouvelle vérification
+        self.assertEqual(self.api.patch(f"/api/locataires/{r.data['id'] if 'id' in r.data else self.l.pk}/", {"profession": "Comptable"}, format="json").status_code, 200)
+        # Bailleurs : même contrôle (CNI)
+        Bailleur.objects.filter(pk=self.b.pk).update(numero_cni="C0099")
+        self.mandat()
+        r = self.api.post("/api/bailleurs/", {"nom": "Autre", "telephone1": "0909090909", "numero_cni": "c-0099"}, format="json")
+        self.assertEqual(r.data["code"], "doublon_possible")
+        self.assertEqual(self.api.get("/api/bailleurs/doublons/", {"nom": "Ibrahim Koné"}).data[0]["id"], self.b.pk)
+
+
 def _png(nom="photo.png"):
     import io
 
