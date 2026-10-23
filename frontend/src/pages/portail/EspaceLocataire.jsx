@@ -127,6 +127,7 @@ function ResultatPaiement({ reference, onTermine }) {
   });
   useEffect(() => { p && p.statut !== "en_attente" && onTermine(); }, [p?.statut]); // eslint-disable-line
   if (!p) return null;
+  if (p.statut === "reussi" && p.fournisseur === "test") return <Encart ton="info" titre="Paiement simulé (mode test)">Aucun argent n'a été débité et aucun loyer n'a été encaissé : le paiement en ligne de l'agence est en cours d'essai.</Encart>;
   if (p.statut === "reussi") return <Encart ton="ok" titre={`Paiement reçu : ${fcfa(p.montant)}`}>Merci ! {p.recu ? <>Votre quittance n° {p.recu} est disponible ci-dessous.</> : "L'agence va l'imputer sur votre compte."}</Encart>;
   if (p.statut === "echoue") return <Encart ton="alerte" titre="Paiement non abouti">Aucun montant n'a été encaissé. Vous pouvez réessayer.</Encart>;
   return <Encart ton="attention" titre="Paiement en cours de confirmation">Nous attendons la confirmation de votre opérateur ({p.operateur})…</Encart>;

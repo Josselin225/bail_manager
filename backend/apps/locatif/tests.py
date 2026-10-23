@@ -393,6 +393,7 @@ class ReglesMetierTests(TestCase):
         # Paiement Mobile Money simulé depuis l'espace locataire : encaissement créé automatiquement
         self.l.telephone1 = "0505050505"
         self.l.save()
+        self.api.patch("/api/connecteurs/", {"paiement_fournisseur": "test"}, format="json")   # désactivé par défaut
         code = self.api.post(f"/api/locataires/{self.l.pk}/generer-code/").data["code"]
         loc = APIClient()
         loc.post("/api/portail/connexion/", {"telephone": "0505050505", "code": code}, format="json")
@@ -402,14 +403,18 @@ class ReglesMetierTests(TestCase):
         self.assertEqual(r.status_code, 201, r.data)
         ref = r.data["reference"]
         self.assertEqual(r.data["url"], f"/paiement-test/{ref}")
-        with self.captureOnCommitCallbacks(execute=True):
-            r = loc.post(f"/api/portail/paiements/{ref}/simuler/", {"resultat": "reussi"}, format="json")
+        r = loc.post(f"/api/portail/paiements/{ref}/simuler/", {"resultat": "reussi"}, format="json")
         self.assertEqual(r.data["statut"], "reussi")
-        enc = PaiementEnLigne.objects.get(reference=ref).encaissement
+        self.assertIsNone(PaiementEnLigne.objects.get(reference=ref).encaissement)        # simulation : rien d'encaissé
+        # Confirmation réelle par l'agrégateur : le loyer est encaissé, une seule fois
+        pay = PaiementEnLigne.objects.create(reference="PAY-REEL", contrat=c, periode_mois=5, periode_annee=2026, montant=100000, telephone="+2250505050505", operateur="wave", fournisseur="cinetpay")
+        from apps.connecteurs import services as connecteurs
+        with self.captureOnCommitCallbacks(execute=True):
+            connecteurs.conclure_paiement(pay, True, detail="ACCEPTED")
+        enc = PaiementEnLigne.objects.get(reference="PAY-REEL").encaissement
         self.assertEqual((enc.periode_mois, enc.montant_recu, enc.mode_paiement), (5, 100000, "mobile_money"))
         self.assertTrue(MessageSortant.objects.filter(objet="Confirmation de paiement", texte__contains=enc.reference_recu).exists())
-        # Un second « succès » ne crée pas de doublon ; un vrai fournisseur ne peut pas être simulé
-        loc.post(f"/api/portail/paiements/{ref}/simuler/", {"resultat": "reussi"}, format="json")
+        connecteurs.conclure_paiement(pay, True, detail="ACCEPTED")   # notification reçue deux fois
         self.assertEqual(Encaissement.objects.filter(contrat=c, periode_mois=5).count(), 1)
         PaiementEnLigne.objects.filter(reference=ref).update(fournisseur="cinetpay", statut="en_attente")
         self.assertEqual(loc.post(f"/api/portail/paiements/{ref}/simuler/", {"resultat": "reussi"}, format="json").status_code, 400)
@@ -743,6 +748,65 @@ class ReglesMetierTests(TestCase):
         r = self.api.post("/api/bailleurs/", {"nom": "Autre", "telephone1": "0909090909", "numero_cni": "c-0099"}, format="json")
         self.assertEqual(r.data["code"], "doublon_possible")
         self.assertEqual(self.api.get("/api/bailleurs/doublons/", {"nom": "Ibrahim Koné"}).data[0]["id"], self.b.pk)
+
+
+    def test_securite_fichiers_ip_et_simulation(self):
+        import shutil
+        from pathlib import Path
+
+        from django.conf import settings
+        from django.test import Client, override_settings
+
+        # Fichier privé (pièce d'identité) : jamais servi sans connexion, même par « public/../ »
+        prive = Path(settings.MEDIA_ROOT) / "locataires" / "cni.jpg"
+        prive.parent.mkdir(parents=True, exist_ok=True)
+        prive.write_bytes(b"CNI")
+        public = Path(settings.MEDIA_ROOT) / "public" / "maisons" / "photo.jpg"
+        public.parent.mkdir(parents=True, exist_ok=True)
+        public.write_bytes(b"IMG")
+        # (la vue est appelée directement : le client de test ne sait pas afficher la page 404 sous Python 3.14)
+        from django.contrib.auth.models import AnonymousUser
+        from django.http import Http404
+        from django.test import RequestFactory
+
+        from apps.core.views import media
+
+        def servir(chemin, user):
+            r = RequestFactory().get("/media/" + chemin)
+            r.user = user
+            try:
+                return media(r, chemin).status_code
+            except Http404:
+                return 404
+
+        for chemin in ("locataires/cni.jpg", "public/../locataires/cni.jpg", "public/%2e%2e/locataires/cni.jpg", "public/./../locataires/cni.jpg", "public/../../.env"):
+            self.assertEqual(servir(chemin, AnonymousUser()), 404, chemin)
+        self.assertEqual(servir("public/maisons/photo.jpg", AnonymousUser()), 200)
+        self.assertEqual(servir("locataires/cni.jpg", self.agent), 200)
+        anonyme = Client()
+        # Blocage après 5 essais : un faux en-tête X-Forwarded-For ne le contourne pas
+        for i in range(6):
+            r = anonyme.post("/api/auth/connexion/", {"email": "admin@test.ci", "password": "faux"}, content_type="application/json", HTTP_X_FORWARDED_FOR=f"10.0.0.{i}")
+        self.assertEqual(r.status_code, 429)
+        with override_settings(PROXY_DE_CONFIANCE=True):  # derrière un vrai proxy, l'en-tête est pris en compte
+            from apps.core.utils import ip_client
+            from django.test import RequestFactory
+            self.assertEqual(ip_client(RequestFactory().get("/", HTTP_X_FORWARDED_FOR="1.2.3.4", REMOTE_ADDR="10.0.0.1")), "1.2.3.4")
+        # Paiement simulé (mode test) : aucun loyer encaissé
+        from apps.connecteurs.models import Connecteurs, PaiementEnLigne
+        self.mandat()
+        self.contrat()
+        Connecteurs.objects.update_or_create(pk=Connecteurs.charger().pk, defaults={"paiement_fournisseur": "test"})
+        self.l.telephone1 = "0505050505"
+        self.l.save()
+        code = self.api.post(f"/api/locataires/{self.l.pk}/generer-code/").data["code"]
+        loc = Client()
+        loc.post("/api/portail/connexion/", {"telephone": "0505050505", "code": code}, content_type="application/json")
+        ref = loc.post("/api/portail/paiements/", {"operateur": "wave"}, content_type="application/json").json()["reference"]
+        avant = Encaissement.objects.count()
+        r = loc.post(f"/api/portail/paiements/{ref}/simuler/", {"resultat": "reussi"}, content_type="application/json").json()
+        self.assertEqual((r["statut"], r["recu"]), ("reussi", None))
+        self.assertEqual(Encaissement.objects.count(), avant)
 
 
 def _png(nom="photo.png"):

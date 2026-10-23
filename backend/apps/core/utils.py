@@ -94,10 +94,13 @@ def fcfa(montant) -> str:
 
 # ─── Journal d'audit ──────────────────────────────────────────────────────────
 def ip_client(request) -> str:
+    """Adresse du poste client. L'en-tête X-Forwarded-For, que n'importe qui peut écrire, n'est cru que si le
+    serveur est déclaré derrière un proxy (PROXY_DE_CONFIANCE=1) : sinon il permettrait de contourner le
+    blocage après plusieurs essais de connexion et de fausser le journal."""
     if request is None:
         return "CLI"
-    fwd = request.META.get("HTTP_X_FORWARDED_FOR")
-    return (fwd.split(",")[0].strip() if fwd else request.META.get("REMOTE_ADDR", "")) or "0.0.0.0"
+    fwd = request.META.get("HTTP_X_FORWARDED_FOR") if settings.PROXY_DE_CONFIANCE else None
+    return (fwd.split(",")[-1].strip() if fwd else request.META.get("REMOTE_ADDR", "")) or "0.0.0.0"
 
 
 def journaliser(request, action: str, details: str = "") -> None:

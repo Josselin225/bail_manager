@@ -162,7 +162,14 @@ def simuler_paiement(request, reference):
     pay = get_object_or_404(PaiementEnLigne, reference=reference, contrat__locataire_id=request.session["locataire_id"])
     if pay.fournisseur != "test":
         raise RegleMetier("Simulation impossible : ce paiement passe par un vrai fournisseur.")
-    pay = services.conclure_paiement(pay, request.data.get("resultat") == "reussi", detail="Simulation (mode test)", request=request)
+    # Une simulation ne doit jamais encaisser un vrai loyer : si l'agence oubliait le mode test en exploitation,
+    # un locataire pourrait sinon « payer » son loyer d'un clic. Le paiement est seulement marqué simulé.
+    if pay.statut == PaiementEnLigne.Statut.EN_ATTENTE:
+        reussi = request.data.get("resultat") == "reussi"
+        pay.statut = PaiementEnLigne.Statut.REUSSI if reussi else PaiementEnLigne.Statut.ECHOUE
+        pay.detail = "Simulation (mode test) : aucun loyer n'a été encaissé."
+        pay.save(update_fields=["statut", "detail"])
+        journaliser(request, "Paiement en ligne", f"{pay.reference} — simulation {'réussie' if reussi else 'échouée'} (mode test, aucun encaissement)")
     return Response(_paiement(PaiementEnLigne.objects.select_related("contrat__locataire", "encaissement").get(pk=pay.pk)))
 
 

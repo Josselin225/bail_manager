@@ -23,7 +23,7 @@ La version 1, écrite en PHP, remplissait ces fonctions. La refonte avait quatre
 
 | Couche | Technologies |
 |---|---|
-| Serveur / API | Python 3.11+, Django 5.1, Django REST Framework, django-filter |
+| Serveur / API | Python 3.11+, Django 5.2 (version à support long), Django REST Framework, django-filter |
 | Base de données | SQLite (par défaut) ou MySQL / MariaDB (WAMP, XAMPP, Laragon, serveur cloud) |
 | Interface | React 18, React Router, TanStack Query, Recharts (graphiques), Lucide (icônes) |
 | Outillage interface | Vite 5 (développement et compilation) |
@@ -247,19 +247,24 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
 
 - **Mots de passe** : stockés chiffrés. Les anciens mots de passe de la version 1 restent compatibles grâce à un hachage bcrypt.
 - **Connexion** :
-  - protection contre les essais répétés (blocage temporaire après 5 échecs) ;
+  - protection contre les essais répétés (blocage temporaire après 5 échecs), impossible à contourner par un faux en-tête d'adresse : l'en-tête X-Forwarded-For n'est cru que derrière un proxy déclaré (`PROXY_DE_CONFIANCE`) ;
   - déconnexion après inactivité, réglable par utilisateur ;
   - protection CSRF.
 - **Espaces en ligne** : locataires et bailleurs se connectent avec leur téléphone et un code à usage personnel, stocké chiffré, désactivable à tout moment ; session limitée à 30 minutes.
 - **Identifiants des fournisseurs** (SMS, WhatsApp, paiement, sauvegarde) : réservés à l'administrateur, jamais renvoyés par le serveur, séparés de la fiche entreprise publique, et **chiffrés dans la base** (une copie volée de la base ne suffit pas à les lire).
 - **Licence** : signée électroniquement (Ed25519) par l'éditeur ; le logiciel ne contient que la clé publique, une licence ne peut donc être ni fabriquée ni prolongée sans la clé privée de l'éditeur.
 - **Droits** : l'administrateur seul peut supprimer, résilier un mandat, réviser un loyer, gérer les utilisateurs et les paramètres.
+- **Fichiers privés** (pièces d'identité, scans, mandats, signatures) : servis uniquement au personnel connecté ; le chemin demandé est résolu avant le contrôle, ce qui bloque les tentatives de contournement du type « public/../ ».
 - **Fichiers téléversés** : le contenu fait foi, jamais l'extension (un fichier renommé en « .pdf » est refusé) ; toute image est en plus décodée pour vérification ; la taille est limitée à 8 Mo.
+- **Paiement en ligne en mode test** : une simulation n'encaisse jamais de loyer ; le paiement en ligne est désactivé par défaut.
+- **Clé secrète** : le serveur refuse de démarrer en exploitation avec une clé absente, par défaut ou trop courte.
+- **Dépendances** : Django 5.2, Django REST Framework 3.18 et React Router 7 ; aucune faille connue au dernier audit (pip-audit, npm audit).
+- **Audit d'accès** : chaque adresse de l'API est vérifiée pour un visiteur, un locataire, un propriétaire, un agent et un administrateur ; aucune n'est ouverte sans connexion, et les espaces en ligne sont cloisonnés.
 - **Configuration** : les éléments sensibles (clé secrète, base, fichiers clients) sont exclus du dépôt Git.
 
 ## 7. Qualité
 
-- **36 tests automatiques** sur les règles de gestion. Ils couvrent notamment :
+- **37 tests automatiques** sur les règles de gestion. Ils couvrent notamment :
   - mandat obligatoire ;
   - calcul de l'avance et de la caution ;
   - impayés et paiements partiels ;
@@ -280,7 +285,8 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
   - rapprochement de relevé (reconnaissance, répartition sur les mois dus, aucun double encaissement) ;
   - compteurs partagés (prorata, parts égales, logement vide au propriétaire) ;
   - agenda des visites et signature d'état des lieux sur tablette ;
-  - activité de l'équipe, révision triennale, licence (essai, modules, limites, falsification, grâce, lecture seule).
+  - activité de l'équipe, révision triennale, licence (essai, modules, limites, falsification, grâce, lecture seule) ;
+  - sécurité : fichiers privés (contournement par chemin), blocage des essais de connexion, paiement simulé sans encaissement.
 - **Contrôle visuel** des 38 pages principales, en bureau et sur mobile, après chaque évolution : aucun débordement, aucune erreur JavaScript.
 - **Commande** : `python manage.py test apps`.
 
@@ -309,5 +315,6 @@ Les contrats de bail mentionnent l'agence mandataire (avec son représentant), l
 - **Biens d'un bailleur au mandat expiré** : décider s'ils doivent être retirés automatiquement du site vitrine.
 - **Clauses des baux et mandats antérieurs à cette version** : faute d'historique, elles ont été figées sur les clauses en vigueur au moment de la mise à jour.
 - **Sauvegarde en ligne** : l'archive est chiffrée en mémoire ; pour une agence avec plusieurs gigaoctets de photos, il faudra la traiter par morceaux. La conservation des anciennes copies en WebDAV ou S3 se règle chez l'hébergeur (règles de cycle de vie).
+- **En-têtes de sécurité** : une politique de contenu (Content-Security-Policy) renforcerait la défense contre l'injection de scripts ; à ajouter avec la mise en ligne. Penser aussi à remplacer le mot de passe du compte de démonstration avant toute installation chez un client.
 - **Photos de démonstration** : à remplacer par les vraies photos des biens avant toute présentation à un client.
 - **Textes destinés aux locataires** (information sur le mandat, messages) : à faire valider par un conseil juridique.

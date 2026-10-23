@@ -30,7 +30,7 @@ export default function PaiementTest() {
     <div className="paiement-test">
       <Panneau titre="Paiement Mobile Money" icone={FlaskConical}>
         <div className="pile">
-          <Encart ton="info" titre="Simulation (mode test)">Cette page remplace celle de l'agrégateur tant que l'agence est en mode test. Aucun montant n'est débité.</Encart>
+          <Encart ton="info" titre="Simulation (mode test)">Cette page remplace celle de l'agrégateur tant que l'agence est en mode test. Aucun montant n'est débité et aucun loyer n'est encaissé.</Encart>
           {erreur && <Encart ton="alerte">{erreur}</Encart>}
           <div className="recap">
             <div><span className="discret">Référence</span><b>{p.reference}</b></div>

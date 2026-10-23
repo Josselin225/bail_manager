@@ -51,7 +51,7 @@ function Reglages() {
   const enTest = [f.sms_fournisseur, f.whatsapp_fournisseur, f.paiement_fournisseur].includes("test");
   return (
     <form onSubmit={enregistrer} className="pile">
-      {enTest && <Encart ton="info" titre="Mode test actif">Aucun SMS ni message WhatsApp n'est réellement envoyé et aucun paiement n'est débité : tout est enregistré dans le journal des envois et le journal d'activité. Passez au vrai fournisseur une fois vos identifiants obtenus.</Encart>}
+      {enTest && <Encart ton="info" titre="Mode test actif">Aucun SMS ni message WhatsApp n'est réellement envoyé et aucun paiement n'est débité : tout est enregistré dans le journal des envois et le journal d'activité. Un paiement simulé n'encaisse aucun loyer. Passez au vrai fournisseur une fois vos identifiants obtenus, ou désactivez le paiement en ligne.</Encart>}
       <Panneau titre="SMS" icone={MessageSquareText}>
         <div className="formulaire">
           <Liste libelle="Fournisseur" valeur={f.sms_fournisseur} onChange={maj("sms_fournisseur")} options={opts(data.choix.sms)} />

@@ -40,7 +40,7 @@ class Connecteurs(models.Model):
     envoi_paiements = models.BooleanField("Confirmer chaque paiement par message", default=True)
     envoi_rappels = models.BooleanField("Rappels d'échéance et de retard par message", default=False)
 
-    paiement_fournisseur = models.CharField(max_length=12, choices=FournisseurPaiement.choices, default=FournisseurPaiement.TEST)
+    paiement_fournisseur = models.CharField(max_length=12, choices=FournisseurPaiement.choices, default=FournisseurPaiement.DESACTIVE)
     paiement_site_id = models.CharField("Site ID / Token", max_length=200, blank=True, default="")
     paiement_cle = ChampSecret("Clé API / Master key", blank=True, default="")
     paiement_secret = ChampSecret("Clé secrète / Private key", blank=True, default="")

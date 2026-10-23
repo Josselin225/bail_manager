@@ -124,19 +124,23 @@ def media(request, chemin):
     accessibles à tous ; tout le reste (CNI, documents, mandats...) exige une
     session du personnel.
     """
-    if not chemin.startswith("public/") and not (request.user.is_authenticated and request.user.is_active):
-        raise Http404()
+    # Le chemin est d'abord résolu (« .. », liens, encodages), puis le contrôle porte sur le fichier réellement
+    # visé : « public/../locataires/cni.jpg » est un fichier privé, pas une image du site.
+    racine = Path(settings.MEDIA_ROOT).resolve()
     try:
-        complet = safe_join(settings.MEDIA_ROOT, chemin)
+        p = Path(safe_join(str(racine), chemin)).resolve()
+        relatif = p.relative_to(racine).as_posix()
     except Exception:
         raise Http404()
-    p = Path(complet)
+    public = relatif.startswith("public/")
+    if not public and not (request.user.is_authenticated and request.user.is_active):
+        raise Http404()
     if not p.is_file():
         raise Http404()
     type_mime = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
     resp = FileResponse(open(p, "rb"), content_type=type_mime)
     resp["X-Content-Type-Options"] = "nosniff"
-    if not chemin.startswith("public/"):
+    if not public:
         resp["Cache-Control"] = "private, no-store"
     return resp
 

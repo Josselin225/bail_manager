@@ -26,6 +26,10 @@ APP_VERSION = "2.0.0"
 
 SECRET_KEY = env("SECRET_KEY", "dev-insecure-a-changer-dans-le-fichier-env")
 DEBUG = env_bool("DEBUG", False)
+if not DEBUG and (SECRET_KEY.startswith("dev-insecure") or SECRET_KEY == "remplacez-moi-par-une-longue-chaine-aleatoire" or len(SECRET_KEY) < 32):
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured("Clé secrète absente ou trop faible : relancez scripts-windows\\1-installer.bat ou renseignez SECRET_KEY dans backend\\.env.")
 ALLOWED_HOSTS = [h.strip() for h in env("ALLOWED_HOSTS", "*").split(",") if h.strip()]
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in env("CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()
@@ -129,6 +133,8 @@ CSRF_COOKIE_SECURE = env_bool("HTTPS", False)
 CSRF_COOKIE_NAME = "bm_csrf"
 if env_bool("HTTPS", False):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Derrière un proxy (Nginx, hébergeur) : son en-tête X-Forwarded-For donne l'adresse du client. Jamais en local.
+PROXY_DE_CONFIANCE = env_bool("PROXY_DE_CONFIANCE", False)
 
 LANGUAGE_CODE = "fr-fr"
 TIME_ZONE = env("TIME_ZONE", "Africa/Abidjan")
